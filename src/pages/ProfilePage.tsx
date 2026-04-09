@@ -151,31 +151,33 @@ export default function ProfilePage() {
         <h3 className="text-sm font-bold tracking-widest text-muted-foreground uppercase px-1">Work Schedule</h3>
         <div className="space-y-2">
           {DAYS.map(day => (
-            <div key={day} className="flex items-center gap-3 bg-secondary/30 rounded-2xl p-3 border border-white/5">
-              <label className="flex items-center gap-2 cursor-pointer">
+            <div key={day} className="flex items-center justify-between gap-1.5 sm:gap-3 bg-secondary/30 rounded-2xl p-2 sm:p-3 border border-white/5">
+              <label className="flex items-center gap-1.5 sm:gap-2 cursor-pointer shrink-0">
                 <input
                   type="checkbox"
                   checked={schedule[day]?.enabled ?? true}
                   onChange={e => setSchedule(s => ({ ...s, [day]: { ...s[day], enabled: e.target.checked } }))}
                   className="w-4 h-4 accent-primary"
                 />
-                <span className="text-foreground font-medium w-10 text-sm">{day}</span>
+                <span className="text-white font-semibold w-7 sm:w-10 text-xs sm:text-sm">{day}</span>
               </label>
-              <input
-                type="time"
-                value={schedule[day]?.start || '08:00'}
-                onChange={e => setSchedule(s => ({ ...s, [day]: { ...s[day], start: e.target.value } }))}
-                disabled={!schedule[day]?.enabled}
-                className="bg-secondary text-foreground rounded px-2 py-1 text-sm font-mono disabled:opacity-40 border border-border"
-              />
-              <span className="text-muted-foreground text-sm">–</span>
-              <input
-                type="time"
-                value={schedule[day]?.end || '20:00'}
-                onChange={e => setSchedule(s => ({ ...s, [day]: { ...s[day], end: e.target.value } }))}
-                disabled={!schedule[day]?.enabled}
-                className="bg-secondary text-foreground rounded px-2 py-1 text-sm font-mono disabled:opacity-40 border border-border"
-              />
+              <div className="flex items-center gap-1 sm:gap-2 flex-1 min-w-0 justify-end">
+                <input
+                  type="time"
+                  value={schedule[day]?.start || '08:00'}
+                  onChange={e => setSchedule(s => ({ ...s, [day]: { ...s[day], start: e.target.value } }))}
+                  disabled={!schedule[day]?.enabled}
+                  className="bg-input/50 text-white rounded-lg px-0.5 sm:px-2 py-1 text-xs sm:text-sm font-mono flex-1 min-w-0 text-center disabled:opacity-40 border border-white/5 outline-none focus:border-primary/50"
+                />
+                <span className="text-muted-foreground text-xs sm:text-sm shrink-0">–</span>
+                <input
+                  type="time"
+                  value={schedule[day]?.end || '20:00'}
+                  onChange={e => setSchedule(s => ({ ...s, [day]: { ...s[day], end: e.target.value } }))}
+                  disabled={!schedule[day]?.enabled}
+                  className="bg-input/50 text-white rounded-lg px-0.5 sm:px-2 py-1 text-xs sm:text-sm font-mono flex-1 min-w-0 text-center disabled:opacity-40 border border-white/5 outline-none focus:border-primary/50"
+                />
+              </div>
             </div>
           ))}
         </div>
