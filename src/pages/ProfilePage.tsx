@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
 import { DriverProfile } from '@/lib/types';
 import { getProfile, saveProfile } from '@/lib/storage';
-import { Zap, Fuel, Cloud, CheckCircle2, LogIn, RefreshCw } from 'lucide-react';
+import { Zap, Fuel, Cloud, CheckCircle2, LogIn, RefreshCw, LogOut } from 'lucide-react';
 import { format } from 'date-fns';
-import { initGoogleIdentity, requestGoogleLogin, backupDataToDrive, isGoogleConnected } from '@/lib/googleDrive';
+import { initGoogleIdentity, requestGoogleLogin, backupDataToDrive, isGoogleConnected, disconnectGoogle } from '@/lib/googleDrive';
 
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
@@ -43,6 +43,11 @@ export default function ProfilePage() {
       console.error('Google login failed:', err);
       alert('Failed to connect to Google Drive.');
     }
+  };
+
+  const handleGoogleDisconnect = () => {
+    disconnectGoogle();
+    setGoogleConnected(false);
   };
 
   const handleManualSync = async () => {
@@ -116,6 +121,13 @@ export default function ProfilePage() {
                   <p className="text-[10px] text-muted-foreground uppercase tracking-wider mt-0.5">Auto-backup enabled</p>
                 </div>
               </div>
+              <button 
+                onClick={handleGoogleDisconnect} 
+                className="p-2 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-xl transition-all"
+                title="Disconnect Google Drive"
+              >
+                <LogOut size={18} />
+              </button>
             </div>
             <button
               onClick={handleManualSync}

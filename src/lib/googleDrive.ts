@@ -16,6 +16,16 @@ export function isGoogleConnected(): boolean {
   return !!accessToken;
 }
 
+export function disconnectGoogle() {
+  if (accessToken && window.google?.accounts?.oauth2) {
+    try {
+      window.google.accounts.oauth2.revoke(accessToken, () => {});
+    } catch (e) {}
+  }
+  accessToken = null;
+  sessionStorage.removeItem('gdrive_token');
+}
+
 export function initGoogleIdentity(): Promise<void> {
   return new Promise((resolve) => {
     if (window.google && window.google.accounts) {
