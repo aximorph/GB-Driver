@@ -1,0 +1,180 @@
+import { useState, useEffect } from 'react';
+import { DriverProfile } from '@/lib/types';
+import { getProfile, saveProfile } from '@/lib/storage';
+import { Zap, Fuel, Cloud, CheckCircle2, LogIn, RefreshCw } from 'lucide-react';
+import { format } from 'date-fns';
+import { initGoogleIdentity, requestGoogleLogin, backupDataToDrive } from '@/lib/googleDrive';
+
+const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+export default function ProfilePage() {
+  const [profile, setProfile] = useState<DriverProfile | null>(getProfile());
+  const [vehicleType, setVehicleType] = useState<'electric' | 'petrol'>(profile?.vehicleType || 'petrol');
+  const [schedule, setSchedule] = useState<DriverProfile['schedule']>(
+    profile?.schedule || Object.fromEntries(DAYS.map(d => [d, { start: '08:00', end: '20:00', enabled: true }]))
+  );
+  const [saved, setSaved] = useState(false);
+  const [googleConnected, setGoogleConnected] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [lastSync, setLastSync] = useState<string | null>(null);
+
+  const handleSave = () => {
+    const updated: DriverProfile = {
+      vehicleType,
+      commissionRate: profile?.commissionRate || 0.20, // Keep existing rate in storage if any
+      schedule,
+    };
+    saveProfile(updated);
+    setProfile(updated);
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2000);
+  };
+
+  useEffect(() => {
+    initGoogleIdentity();
+  }, []);
+
+  const handleGoogleConnect = async () => {
+    try {
+      await requestGoogleLogin();
+      setGoogleConnected(true);
+    } catch (err) {
+      console.error('Google login failed:', err);
+      alert('Failed to connect to Google Drive.');
+    }
+  };
+
+  const handleManualSync = async () => {
+    setIsSyncing(true);
+    try {
+      await backupDataToDrive();
+      setLastSync(new Date().toISOString());
+    } catch (err) {
+      console.error('Backup failed:', err);
+      alert('Failed to backup to Google Drive.');
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  return (
+    <div className="pb-24 p-4 space-y-5 relative animate-in fade-in slide-in-from-bottom-4 duration-500">
+      <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full blur-3xl -z-10 translate-x-16 -translate-y-16"></div>
+      <h1 className="text-3xl font-extrabold text-white tracking-tight drop-shadow-sm">Profile</h1>
+
+      {/* Vehicle Type */}
+      <div className="bg-card/70 backdrop-blur-xl border border-white/5 rounded-3xl p-5 space-y-3 shadow-xl">
+        <h3 className="text-sm font-bold tracking-widest text-muted-foreground uppercase px-1">Vehicle Type</h3>
+        <div className="grid grid-cols-2 gap-3">
+          {(['electric', 'petrol'] as const).map(type => (
+            <button
+              key={type}
+              onClick={() => setVehicleType(type)}
+              className={`p-4 rounded-2xl border-2 text-center transition-all flex flex-col items-center justify-center gap-2 ${
+                vehicleType === type
+                  ? 'border-primary bg-primary/10 text-white shadow-inner scale-[0.98]'
+                  : 'border-white/5 bg-secondary text-muted-foreground hover:border-white/10'
+              }`}
+            >
+              <div className={vehicleType === type ? 'text-primary' : ''}>
+                {type === 'electric' ? <Zap size={28} /> : <Fuel size={28} />}
+              </div>
+              <div className="font-bold text-sm">{type === 'electric' ? 'Electric' : 'Petrol/Gas'}</div>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Google Auto-Backup */}
+      <div className="bg-card/70 backdrop-blur-xl border border-white/5 rounded-3xl p-5 space-y-4 shadow-xl">
+        <div className="flex items-center gap-2">
+          <Cloud size={20} className="text-primary" />
+          <h3 className="text-sm font-bold tracking-widest text-muted-foreground uppercase">Google Drive Backup</h3>
+        </div>
+        
+        {!googleConnected ? (
+          <div className="flex flex-col gap-3">
+            <p className="text-xs font-medium text-muted-foreground">Log in with your Google account to automatically backup your shift history and profile to Google Drive.</p>
+            <button
+              onClick={handleGoogleConnect}
+              className="w-full flex items-center justify-center gap-3 bg-white text-black py-3.5 rounded-2xl font-bold text-sm hover:bg-gray-200 transition-colors"
+            >
+              <LogIn size={18} />
+              Login with Google
+            </button>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between p-3 bg-primary/10 rounded-2xl border border-primary/20">
+              <div className="flex items-center gap-3">
+                <CheckCircle2 size={24} className="text-primary" />
+                <div>
+                  <p className="text-sm font-bold text-white">Connected</p>
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider mt-0.5">Auto-backup enabled</p>
+                </div>
+              </div>
+            </div>
+            <button
+              onClick={handleManualSync}
+              disabled={isSyncing}
+              className="w-full flex items-center justify-center gap-2 bg-secondary text-white py-3 rounded-2xl font-semibold text-sm border border-white/5 hover:bg-white/10 transition-colors disabled:opacity-50"
+            >
+              <RefreshCw size={16} className={isSyncing ? 'animate-spin' : ''} />
+              {isSyncing ? 'Backing up...' : 'Sync to Google Drive now'}
+            </button>
+            {lastSync && (
+              <p className="text-center text-[11px] text-muted-foreground font-mono">
+                Last backup: {format(new Date(lastSync), 'MMM d, h:mm a')}
+              </p>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Work Schedule */}
+      <div className="bg-card/70 backdrop-blur-xl border border-white/5 rounded-3xl p-5 space-y-4 shadow-xl">
+        <h3 className="text-sm font-bold tracking-widest text-muted-foreground uppercase px-1">Work Schedule</h3>
+        <div className="space-y-2">
+          {DAYS.map(day => (
+            <div key={day} className="flex items-center gap-3 bg-secondary/30 rounded-2xl p-3 border border-white/5">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={schedule[day]?.enabled ?? true}
+                  onChange={e => setSchedule(s => ({ ...s, [day]: { ...s[day], enabled: e.target.checked } }))}
+                  className="w-4 h-4 accent-primary"
+                />
+                <span className="text-foreground font-medium w-10 text-sm">{day}</span>
+              </label>
+              <input
+                type="time"
+                value={schedule[day]?.start || '08:00'}
+                onChange={e => setSchedule(s => ({ ...s, [day]: { ...s[day], start: e.target.value } }))}
+                disabled={!schedule[day]?.enabled}
+                className="bg-secondary text-foreground rounded px-2 py-1 text-sm font-mono disabled:opacity-40 border border-border"
+              />
+              <span className="text-muted-foreground text-sm">–</span>
+              <input
+                type="time"
+                value={schedule[day]?.end || '20:00'}
+                onChange={e => setSchedule(s => ({ ...s, [day]: { ...s[day], end: e.target.value } }))}
+                disabled={!schedule[day]?.enabled}
+                className="bg-secondary text-foreground rounded px-2 py-1 text-sm font-mono disabled:opacity-40 border border-border"
+              />
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Save */}
+      <button
+        onClick={handleSave}
+        className={`w-full py-4 rounded-2xl font-extrabold text-base transition-all shadow-lg hover:scale-[1.02] ${
+          saved ? 'bg-primary/20 text-primary border border-primary/20 shadow-none' : 'bg-gradient-to-r from-primary to-[#00b050] text-white shadow-primary/20'
+        }`}
+      >
+        {saved ? '✓ Saved!' : 'Save Changes'}
+      </button>
+    </div>
+  );
+}

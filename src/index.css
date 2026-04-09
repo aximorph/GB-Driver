@@ -1,0 +1,63 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 135 20% 6%;
+    --foreground: 0 0% 100%;
+
+    --card: 135 10% 10%;
+    --card-foreground: 0 0% 100%;
+
+    --popover: 135 10% 10%;
+    --popover-foreground: 0 0% 100%;
+
+    --primary: 151 100% 38%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 135 10% 18%;
+    --secondary-foreground: 0 0% 100%;
+
+    --muted: 135 10% 18%;
+    --muted-foreground: 135 5% 65%;
+
+    --accent: 151 100% 38%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 350 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --warning: 45 100% 55%;
+    --warning-foreground: 135 20% 6%;
+
+    --border: 135 5% 20%;
+    --input: 135 5% 18%;
+    --ring: 151 100% 38%;
+
+    --radius: 1.2rem;
+
+    --font-mono: 'JetBrains Mono', monospace;
+    --font-sans: 'Inter', sans-serif;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+}
+
+@layer utilities {
+  .font-mono-numbers {
+    font-family: var(--font-mono);
+  }
+}
