@@ -10,7 +10,11 @@ const CLIENT_ID = '540767703144-9h94ro0h0nu4rrsr9m9g0svedm6a2cga.apps.googleuser
 const SCOPES = 'https://www.googleapis.com/auth/drive.file';
 
 let tokenClient: any = null;
-let accessToken: string | null = null;
+let accessToken: string | null = sessionStorage.getItem('gdrive_token');
+
+export function isGoogleConnected(): boolean {
+  return !!accessToken;
+}
 
 export function initGoogleIdentity(): Promise<void> {
   return new Promise((resolve) => {
@@ -39,6 +43,7 @@ function setupClient() {
     callback: (response: any) => {
       if (response && response.access_token) {
         accessToken = response.access_token;
+        sessionStorage.setItem('gdrive_token', response.access_token);
       }
     },
   });
@@ -52,6 +57,7 @@ export function requestGoogleLogin(): Promise<string> {
         reject(response);
       } else {
         accessToken = response.access_token;
+        sessionStorage.setItem('gdrive_token', response.access_token);
         resolve(response.access_token);
       }
     };

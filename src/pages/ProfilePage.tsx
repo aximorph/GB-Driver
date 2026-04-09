@@ -3,7 +3,7 @@ import { DriverProfile } from '@/lib/types';
 import { getProfile, saveProfile } from '@/lib/storage';
 import { Zap, Fuel, Cloud, CheckCircle2, LogIn, RefreshCw } from 'lucide-react';
 import { format } from 'date-fns';
-import { initGoogleIdentity, requestGoogleLogin, backupDataToDrive } from '@/lib/googleDrive';
+import { initGoogleIdentity, requestGoogleLogin, backupDataToDrive, isGoogleConnected } from '@/lib/googleDrive';
 
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
@@ -14,9 +14,10 @@ export default function ProfilePage() {
     profile?.schedule || Object.fromEntries(DAYS.map(d => [d, { start: '08:00', end: '20:00', enabled: true }]))
   );
   const [saved, setSaved] = useState(false);
-  const [googleConnected, setGoogleConnected] = useState(false);
+  const [googleConnected, setGoogleConnected] = useState(isGoogleConnected());
   const [isSyncing, setIsSyncing] = useState(false);
-  const [lastSync, setLastSync] = useState<string | null>(null);
+  // Persist last sync time locally if needed, but for now we can read from memory
+  const [lastSync, setLastSync] = useState<string | null>(localStorage.getItem('gdrive_last_sync'));
 
   const handleSave = () => {
     const updated: DriverProfile = {
@@ -48,7 +49,9 @@ export default function ProfilePage() {
     setIsSyncing(true);
     try {
       await backupDataToDrive();
-      setLastSync(new Date().toISOString());
+      const syncTime = new Date().toISOString();
+      setLastSync(syncTime);
+      localStorage.setItem('gdrive_last_sync', syncTime);
     } catch (err) {
       console.error('Backup failed:', err);
       alert('Failed to backup to Google Drive.');
