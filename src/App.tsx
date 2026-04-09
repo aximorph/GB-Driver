@@ -18,7 +18,7 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
-        <div className="max-w-[430px] mx-auto min-h-screen relative">
+        <div className="max-w-[430px] mx-auto min-h-screen relative overflow-x-hidden bg-background">
           <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/history" element={<HistoryPage />} />
