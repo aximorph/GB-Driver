@@ -37,7 +37,18 @@ export default function History() {
     const gross = entries.filter(e => e.type === 'income').reduce((sum, e) => sum + (e.driverNet || 0), 0);
     const tips = entries.filter(e => e.type === 'income').reduce((sum, e) => sum + (e.tip || 0), 0);
     const expenses = entries.filter(e => e.type === 'expense').reduce((sum, e) => sum + e.amount, 0);
-    return { trips, gross, tips, expenses, net: gross + tips - expenses };
+    // รวมเวลา online ของทุก session ในกลุ่ม (เฉพาะที่จบแล้ว)
+    const totalMinutes = ss.reduce((sum, s) => {
+      if (!s.endTime) return sum;
+      const mins = (new Date(s.endTime).getTime() - new Date(s.startTime).getTime()) / 60000;
+      return sum + mins;
+    }, 0);
+    const hours = Math.floor(totalMinutes / 60);
+    const mins = Math.round(totalMinutes % 60);
+    const onlineTime = totalMinutes > 0
+      ? hours > 0 ? `${hours}h ${mins}m` : `${mins}m`
+      : null;
+    return { trips, gross, tips, expenses, net: gross + tips - expenses, onlineTime };
   };
 
   // Delete all sessions for a given date key
@@ -117,7 +128,12 @@ export default function History() {
                   <p className="text-base font-bold text-white">
                     {tab === 'daily' ? format(parseISO(key), 'EEE, MMM d') : `Week of ${format(parseISO(key), 'MMM d')}`}
                   </p>
-                  <p className="text-xs font-medium text-primary mt-0.5">{stats.trips} trips</p>
+                  <div className="flex items-center gap-2 mt-0.5">
+                    <p className="text-xs font-medium text-primary">{stats.trips} trips</p>
+                    {stats.onlineTime && (
+                      <p className="text-xs font-medium text-muted-foreground">· {stats.onlineTime} online</p>
+                    )}
+                  </div>
                 </div>
                 <div className="text-right">
                   <p className="font-mono text-lg font-extrabold text-primary drop-shadow-sm">฿{stats.net.toFixed(0)}</p>
