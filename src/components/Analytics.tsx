@@ -93,40 +93,52 @@ export default function Analytics() {
             </ResponsiveContainer>
           </div>
 
-          {/* Hourly Heatmap */}
+          {/* Hourly Heatmap — col=day, row=hour */}
           <div className="bg-card/70 backdrop-blur-xl border border-white/5 rounded-3xl p-5 shadow-xl">
             <h3 className="text-sm font-semibold text-muted-foreground mb-3">Hourly Earnings Heatmap</h3>
-            <div className="overflow-x-auto">
-              <div className="flex gap-0.5" style={{ minWidth: 480 }}>
-                <div className="flex flex-col gap-0.5 pr-1">
-                  <div className="h-4" />
-                  {heatmapData.days.map(d => (
-                    <div key={d} className="h-4 text-xs text-muted-foreground flex items-center">{d}</div>
-                  ))}
-                </div>
+            <div className="flex gap-1">
+              {/* Hour labels column */}
+              <div className="flex flex-col gap-0.5 shrink-0">
+                {/* spacer for day header row */}
+                <div style={{ height: 20 }} />
                 {Array.from({ length: 24 }, (_, h) => (
-                  <div key={h} className="flex flex-col gap-0.5">
-                    <div className="h-4 text-xs text-muted-foreground text-center" style={{ width: 16 }}>
-                      {h % 4 === 0 ? h : ''}
-                    </div>
-                    {heatmapData.days.map(d => {
-                      const val = heatmapData.grid[d][h];
-                      const intensity = val / heatmapData.maxVal;
-                      return (
-                        <div
-                          key={d}
-                          className="rounded-sm"
-                          style={{
-                            width: 16, height: 16,
-                            background: intensity > 0 ? `hsla(145, 100%, 45%, ${0.15 + intensity * 0.85})` : 'hsl(220, 20%, 14%)',
-                          }}
-                          title={`${d} ${h}:00 — ฿${val.toFixed(0)}`}
-                        />
-                      );
-                    })}
+                  <div
+                    key={h}
+                    className="text-[10px] text-muted-foreground flex items-center justify-end pr-1"
+                    style={{ height: 14 }}
+                  >
+                    {h % 3 === 0 ? `${String(h).padStart(2,'0')}` : ''}
                   </div>
                 ))}
               </div>
+
+              {/* Day columns */}
+              {heatmapData.days.map(d => (
+                <div key={d} className="flex flex-col gap-0.5 flex-1">
+                  {/* Day header */}
+                  <div className="text-[10px] font-bold text-muted-foreground text-center" style={{ height: 20 }}>
+                    {d}
+                  </div>
+                  {/* Hour cells */}
+                  {Array.from({ length: 24 }, (_, h) => {
+                    const val = heatmapData.grid[d][h];
+                    const intensity = val / heatmapData.maxVal;
+                    return (
+                      <div
+                        key={h}
+                        className="rounded-sm w-full"
+                        style={{
+                          height: 14,
+                          background: intensity > 0
+                            ? `hsla(145, 100%, 45%, ${0.15 + intensity * 0.85})`
+                            : 'hsl(220, 20%, 14%)',
+                        }}
+                        title={`${d} ${String(h).padStart(2,'0')}:00 — ฿${val.toFixed(0)}`}
+                      />
+                    );
+                  })}
+                </div>
+              ))}
             </div>
           </div>
 
