@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react';
 import { getSessions, saveSessions } from '@/lib/storage';
 import { ShiftSession } from '@/lib/types';
 import { format, startOfWeek, parseISO } from 'date-fns';
-import { Trash2 } from 'lucide-react';
+import { Trash2, Star } from 'lucide-react';
 
 export default function History() {
   const [tab, setTab] = useState<'daily' | 'weekly'>('daily');
@@ -148,23 +148,43 @@ export default function History() {
                 )}
                 {ss.flatMap(s => s.entries).map(e => (
                   <div key={e.id} className="flex items-center justify-between bg-card border border-white/5 rounded-xl p-3 shadow-inner group">
-                    <div className="flex items-center gap-3">
-                      <span className={`text-[10px] font-mono font-bold px-2 py-1 rounded-md ${
+                    <div className="flex items-center gap-3 min-w-0">
+                      <span className={`shrink-0 text-[10px] font-mono font-bold px-2 py-1 rounded-md ${
                         e.type === 'income' ? 'bg-primary/20 text-primary' : 'bg-destructive/20 text-destructive'
                       }`}>{e.type === 'income' ? 'IN' : 'EX'}</span>
-                      <div>
-                        <span className="text-xs font-medium text-muted-foreground">
-                          {e.note || e.expenseCategory || 'Trip'}
-                        </span>
-                        {e.fuelLiters && e.fuelPrice && (
-                          <p className="text-[10px] text-muted-foreground/60 font-mono">
-                            {e.fuelLiters}L × ฿{e.fuelPrice.toFixed(2)}
-                          </p>
-                        )}
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="text-xs font-medium text-white truncate">
+                            {e.note || e.expenseCategory || 'Trip'}
+                          </span>
+                          {/* Tip badge */}
+                          {e.tip && e.tip > 0 && (
+                            <span className="flex items-center gap-0.5 text-[10px] font-bold text-warning bg-warning/10 border border-warning/20 px-1.5 py-0.5 rounded-md shrink-0">
+                              <Star size={9} fill="currentColor" />
+                              ฿{e.tip.toFixed(0)}
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                          {/* Time */}
+                          <span className="text-[10px] text-muted-foreground font-mono">
+                            {format(new Date(e.timestamp), 'HH:mm')}
+                          </span>
+                          {/* Fuel liters */}
+                          {e.fuelLiters && e.fuelPrice && (
+                            <span className="text-[10px] text-primary/70 font-mono">
+                              · {e.fuelLiters.toFixed(2)}L
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <span className="font-mono text-sm font-bold text-white">฿{e.amount.toFixed(0)}</span>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <div className="text-right">
+                        <span className="font-mono text-sm font-bold text-white">
+                          ฿{e.type === 'income' ? ((e.driverNet || 0) + (e.tip || 0)).toFixed(0) : e.amount.toFixed(0)}
+                        </span>
+                      </div>
                       {/* Delete entry button */}
                       <button
                         onClick={() => deleteEntry(e.id)}

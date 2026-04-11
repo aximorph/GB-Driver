@@ -21,6 +21,10 @@ export default function Dashboard() {
   const profile = getProfile();
   const today = new Date().toISOString().split('T')[0];
 
+  // entries ของ session ที่กำลัง active เท่านั้น — หายเมื่อ end shift
+  const activeEntries = activeSession?.entries ?? [];
+
+  // summary ยังคงอิงทั้งวัน (ทุก session ของวันนี้)
   const todayEntries = sessions
     .filter(s => s.date === today)
     .flatMap(s => s.entries);
@@ -173,11 +177,11 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Recent Entries */}
-      {todayEntries.length > 0 && (
+      {/* Recent Entries — เฉพาะ active session เท่านั้น หายเมื่อ end shift */}
+      {activeEntries.length > 0 && (
         <div className="space-y-4">
           <h3 className="text-xs font-black text-muted-foreground px-2 tracking-widest uppercase mt-6 mb-2">Recent Shifts</h3>
-          {[...todayEntries].reverse().map(entry => (
+          {[...activeEntries].reverse().map(entry => (
             <div key={entry.id} className="bg-card/70 backdrop-blur-xl border border-white/5 rounded-3xl p-5 flex flex-col gap-3 shadow-lg hover:bg-card/90 transition-all">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
