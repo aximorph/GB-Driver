@@ -1,5 +1,7 @@
 export interface DriverProfile {
   vehicleType: 'electric' | 'petrol';
+  fuelType?: 'diesel' | '91' | '95' | 'e20';
+  chargingType?: 'home' | 'public'; // for electric vehicles
   commissionRate: number;
   schedule: Record<string, { start: string; end: string; enabled: boolean }>;
 }
@@ -25,6 +27,8 @@ export interface Entry {
   expenseCategory?: string;
   amount: number;
   note?: string;
+  fuelPrice?: number;
+  fuelLiters?: number;
 }
 
 export type ShiftStatus = 'offline' | 'on_shift' | 'shift_ended';

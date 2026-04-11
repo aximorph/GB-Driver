@@ -1,22 +1,32 @@
+import { useState, useEffect } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { getActiveSession } from '@/lib/storage';
 import { Home, Clock, BarChart2, User, Plus } from 'lucide-react';
 
 export default function BottomNav() {
   const navigate = useNavigate();
-  const activeSession = getActiveSession();
-  const isOnShift = !!activeSession;
+  const [isOnShift, setIsOnShift] = useState(!!getActiveSession());
+
+  useEffect(() => {
+    const handler = () => setIsOnShift(!!getActiveSession());
+    window.addEventListener('gbdriver:session-changed', handler);
+    return () => window.removeEventListener('gbdriver:session-changed', handler);
+  }, []);
 
   const linkClass = ({ isActive }: { isActive: boolean }) =>
     `flex flex-col items-center gap-0.5 text-xs transition-colors ${isActive ? 'text-primary' : 'text-muted-foreground'}`;
 
   const handleAddClick = () => {
-    if (isOnShift) {
+    // Check storage directly so the button works immediately after Start Shift
+    // (React state update from event may lag behind 1 render cycle)
+    const activeNow = !!getActiveSession();
+    if (activeNow) {
+      // Sync UI state in case it hasn't caught up yet
+      if (!isOnShift) setIsOnShift(true);
       navigate('/');
-      // Small delay to ensure Dashboard is mounted before dispatching
       setTimeout(() => {
         window.dispatchEvent(new CustomEvent('gbdriver:open-add-entry'));
-      }, 100);
+      }, 50);
     }
   };
 
@@ -35,7 +45,6 @@ export default function BottomNav() {
         {/* Center Add Button */}
         <button
           onClick={handleAddClick}
-          disabled={!isOnShift}
           className={`flex flex-col items-center gap-1 -mt-8 transition-all ${
             isOnShift
               ? 'text-primary drop-shadow-[0_0_10px_rgba(0,242,96,0.3)]'

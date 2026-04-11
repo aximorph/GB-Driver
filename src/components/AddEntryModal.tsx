@@ -1,5 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Entry } from '@/lib/types';
+import { getProfile } from '@/lib/storage';
+import { getFuelPrice } from '@/lib/fuelApi';
+import { Loader2 } from 'lucide-react';
 
 const EXPENSE_CATEGORIES = ['Fuel', 'Charging', 'Food', 'Parking', 'Maintenance', 'Other'];
 
@@ -17,6 +20,34 @@ export default function AddEntryModal({ onSave, onClose }: Props) {
   const [amount, setAmount] = useState('');
   const [note, setNote] = useState('');
 
+  // Fuel-specific state
+  const [fuelPrice, setFuelPrice] = useState<number | null>(null);
+  const [fuelLiters, setFuelLiters] = useState('');
+  const [fuelLoading, setFuelLoading] = useState(false);
+
+  const profile = getProfile();
+  const isFuelSelected = type === 'expense' && expenseCategory === 'Fuel';
+
+  // Fetch fuel price when Fuel category is selected
+  useEffect(() => {
+    if (!isFuelSelected) return;
+    if (fuelPrice !== null) return; // already fetched
+    if (!profile?.fuelType) return; // electric or not set
+
+    setFuelLoading(true);
+    getFuelPrice(profile.fuelType)
+      .then(price => setFuelPrice(price))
+      .finally(() => setFuelLoading(false));
+  }, [isFuelSelected, profile?.fuelType]);
+
+  // Auto-calculate amount from liters × price
+  useEffect(() => {
+    if (isFuelSelected && fuelPrice !== null && fuelLiters !== '') {
+      const liters = parseFloat(fuelLiters) || 0;
+      setAmount((liters * fuelPrice).toFixed(2));
+    }
+  }, [fuelLiters, fuelPrice, isFuelSelected]);
+
   const fareNum = parseFloat(appFare) || 0;
   const paidNum = parseFloat(customerPaid) || 0;
   const driverNet = parseFloat(driverReceived) || 0;
@@ -31,7 +62,12 @@ export default function AddEntryModal({ onSave, onClose }: Props) {
     } else {
       const expAmount = parseFloat(amount) || 0;
       if (!expAmount) return;
-      onSave({ type, expenseCategory, amount: expAmount, note });
+      const extra: Partial<Entry> = {};
+      if (isFuelSelected && fuelPrice !== null) {
+        extra.fuelPrice = fuelPrice;
+        extra.fuelLiters = parseFloat(fuelLiters) || 0;
+      }
+      onSave({ type, expenseCategory, amount: expAmount, note, ...extra });
     }
   };
 
@@ -81,13 +117,72 @@ export default function AddEntryModal({ onSave, onClose }: Props) {
               <label className="text-xs text-muted-foreground mb-1 block">Category</label>
               <select
                 value={expenseCategory}
-                onChange={e => setExpenseCategory(e.target.value)}
+                onChange={e => {
+                  setExpenseCategory(e.target.value);
+                  setAmount('');
+                  setFuelLiters('');
+                }}
                 className="w-full bg-secondary text-foreground rounded-lg p-2.5 text-sm border border-border"
               >
                 {EXPENSE_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
               </select>
             </div>
-            <InputField label="Amount" prefix="฿" value={amount} onChange={setAmount} />
+
+            {/* Fuel-specific: price + liters calculator */}
+            {isFuelSelected && (
+              <div className="bg-primary/5 border border-primary/15 rounded-2xl p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Current Fuel Price</span>
+                  {fuelLoading ? (
+                    <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                      <Loader2 size={12} className="animate-spin" /> Fetching...
+                    </span>
+                  ) : fuelPrice !== null ? (
+                    <span className="font-mono font-bold text-primary text-sm">
+                      ฿{fuelPrice.toFixed(2)}/L
+                      {profile?.fuelType && (
+                        <span className="text-muted-foreground font-normal ml-1">({profile.fuelType.toUpperCase()})</span>
+                      )}
+                    </span>
+                  ) : (
+                    <span className="text-xs text-muted-foreground">Set fuel type in Profile</span>
+                  )}
+                </div>
+
+                {fuelPrice !== null && (
+                  <>
+                    <div>
+                      <label className="text-xs font-medium text-muted-foreground mb-1.5 block px-1">Liters Filled</label>
+                      <div className="relative">
+                        <input
+                          type="number"
+                          value={fuelLiters}
+                          onChange={e => setFuelLiters(e.target.value)}
+                          className="w-full bg-input/40 focus:bg-input/80 text-white rounded-xl p-3.5 pr-10 text-base font-mono border border-white/5 focus:border-primary/50 transition-all placeholder:text-muted-foreground/50 outline-none"
+                          placeholder="0.00"
+                          step="0.01"
+                        />
+                        <span className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">L</span>
+                      </div>
+                    </div>
+                    {parseFloat(fuelLiters) > 0 && (
+                      <div className="bg-black/20 rounded-xl p-3 flex justify-between items-center border border-white/5">
+                        <span className="text-xs text-muted-foreground">{fuelLiters}L × ฿{fuelPrice.toFixed(2)}</span>
+                        <span className="font-mono font-bold text-white text-sm">= ฿{(parseFloat(fuelLiters) * fuelPrice).toFixed(2)}</span>
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            )}
+
+            <InputField
+              label={isFuelSelected && fuelPrice !== null ? 'Total Amount (auto-calculated)' : 'Amount'}
+              prefix="฿"
+              value={amount}
+              onChange={setAmount}
+              readOnly={isFuelSelected && fuelPrice !== null && parseFloat(fuelLiters) > 0}
+            />
           </div>
         )}
 
@@ -112,7 +207,7 @@ export default function AddEntryModal({ onSave, onClose }: Props) {
   );
 }
 
-function InputField({ label, prefix, value, onChange }: { label: string; prefix: string; value: string; onChange: (v: string) => void }) {
+function InputField({ label, prefix, value, onChange, readOnly }: { label: string; prefix: string; value: string; onChange: (v: string) => void; readOnly?: boolean }) {
   return (
     <div>
       <label className="text-xs font-medium text-muted-foreground mb-1.5 block px-1">{label}</label>
@@ -122,7 +217,10 @@ function InputField({ label, prefix, value, onChange }: { label: string; prefix:
           type="number"
           value={value}
           onChange={e => onChange(e.target.value)}
-          className="w-full bg-input/40 focus:bg-input/80 text-white rounded-xl p-3.5 pl-10 text-base font-mono border border-white/5 focus:border-primary/50 transition-all placeholder:text-muted-foreground/50 outline-none"
+          readOnly={readOnly}
+          className={`w-full bg-input/40 text-white rounded-xl p-3.5 pl-10 text-base font-mono border border-white/5 transition-all placeholder:text-muted-foreground/50 outline-none ${
+            readOnly ? 'opacity-70 cursor-default' : 'focus:bg-input/80 focus:border-primary/50'
+          }`}
           placeholder="0"
         />
       </div>

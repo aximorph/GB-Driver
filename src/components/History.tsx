@@ -1,12 +1,15 @@
 import { useState, useMemo } from 'react';
-import { getSessions } from '@/lib/storage';
+import { getSessions, saveSessions } from '@/lib/storage';
 import { ShiftSession } from '@/lib/types';
-import { format, startOfWeek, endOfWeek, isWithinInterval, parseISO } from 'date-fns';
+import { format, startOfWeek, parseISO } from 'date-fns';
+import { Trash2 } from 'lucide-react';
 
 export default function History() {
   const [tab, setTab] = useState<'daily' | 'weekly'>('daily');
   const [expandedDate, setExpandedDate] = useState<string | null>(null);
-  const sessions = getSessions().filter(s => s.endTime);
+  const [sessions, setSessions] = useState<ShiftSession[]>(() =>
+    getSessions().filter(s => s.endTime)
+  );
 
   const dailyData = useMemo(() => {
     const grouped: Record<string, ShiftSession[]> = {};
@@ -37,6 +40,28 @@ export default function History() {
     return { trips, gross, tips, expenses, net: gross + tips - expenses };
   };
 
+  // Delete all sessions for a given date key
+  const deleteGroup = (key: string, groupSessions: ShiftSession[]) => {
+    if (!confirm(`Delete all data for this period? This cannot be undone.`)) return;
+    const groupIds = new Set(groupSessions.map(s => s.id));
+    const allSessions = getSessions(); // includes active sessions
+    const updated = allSessions.filter(s => !groupIds.has(s.id));
+    saveSessions(updated);
+    setSessions(updated.filter(s => s.endTime));
+    if (expandedDate === key) setExpandedDate(null);
+  };
+
+  // Delete a single entry from a session
+  const deleteEntry = (entryId: string) => {
+    const allSessions = getSessions();
+    const updated = allSessions.map(s => ({
+      ...s,
+      entries: s.entries.filter(e => e.id !== entryId),
+    }));
+    saveSessions(updated);
+    setSessions(updated.filter(s => s.endTime));
+  };
+
   const exportCSV = () => {
     const entries = sessions.flatMap(s => s.entries.map(e => ({ ...e, date: s.date })));
     const header = 'Date,Type,Amount,Tip,Category,Note\n';
@@ -50,6 +75,8 @@ export default function History() {
     a.download = 'gb-driver-history.csv';
     a.click();
   };
+
+  const data = tab === 'daily' ? dailyData : weeklyData;
 
   return (
     <div className="pb-28 p-4 space-y-5 relative animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -75,26 +102,39 @@ export default function History() {
         ))}
       </div>
 
-      {(tab === 'daily' ? dailyData : weeklyData).map(([key, ss]) => {
+      {data.map(([key, ss]) => {
         const stats = calcStats(ss);
         const isExpanded = expandedDate === key;
         return (
           <div key={key} className="bg-card/70 backdrop-blur-xl border border-white/5 rounded-2xl overflow-hidden shadow-xl mb-3">
-            <button
-              onClick={() => setExpandedDate(isExpanded ? null : key)}
-              className="w-full p-4 flex items-center justify-between text-left hover:bg-white/5 transition-colors"
-            >
-              <div>
-                <p className="text-base font-bold text-white">
-                  {tab === 'daily' ? format(parseISO(key), 'EEE, MMM d') : `Week of ${format(parseISO(key), 'MMM d')}`}
-                </p>
-                <p className="text-xs font-medium text-primary mt-0.5">{stats.trips} trips</p>
-              </div>
-              <div className="text-right">
-                <p className="font-mono text-lg font-extrabold text-primary drop-shadow-sm">฿{stats.net.toFixed(0)}</p>
-                <p className="text-xs font-medium text-muted-foreground">net</p>
-              </div>
-            </button>
+            {/* Main row */}
+            <div className="flex items-center">
+              <button
+                onClick={() => setExpandedDate(isExpanded ? null : key)}
+                className="flex-1 p-4 flex items-center justify-between text-left hover:bg-white/5 transition-colors"
+              >
+                <div>
+                  <p className="text-base font-bold text-white">
+                    {tab === 'daily' ? format(parseISO(key), 'EEE, MMM d') : `Week of ${format(parseISO(key), 'MMM d')}`}
+                  </p>
+                  <p className="text-xs font-medium text-primary mt-0.5">{stats.trips} trips</p>
+                </div>
+                <div className="text-right">
+                  <p className="font-mono text-lg font-extrabold text-primary drop-shadow-sm">฿{stats.net.toFixed(0)}</p>
+                  <p className="text-xs font-medium text-muted-foreground">net</p>
+                </div>
+              </button>
+              {/* Delete group button */}
+              <button
+                onClick={e => { e.stopPropagation(); deleteGroup(key, ss); }}
+                className="p-4 text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-all"
+                title="Delete this period"
+              >
+                <Trash2 size={16} />
+              </button>
+            </div>
+
+            {/* Expanded entries */}
             {isExpanded && (
               <div className="border-t border-white/5 p-4 space-y-3 bg-black/20">
                 <div className="grid grid-cols-4 gap-2 text-center">
@@ -103,15 +143,37 @@ export default function History() {
                   <MiniStat label="Expenses" value={stats.expenses} />
                   <MiniStat label="Net" value={stats.net} />
                 </div>
+                {ss.flatMap(s => s.entries).length === 0 && (
+                  <p className="text-center text-xs text-muted-foreground py-2">No entries</p>
+                )}
                 {ss.flatMap(s => s.entries).map(e => (
-                  <div key={e.id} className="flex items-center justify-between bg-card border border-white/5 rounded-xl p-3 shadow-inner">
+                  <div key={e.id} className="flex items-center justify-between bg-card border border-white/5 rounded-xl p-3 shadow-inner group">
                     <div className="flex items-center gap-3">
                       <span className={`text-[10px] font-mono font-bold px-2 py-1 rounded-md ${
                         e.type === 'income' ? 'bg-primary/20 text-primary' : 'bg-destructive/20 text-destructive'
                       }`}>{e.type === 'income' ? 'IN' : 'EX'}</span>
-                      <span className="text-xs font-medium text-muted-foreground">{e.note || e.expenseCategory || 'Trip'}</span>
+                      <div>
+                        <span className="text-xs font-medium text-muted-foreground">
+                          {e.note || e.expenseCategory || 'Trip'}
+                        </span>
+                        {e.fuelLiters && e.fuelPrice && (
+                          <p className="text-[10px] text-muted-foreground/60 font-mono">
+                            {e.fuelLiters}L × ฿{e.fuelPrice.toFixed(2)}
+                          </p>
+                        )}
+                      </div>
                     </div>
-                    <span className="font-mono text-sm font-bold text-white">฿{e.amount.toFixed(0)}</span>
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono text-sm font-bold text-white">฿{e.amount.toFixed(0)}</span>
+                      {/* Delete entry button */}
+                      <button
+                        onClick={() => deleteEntry(e.id)}
+                        className="opacity-0 group-hover:opacity-100 p-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg transition-all"
+                        title="Delete entry"
+                      >
+                        <Trash2 size={13} />
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -120,7 +182,7 @@ export default function History() {
         );
       })}
 
-      {(tab === 'daily' ? dailyData : weeklyData).length === 0 && (
+      {data.length === 0 && (
         <div className="text-center py-12 text-muted-foreground text-sm">No shift history yet</div>
       )}
     </div>

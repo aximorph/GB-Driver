@@ -11,6 +11,7 @@ export default function ProfilePage() {
   const [profile, setProfile] = useState<DriverProfile | null>(getProfile());
   const [vehicleType, setVehicleType] = useState<'electric' | 'petrol'>(profile?.vehicleType || 'petrol');
   const [fuelType, setFuelType] = useState<DriverProfile['fuelType']>(profile?.fuelType || '95');
+  const [chargingType, setChargingType] = useState<'home' | 'public'>(profile?.chargingType || 'home');
   const [schedule, setSchedule] = useState<DriverProfile['schedule']>(
     profile?.schedule || Object.fromEntries(DAYS.map(d => [d, { start: '08:00', end: '20:00', enabled: true }]))
   );
@@ -24,7 +25,8 @@ export default function ProfilePage() {
     const updated: DriverProfile = {
       vehicleType,
       fuelType: vehicleType === 'petrol' ? fuelType : undefined,
-      commissionRate: profile?.commissionRate || 0.20, // Keep existing rate in storage if any
+      chargingType: vehicleType === 'electric' ? chargingType : undefined,
+      commissionRate: profile?.commissionRate || 0.20,
       schedule,
     };
     saveProfile(updated);
@@ -139,6 +141,28 @@ export default function ProfilePage() {
                 </button>
               ))}
            </div>
+        </div>
+
+        {/* Sub-options for Electric */}
+        <div className={`transition-all duration-300 ease-in-out ${vehicleType === 'electric' ? 'max-h-40 opacity-100 mt-4' : 'max-h-0 opacity-0 overflow-hidden'}`}>
+          <div className="grid grid-cols-2 gap-2 pt-3 border-t border-white/5">
+            {([
+              { value: 'home', label: 'Home Charging' },
+              { value: 'public', label: 'Public Charging' },
+            ] as const).map(opt => (
+              <button
+                key={opt.value}
+                onClick={() => setChargingType(opt.value)}
+                className={`py-2.5 rounded-xl text-xs font-bold transition-all ${
+                  chargingType === opt.value
+                    ? 'bg-primary/20 text-primary border border-primary/30'
+                    : 'bg-secondary border border-white/5 text-muted-foreground hover:border-white/10'
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
