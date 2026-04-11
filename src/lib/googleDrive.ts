@@ -1,4 +1,4 @@
-import { getSessions, getProfile } from './storage';
+import { getSessions, getProfile, saveSessions, saveProfile } from './storage';
 
 declare global {
   interface Window {
@@ -10,7 +10,9 @@ const CLIENT_ID = '540767703144-9h94ro0h0nu4rrsr9m9g0svedm6a2cga.apps.googleuser
 const SCOPES = 'https://www.googleapis.com/auth/drive.file';
 
 let tokenClient: any = null;
-let accessToken: string | null = sessionStorage.getItem('gdrive_token');
+// Use localStorage so "connected" state persists across sessions
+// (actual token still expires, but UI remembers user was connected)
+let accessToken: string | null = localStorage.getItem('gdrive_token');
 
 export function isGoogleConnected(): boolean {
   return !!accessToken;
@@ -23,7 +25,7 @@ export function disconnectGoogle() {
     } catch (e) {}
   }
   accessToken = null;
-  sessionStorage.removeItem('gdrive_token');
+  localStorage.removeItem('gdrive_token');
 }
 
 export function initGoogleIdentity(): Promise<void> {
@@ -53,7 +55,7 @@ function setupClient() {
     callback: (response: any) => {
       if (response && response.access_token) {
         accessToken = response.access_token;
-        sessionStorage.setItem('gdrive_token', response.access_token);
+        localStorage.setItem('gdrive_token', response.access_token);
       }
     },
   });
@@ -67,12 +69,42 @@ export function requestGoogleLogin(): Promise<string> {
         reject(response);
       } else {
         accessToken = response.access_token;
-        sessionStorage.setItem('gdrive_token', response.access_token);
+        localStorage.setItem('gdrive_token', response.access_token);
         resolve(response.access_token);
       }
     };
     tokenClient.requestAccessToken({ prompt: 'consent' });
   });
+}
+
+async function findBackupFileId(): Promise<string | null> {
+  const searchRes = await fetch(
+    `https://www.googleapis.com/drive/v3/files?q=name='gb-driver-backup.json' and trashed=false`,
+    { headers: { Authorization: `Bearer ${accessToken}` } }
+  );
+  if (!searchRes.ok) throw new Error('Search failed');
+  const searchData = await searchRes.json();
+  return searchData.files && searchData.files.length > 0 ? searchData.files[0].id : null;
+}
+
+export async function restoreFromDrive(): Promise<boolean> {
+  if (!accessToken) throw new Error('Not logged in to Google');
+
+  const fileId = await findBackupFileId();
+  if (!fileId) return false; // No backup file found on Drive
+
+  const downloadRes = await fetch(
+    `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`,
+    { headers: { Authorization: `Bearer ${accessToken}` } }
+  );
+  if (!downloadRes.ok) throw new Error('Download failed');
+
+  const data = await downloadRes.json();
+
+  if (data.sessions) saveSessions(data.sessions);
+  if (data.profile) saveProfile(data.profile);
+
+  return true;
 }
 
 export async function backupDataToDrive() {
@@ -84,13 +116,7 @@ export async function backupDataToDrive() {
   });
 
   // Find existing file
-  const searchRes = await fetch(`https://www.googleapis.com/drive/v3/files?q=name='gb-driver-backup.json' and trashed=false`, {
-    headers: { Authorization: `Bearer ${accessToken}` }
-  });
-  
-  if (!searchRes.ok) throw new Error('Search failed');
-  const searchData = await searchRes.json();
-  let fileId = searchData.files && searchData.files.length > 0 ? searchData.files[0].id : null;
+  let fileId = await findBackupFileId();
 
   // If new, create metadata first
   if (!fileId) {

@@ -1,27 +1,29 @@
 import { useState, useEffect } from 'react';
 import { DriverProfile } from '@/lib/types';
 import { getProfile, saveProfile } from '@/lib/storage';
-import { Zap, Fuel, Cloud, CheckCircle2, LogIn, RefreshCw, LogOut } from 'lucide-react';
+import { Zap, Fuel, Cloud, CheckCircle2, LogIn, RefreshCw, LogOut, Download } from 'lucide-react';
 import { format } from 'date-fns';
-import { initGoogleIdentity, requestGoogleLogin, backupDataToDrive, isGoogleConnected, disconnectGoogle } from '@/lib/googleDrive';
+import { initGoogleIdentity, requestGoogleLogin, backupDataToDrive, restoreFromDrive, isGoogleConnected, disconnectGoogle } from '@/lib/googleDrive';
 
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
 export default function ProfilePage() {
   const [profile, setProfile] = useState<DriverProfile | null>(getProfile());
   const [vehicleType, setVehicleType] = useState<'electric' | 'petrol'>(profile?.vehicleType || 'petrol');
+  const [fuelType, setFuelType] = useState<DriverProfile['fuelType']>(profile?.fuelType || '95');
   const [schedule, setSchedule] = useState<DriverProfile['schedule']>(
     profile?.schedule || Object.fromEntries(DAYS.map(d => [d, { start: '08:00', end: '20:00', enabled: true }]))
   );
   const [saved, setSaved] = useState(false);
   const [googleConnected, setGoogleConnected] = useState(isGoogleConnected());
   const [isSyncing, setIsSyncing] = useState(false);
-  // Persist last sync time locally if needed, but for now we can read from memory
+  const [isRestoring, setIsRestoring] = useState(false);
   const [lastSync, setLastSync] = useState<string | null>(localStorage.getItem('gdrive_last_sync'));
 
   const handleSave = () => {
     const updated: DriverProfile = {
       vehicleType,
+      fuelType: vehicleType === 'petrol' ? fuelType : undefined,
       commissionRate: profile?.commissionRate || 0.20, // Keep existing rate in storage if any
       schedule,
     };
@@ -65,6 +67,27 @@ export default function ProfilePage() {
     }
   };
 
+  const handleRestore = async () => {
+    if (!confirm('This will overwrite your current local data with the backup from Google Drive. Continue?')) return;
+    setIsRestoring(true);
+    try {
+      const found = await restoreFromDrive();
+      if (found) {
+        // Reload profile from storage after restore
+        setProfile(getProfile());
+        alert('✅ Data restored from Google Drive successfully! The page will reload.');
+        window.location.reload();
+      } else {
+        alert('No backup file found on Google Drive.');
+      }
+    } catch (err) {
+      console.error('Restore failed:', err);
+      alert('Failed to restore from Google Drive.');
+    } finally {
+      setIsRestoring(false);
+    }
+  };
+
   return (
     <div className="pb-24 p-4 space-y-5 relative animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full blur-3xl -z-10 translate-x-16 -translate-y-16"></div>
@@ -87,9 +110,35 @@ export default function ProfilePage() {
               <div className={vehicleType === type ? 'text-primary' : ''}>
                 {type === 'electric' ? <Zap size={28} /> : <Fuel size={28} />}
               </div>
-              <div className="font-bold text-sm">{type === 'electric' ? 'Electric' : 'Petrol/Gas'}</div>
+              <div className="font-bold text-sm">
+                {type === 'electric' ? 'Electric' : 'Petrol/Gas'}
+                {type === 'petrol' && vehicleType === 'petrol' && fuelType && (
+                  <span className="absolute top-3 right-3 bg-primary text-primary-foreground text-[10px] px-1.5 py-0.5 rounded-md font-mono shadow-sm">
+                    {fuelType.toUpperCase()}
+                  </span>
+                )}
+              </div>
             </button>
           ))}
+        </div>
+
+        {/* Sub-options for Petrol */}
+        <div className={`transition-all duration-300 ease-in-out ${vehicleType === 'petrol' ? 'max-h-40 opacity-100 mt-4' : 'max-h-0 opacity-0 overflow-hidden'}`}>
+           <div className="grid grid-cols-4 gap-2 pt-3 border-t border-white/5">
+              {(['diesel', '91', '95', 'e20'] as const).map(fuel => (
+                <button
+                  key={fuel}
+                  onClick={() => setFuelType(fuel)}
+                  className={`py-2 rounded-xl text-xs font-bold transition-all ${
+                    fuelType === fuel
+                      ? 'bg-primary/20 text-primary border border-primary/30'
+                      : 'bg-secondary border border-white/5 text-muted-foreground hover:border-white/10'
+                  }`}
+                >
+                  {fuel.toUpperCase()}
+                </button>
+              ))}
+           </div>
         </div>
       </div>
 
@@ -129,14 +178,24 @@ export default function ProfilePage() {
                 <LogOut size={18} />
               </button>
             </div>
-            <button
-              onClick={handleManualSync}
-              disabled={isSyncing}
-              className="w-full flex items-center justify-center gap-2 bg-secondary text-white py-3 rounded-2xl font-semibold text-sm border border-white/5 hover:bg-white/10 transition-colors disabled:opacity-50"
-            >
-              <RefreshCw size={16} className={isSyncing ? 'animate-spin' : ''} />
-              {isSyncing ? 'Backing up...' : 'Sync to Google Drive now'}
-            </button>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                onClick={handleManualSync}
+                disabled={isSyncing || isRestoring}
+                className="flex items-center justify-center gap-2 bg-secondary text-white py-3 rounded-2xl font-semibold text-sm border border-white/5 hover:bg-white/10 transition-colors disabled:opacity-50"
+              >
+                <RefreshCw size={16} className={isSyncing ? 'animate-spin' : ''} />
+                {isSyncing ? 'Backing up...' : 'Backup ↑'}
+              </button>
+              <button
+                onClick={handleRestore}
+                disabled={isSyncing || isRestoring}
+                className="flex items-center justify-center gap-2 bg-secondary text-white py-3 rounded-2xl font-semibold text-sm border border-primary/20 hover:bg-primary/10 transition-colors disabled:opacity-50"
+              >
+                <Download size={16} className={isRestoring ? 'animate-bounce' : ''} />
+                {isRestoring ? 'Restoring...' : 'Restore ↓'}
+              </button>
+            </div>
             {lastSync && (
               <p className="text-center text-[11px] text-muted-foreground font-mono">
                 Last backup: {format(new Date(lastSync), 'MMM d, h:mm a')}
