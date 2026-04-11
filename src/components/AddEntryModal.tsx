@@ -22,7 +22,6 @@ export default function AddEntryModal({ onSave, onClose }: Props) {
 
   // Fuel-specific state
   const [fuelPrice, setFuelPrice] = useState<number | null>(null);
-  const [fuelLiters, setFuelLiters] = useState('');
   const [fuelLoading, setFuelLoading] = useState(false);
 
   const profile = getProfile();
@@ -40,13 +39,11 @@ export default function AddEntryModal({ onSave, onClose }: Props) {
       .finally(() => setFuelLoading(false));
   }, [isFuelSelected, profile?.fuelType]);
 
-  // Auto-calculate amount from liters × price
-  useEffect(() => {
-    if (isFuelSelected && fuelPrice !== null && fuelLiters !== '') {
-      const liters = parseFloat(fuelLiters) || 0;
-      setAmount((liters * fuelPrice).toFixed(2));
-    }
-  }, [fuelLiters, fuelPrice, isFuelSelected]);
+  // Auto-calculate liters from amount ÷ price
+  const fuelLiters =
+    isFuelSelected && fuelPrice && fuelPrice > 0 && parseFloat(amount) > 0
+      ? (parseFloat(amount) / fuelPrice).toFixed(2)
+      : null;
 
   const fareNum = parseFloat(appFare) || 0;
   const paidNum = parseFloat(customerPaid) || 0;
@@ -63,9 +60,9 @@ export default function AddEntryModal({ onSave, onClose }: Props) {
       const expAmount = parseFloat(amount) || 0;
       if (!expAmount) return;
       const extra: Partial<Entry> = {};
-      if (isFuelSelected && fuelPrice !== null) {
+      if (isFuelSelected && fuelPrice !== null && fuelLiters !== null) {
         extra.fuelPrice = fuelPrice;
-        extra.fuelLiters = parseFloat(fuelLiters) || 0;
+        extra.fuelLiters = parseFloat(fuelLiters);
       }
       onSave({ type, expenseCategory, amount: expAmount, note, ...extra });
     }
@@ -128,7 +125,7 @@ export default function AddEntryModal({ onSave, onClose }: Props) {
               </select>
             </div>
 
-            {/* Fuel-specific: price + liters calculator */}
+            {/* Fuel-specific: show price per liter, user enters amount paid */}
             {isFuelSelected && (
               <div className="bg-primary/5 border border-primary/15 rounded-2xl p-4 space-y-3">
                 <div className="flex items-center justify-between">
@@ -149,39 +146,21 @@ export default function AddEntryModal({ onSave, onClose }: Props) {
                   )}
                 </div>
 
-                {fuelPrice !== null && (
-                  <>
-                    <div>
-                      <label className="text-xs font-medium text-muted-foreground mb-1.5 block px-1">Liters Filled</label>
-                      <div className="relative">
-                        <input
-                          type="number"
-                          value={fuelLiters}
-                          onChange={e => setFuelLiters(e.target.value)}
-                          className="w-full bg-input/40 focus:bg-input/80 text-white rounded-xl p-3.5 pr-10 text-base font-mono border border-white/5 focus:border-primary/50 transition-all placeholder:text-muted-foreground/50 outline-none"
-                          placeholder="0.00"
-                          step="0.01"
-                        />
-                        <span className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">L</span>
-                      </div>
-                    </div>
-                    {parseFloat(fuelLiters) > 0 && (
-                      <div className="bg-black/20 rounded-xl p-3 flex justify-between items-center border border-white/5">
-                        <span className="text-xs text-muted-foreground">{fuelLiters}L × ฿{fuelPrice.toFixed(2)}</span>
-                        <span className="font-mono font-bold text-white text-sm">= ฿{(parseFloat(fuelLiters) * fuelPrice).toFixed(2)}</span>
-                      </div>
-                    )}
-                  </>
+                {/* Result: show calculated liters */}
+                {fuelLiters !== null && (
+                  <div className="bg-black/20 rounded-xl p-3 flex justify-between items-center border border-white/5">
+                    <span className="text-xs text-muted-foreground">฿{amount} ÷ ฿{fuelPrice?.toFixed(2)}/L</span>
+                    <span className="font-mono font-bold text-primary text-sm">≈ {fuelLiters} L</span>
+                  </div>
                 )}
               </div>
             )}
 
             <InputField
-              label={isFuelSelected && fuelPrice !== null ? 'Total Amount (auto-calculated)' : 'Amount'}
+              label={isFuelSelected ? 'Amount Paid' : 'Amount'}
               prefix="฿"
               value={amount}
               onChange={setAmount}
-              readOnly={isFuelSelected && fuelPrice !== null && parseFloat(fuelLiters) > 0}
             />
           </div>
         )}

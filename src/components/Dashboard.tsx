@@ -57,6 +57,7 @@ export default function Dashboard() {
     setSessions(updated);
     saveSessions(updated);
     setActiveSession(session);
+    window.dispatchEvent(new CustomEvent('gbdriver:session-changed'));
   };
 
   const addEntry = useCallback((entry: Omit<Entry, 'id' | 'sessionId' | 'timestamp'>) => {
@@ -83,6 +84,7 @@ export default function Dashboard() {
     setSessions(updated);
     saveSessions(updated);
     setActiveSession(null);
+    window.dispatchEvent(new CustomEvent('gbdriver:session-changed'));
   }, [activeSession, sessions]);
 
   const deleteEntry = useCallback((entryId: string) => {
@@ -181,6 +183,9 @@ export default function Dashboard() {
                     </h4>
                     <p className="text-xs text-muted-foreground font-medium">
                       {format(new Date(entry.timestamp), 'h:mm a')}
+                      {entry.fuelLiters && entry.fuelLiters > 0 && (
+                        <span className="ml-1.5 text-primary font-semibold">· {entry.fuelLiters.toFixed(2)} L</span>
+                      )}
                     </p>
                   </div>
                 </div>
