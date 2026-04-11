@@ -68,36 +68,44 @@ export default function Dashboard() {
       sessionId: activeSession.id,
       timestamp: new Date().toISOString(),
     };
-    const updated = sessions.map(s =>
-      s.id === activeSession.id ? { ...s, entries: [...s.entries, newEntry] } : s
-    );
-    setSessions(updated);
-    saveSessions(updated);
+    // functional update — always operates on latest state, no stale closure
+    setSessions(prev => {
+      const updated = prev.map(s =>
+        s.id === activeSession.id ? { ...s, entries: [...s.entries, newEntry] } : s
+      );
+      saveSessions(updated);
+      return updated;
+    });
     setActiveSession(prev => prev ? { ...prev, entries: [...prev.entries, newEntry] } : null);
-  }, [activeSession, sessions]);
+  }, [activeSession]);
 
   const endShift = useCallback((grabPayout: number) => {
     if (!activeSession) return;
-    const updated = sessions.map(s =>
-      s.id === activeSession.id ? { ...s, endTime: new Date().toISOString(), grabPayoutAmount: grabPayout } : s
-    );
-    setSessions(updated);
-    saveSessions(updated);
+    // functional update — guarantees we get the absolute latest entries
+    setSessions(prev => {
+      const updated = prev.map(s =>
+        s.id === activeSession.id
+          ? { ...s, endTime: new Date().toISOString(), grabPayoutAmount: grabPayout }
+          : s
+      );
+      saveSessions(updated);
+      return updated;
+    });
     setActiveSession(null);
     window.dispatchEvent(new CustomEvent('gbdriver:session-changed'));
-  }, [activeSession, sessions]);
+  }, [activeSession]);
 
   const deleteEntry = useCallback((entryId: string) => {
-    const updated = sessions.map(s => ({
-      ...s,
-      entries: s.entries.filter(e => e.id !== entryId),
-    }));
-    setSessions(updated);
-    saveSessions(updated);
-    if (activeSession) {
-      setActiveSession(prev => prev ? { ...prev, entries: prev.entries.filter(e => e.id !== entryId) } : null);
-    }
-  }, [activeSession, sessions]);
+    setSessions(prev => {
+      const updated = prev.map(s => ({
+        ...s,
+        entries: s.entries.filter(e => e.id !== entryId),
+      }));
+      saveSessions(updated);
+      return updated;
+    });
+    setActiveSession(prev => prev ? { ...prev, entries: prev.entries.filter(e => e.id !== entryId) } : null);
+  }, []);
 
   // Listen for add entry event from BottomNav
   useEffect(() => {
