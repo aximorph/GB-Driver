@@ -19,6 +19,7 @@ export default function ProfilePage() {
   const [googleConnected, setGoogleConnected] = useState(isGoogleConnected());
   const [isSyncing, setIsSyncing] = useState(false);
   const [isRestoring, setIsRestoring] = useState(false);
+  const [isAutoRestoring, setIsAutoRestoring] = useState(false);
   const [lastSync, setLastSync] = useState<string | null>(localStorage.getItem('gdrive_last_sync'));
 
   const handleSave = () => {
@@ -43,6 +44,20 @@ export default function ProfilePage() {
     try {
       await requestGoogleLogin();
       setGoogleConnected(true);
+      // Auto-restore once after successful login
+      setIsAutoRestoring(true);
+      try {
+        const found = await restoreFromDrive();
+        if (found) {
+          setProfile(getProfile());
+          // Brief delay so user sees the restoring indicator before reload
+          setTimeout(() => window.location.reload(), 800);
+        }
+      } catch (err) {
+        console.warn('Auto-restore failed:', err);
+      } finally {
+        setIsAutoRestoring(false);
+      }
     } catch (err) {
       console.error('Google login failed:', err);
       alert('Failed to connect to Google Drive.');
@@ -202,10 +217,16 @@ export default function ProfilePage() {
                 <LogOut size={18} />
               </button>
             </div>
+            {isAutoRestoring && (
+              <div className="flex items-center justify-center gap-2 py-2 text-xs font-bold text-primary animate-pulse">
+                <Download size={14} className="animate-bounce" />
+                Restoring your data from Drive…
+              </div>
+            )}
             <div className="grid grid-cols-2 gap-2">
               <button
                 onClick={handleManualSync}
-                disabled={isSyncing || isRestoring}
+                disabled={isSyncing || isRestoring || isAutoRestoring}
                 className="flex items-center justify-center gap-2 bg-secondary text-white py-3 rounded-2xl font-semibold text-sm border border-white/5 hover:bg-white/10 transition-colors disabled:opacity-50"
               >
                 <RefreshCw size={16} className={isSyncing ? 'animate-spin' : ''} />
@@ -213,7 +234,7 @@ export default function ProfilePage() {
               </button>
               <button
                 onClick={handleRestore}
-                disabled={isSyncing || isRestoring}
+                disabled={isSyncing || isRestoring || isAutoRestoring}
                 className="flex items-center justify-center gap-2 bg-secondary text-white py-3 rounded-2xl font-semibold text-sm border border-primary/20 hover:bg-primary/10 transition-colors disabled:opacity-50"
               >
                 <Download size={16} className={isRestoring ? 'animate-bounce' : ''} />
