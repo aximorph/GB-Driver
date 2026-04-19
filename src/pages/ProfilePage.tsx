@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
 import { DriverProfile } from '@/lib/types';
-import { getProfile, saveProfile } from '@/lib/storage';
-import { Zap, Fuel, Cloud, CheckCircle2, LogIn, RefreshCw, LogOut, Download } from 'lucide-react';
+import { getProfile, saveProfile, saveSessions } from '@/lib/storage';
+import { Zap, Fuel, Cloud, CheckCircle2, LogIn, RefreshCw, LogOut, Download, Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { initGoogleIdentity, requestGoogleLogin, backupDataToDrive, restoreFromDrive, isGoogleConnected, disconnectGoogle } from '@/lib/googleDrive';
+import SweetAlert from '@/components/SweetAlert';
 
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
@@ -21,6 +22,7 @@ export default function ProfilePage() {
   const [isRestoring, setIsRestoring] = useState(false);
   const [isAutoRestoring, setIsAutoRestoring] = useState(false);
   const [lastSync, setLastSync] = useState<string | null>(localStorage.getItem('gdrive_last_sync'));
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
 
   const handleSave = () => {
     const updated: DriverProfile = {
@@ -82,6 +84,14 @@ export default function ProfilePage() {
     } finally {
       setIsSyncing(false);
     }
+  };
+
+  const handleClearData = () => {
+    saveSessions([]);
+    localStorage.removeItem('gdrive_last_sync');
+    setLastSync(null);
+    window.dispatchEvent(new CustomEvent('gbdriver:session-changed'));
+    setShowClearConfirm(false);
   };
 
   const handleRestore = async () => {
@@ -246,9 +256,29 @@ export default function ProfilePage() {
                 Last backup: {format(new Date(lastSync), 'MMM d, h:mm a')}
               </p>
             )}
+
+            <button
+              onClick={() => setShowClearConfirm(true)}
+              disabled={isSyncing || isRestoring || isAutoRestoring}
+              className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl text-sm font-bold text-destructive border border-destructive/20 bg-destructive/5 hover:bg-destructive/10 transition-colors disabled:opacity-50"
+            >
+              <Trash2 size={15} />
+              Clear All Local Data
+            </button>
           </div>
         )}
       </div>
+
+      <SweetAlert
+        show={showClearConfirm}
+        icon="error"
+        title="Clear All Data?"
+        description="This will permanently delete all shift sessions and history from this device. Your Google Drive backup (if any) will not be affected."
+        confirmText="Yes, Clear"
+        cancelText="Cancel"
+        onConfirm={handleClearData}
+        onCancel={() => setShowClearConfirm(false)}
+      />
 
       {/* Work Schedule */}
       <div className="bg-card/70 backdrop-blur-xl border border-white/5 rounded-3xl p-5 space-y-4 shadow-xl">
