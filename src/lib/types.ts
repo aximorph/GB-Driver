@@ -1,9 +1,21 @@
+export interface IncentiveTier {
+  trips: number;
+  bonus: number;
+}
+
+export interface Incentive {
+  id: string;
+  name: string;
+  tiers: IncentiveTier[];
+}
+
 export interface DriverProfile {
   vehicleType: 'electric' | 'petrol';
   fuelType?: 'diesel' | '91' | '95' | 'e20';
-  chargingType?: 'home' | 'public'; // for electric vehicles
+  chargingType?: 'home' | 'public';
   commissionRate: number;
-  schedule: Record<string, { start: string; end: string; enabled: boolean }>;
+  dailyGoal?: number;
+  incentives?: Incentive[];
 }
 
 export interface ShiftSession {

@@ -202,6 +202,33 @@ export default function Dashboard() {
           <SummaryItem label="Tips" value={totalTips} color="text-warning text-xl" />
           <SummaryItem label="Expenses" value={totalExpenses} color="text-destructive text-xl" />
         </div>
+
+        {/* Daily Goal Progress */}
+        {profile?.dailyGoal && profile.dailyGoal > 0 && (
+          <div className="mt-5 pt-4 border-t border-white/5 space-y-2">
+            {(() => {
+              const pct = Math.min((netEarnings / profile.dailyGoal!) * 100, 100);
+              const reached = netEarnings >= profile.dailyGoal!;
+              return (
+                <>
+                  <div className="flex justify-between items-center">
+                    <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Daily Goal</span>
+                    <span className={`text-[10px] font-bold font-mono ${reached ? 'text-primary' : 'text-muted-foreground'}`}>
+                      ฿{netEarnings.toFixed(0)} / ฿{profile.dailyGoal!.toFixed(0)}
+                      {reached && ' ✓'}
+                    </span>
+                  </div>
+                  <div className="h-2 bg-white/5 rounded-full overflow-hidden">
+                    <div
+                      className={`h-full rounded-full transition-all duration-700 ${reached ? 'bg-primary shadow-[0_0_8px_rgba(0,242,96,0.5)]' : 'bg-primary/50'}`}
+                      style={{ width: `${pct}%` }}
+                    />
+                  </div>
+                </>
+              );
+            })()}
+          </div>
+        )}
       </div>
 
       {/* Recent Entries — เฉพาะ active session เท่านั้น หายเมื่อ end shift */}
