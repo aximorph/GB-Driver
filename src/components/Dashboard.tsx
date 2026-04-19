@@ -1,10 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ShiftSession, Entry, ShiftStatus } from '@/lib/types';
-import { getSessions, saveSessions, getActiveSession, getProfile } from '@/lib/storage';
+import { getSessions, saveSessions, getActiveSession, getProfile, saveProfile } from '@/lib/storage';
 import { isGoogleConnected, backupDataToDrive, scheduleMidnightExpiry } from '@/lib/googleDrive';
 import { format } from 'date-fns';
-import { Trash2, DollarSign, Receipt } from 'lucide-react';
+import { Trash2, DollarSign, Receipt, Gift } from 'lucide-react';
 import AddEntryModal from './AddEntryModal';
 import EndShiftModal from './EndShiftModal';
 import SweetAlert from './SweetAlert';
@@ -27,6 +27,16 @@ export default function Dashboard() {
   const profile = getProfile();
   const today = new Date().toISOString().split('T')[0];
 
+  // Auto-clear intensives from previous days at load time
+  useEffect(() => {
+    const p = getProfile();
+    if (!p?.intensives) return;
+    const cleaned = p.intensives.filter(i => i.date === today);
+    if (cleaned.length !== p.intensives.length) {
+      saveProfile({ ...p, intensives: cleaned });
+    }
+  }, []);
+
   // entries ของ session ที่กำลัง active เท่านั้น — หายเมื่อ end shift
   const activeEntries = activeSession?.entries ?? [];
 
@@ -39,6 +49,10 @@ export default function Dashboard() {
   const totalTips = todayEntries.filter(e => e.type === 'income').reduce((sum, e) => sum + (e.tip || 0), 0);
   const totalExpenses = todayEntries.filter(e => e.type === 'expense').reduce((sum, e) => sum + e.amount, 0);
   const netEarnings = grossEarnings + totalTips - totalExpenses;
+
+  // Intensive progress
+  const todayTrips = todayEntries.filter(e => e.type === 'income').length;
+  const todayIntensives = (profile?.intensives ?? []).filter(i => i.date === today);
 
   useEffect(() => {
     if (!activeSession) return;
@@ -230,6 +244,81 @@ export default function Dashboard() {
           </div>
         )}
       </div>
+
+      {/* Intensive Progress */}
+      {todayIntensives.length > 0 && (
+        <div className="space-y-3">
+          <h3 className="text-xs font-black text-muted-foreground px-2 tracking-widest uppercase">Intensive</h3>
+          {todayIntensives.map(intensive => {
+            const sortedTiers = [...intensive.tiers].sort((a, b) => a.trips - b.trips);
+            const reachedTiers = sortedTiers.filter(t => todayTrips >= t.trips);
+            const currentTier = reachedTiers[reachedTiers.length - 1] ?? null;
+            const nextTier = sortedTiers.find(t => todayTrips < t.trips) ?? null;
+            const totalBonus = currentTier?.bonus ?? 0;
+            const progressMax = nextTier?.trips ?? (currentTier?.trips ?? 1);
+            const progressFrom = currentTier?.trips ?? 0;
+            const pct = nextTier
+              ? ((todayTrips - progressFrom) / (nextTier.trips - progressFrom)) * 100
+              : 100;
+
+            return (
+              <div key={intensive.id} className="bg-card/80 backdrop-blur-xl border border-white/5 rounded-2xl p-5 shadow-xl space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Gift size={16} className="text-primary" />
+                    <span className="text-sm font-bold text-white">{intensive.name}</span>
+                  </div>
+                  {totalBonus > 0 && (
+                    <span className="text-xs font-mono font-extrabold text-primary bg-primary/10 border border-primary/20 px-2.5 py-1 rounded-lg">
+                      +฿{totalBonus}
+                    </span>
+                  )}
+                </div>
+
+                {/* Trip count + bar */}
+                <div className="space-y-1.5">
+                  <div className="flex justify-between items-center">
+                    <span className="text-xs font-bold text-muted-foreground">
+                      {todayTrips} trip{todayTrips !== 1 ? 's' : ''}
+                    </span>
+                    {nextTier ? (
+                      <span className="text-[10px] text-muted-foreground font-mono">
+                        {nextTier.trips - todayTrips} more → <span className="text-warning font-bold">+฿{nextTier.bonus}</span>
+                      </span>
+                    ) : (
+                      <span className="text-[10px] text-primary font-bold">Max tier reached ✓</span>
+                    )}
+                  </div>
+                  <div className="h-2 bg-white/5 rounded-full overflow-hidden">
+                    <div
+                      className={`h-full rounded-full transition-all duration-700 ${!nextTier ? 'bg-primary shadow-[0_0_8px_rgba(0,242,96,0.4)]' : 'bg-primary/60'}`}
+                      style={{ width: `${Math.min(pct, 100)}%` }}
+                    />
+                  </div>
+                </div>
+
+                {/* Tier badges */}
+                <div className="flex gap-2 flex-wrap">
+                  {sortedTiers.map((tier, idx) => {
+                    const reached = todayTrips >= tier.trips;
+                    return (
+                      <div key={idx} className={`flex items-center gap-1 px-2.5 py-1.5 rounded-xl border text-[11px] font-bold transition-all ${
+                        reached
+                          ? 'bg-primary/20 border-primary/30 text-primary'
+                          : 'bg-white/5 border-white/5 text-muted-foreground'
+                      }`}>
+                        <span>{tier.trips}×</span>
+                        <span>฿{tier.bonus}</span>
+                        {reached && <span className="text-[9px]">✓</span>}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       {/* Recent Entries — เฉพาะ active session เท่านั้น หายเมื่อ end shift */}
       {activeEntries.length > 0 && (

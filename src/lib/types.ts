@@ -1,12 +1,13 @@
-export interface IncentiveTier {
+export interface IntensiveTier {
   trips: number;
   bonus: number;
 }
 
-export interface Incentive {
+export interface Intensive {
   id: string;
   name: string;
-  tiers: IncentiveTier[];
+  date: string; // YYYY-MM-DD — the day this intensive applies to
+  tiers: IntensiveTier[];
 }
 
 export interface DriverProfile {
@@ -15,7 +16,7 @@ export interface DriverProfile {
   chargingType?: 'home' | 'public';
   commissionRate: number;
   dailyGoal?: number;
-  incentives?: Incentive[];
+  intensives?: Intensive[];
 }
 
 export interface ShiftSession {

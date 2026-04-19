@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
-import { DriverProfile, Incentive, IncentiveTier } from '@/lib/types';
+import { DriverProfile, Intensive, IntensiveTier } from '@/lib/types';
 import { getProfile, saveProfile, saveSessions } from '@/lib/storage';
-import { Zap, Fuel, Cloud, CheckCircle2, LogIn, RefreshCw, LogOut, Download, Trash2, Plus, Target, Gift, X, GripVertical, ChevronRight } from 'lucide-react';
+import { Zap, Fuel, Cloud, CheckCircle2, LogIn, RefreshCw, LogOut, Download, Trash2, Plus, Target, Gift, X, ChevronRight, CalendarDays } from 'lucide-react';
 import { format } from 'date-fns';
 import { initGoogleIdentity, requestGoogleLogin, backupDataToDrive, restoreFromDrive, isGoogleConnected, disconnectGoogle } from '@/lib/googleDrive';
 import SweetAlert from '@/components/SweetAlert';
@@ -10,22 +10,24 @@ function generateId() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2);
 }
 
-// ─── Incentive Modal ──────────────────────────────────────────────────────────
-interface IncentiveModalProps {
-  initial?: Incentive;
-  onSave: (incentive: Incentive) => void;
+const today = new Date().toISOString().split('T')[0];
+
+// ─── Intensive Modal ──────────────────────────────────────────────────────────
+interface IntensiveModalProps {
+  initial?: Intensive;
+  onSave: (intensive: Intensive) => void;
   onClose: () => void;
 }
 
-function IncentiveModal({ initial, onSave, onClose }: IncentiveModalProps) {
+function IntensiveModal({ initial, onSave, onClose }: IntensiveModalProps) {
   const [name, setName] = useState(initial?.name ?? '');
-  const [tiers, setTiers] = useState<IncentiveTier[]>(
+  const [tiers, setTiers] = useState<IntensiveTier[]>(
     initial?.tiers ?? [{ trips: 0, bonus: 0 }]
   );
 
   const addTier = () => setTiers(t => [...t, { trips: 0, bonus: 0 }]);
   const removeTier = (i: number) => setTiers(t => t.filter((_, idx) => idx !== i));
-  const updateTier = (i: number, field: keyof IncentiveTier, val: string) => {
+  const updateTier = (i: number, field: keyof IntensiveTier, val: string) => {
     setTiers(t => t.map((tier, idx) =>
       idx === i ? { ...tier, [field]: parseFloat(val) || 0 } : tier
     ));
@@ -34,7 +36,7 @@ function IncentiveModal({ initial, onSave, onClose }: IncentiveModalProps) {
   const handleSave = () => {
     if (!name.trim()) return;
     const sorted = [...tiers].sort((a, b) => a.trips - b.trips);
-    onSave({ id: initial?.id ?? generateId(), name: name.trim(), tiers: sorted });
+    onSave({ id: initial?.id ?? generateId(), name: name.trim(), date: today, tiers: sorted });
   };
 
   return (
@@ -50,7 +52,7 @@ function IncentiveModal({ initial, onSave, onClose }: IncentiveModalProps) {
         {/* Header */}
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-extrabold text-white">
-            {initial ? 'Edit Incentive' : 'New Incentive'}
+            {initial ? 'Edit Intensive' : 'New Intensive'}
           </h2>
           <button onClick={onClose} className="p-2 text-muted-foreground hover:text-white rounded-xl hover:bg-white/10 transition-all">
             <X size={20} />
@@ -59,7 +61,7 @@ function IncentiveModal({ initial, onSave, onClose }: IncentiveModalProps) {
 
         {/* Name */}
         <div className="space-y-1.5">
-          <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Incentive Name</label>
+          <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Intensive Name</label>
           <input
             type="text"
             value={name}
@@ -80,28 +82,23 @@ function IncentiveModal({ initial, onSave, onClose }: IncentiveModalProps) {
               <Plus size={13} /> Add Tier
             </button>
           </div>
-
-          {/* Column labels */}
           <div className="grid grid-cols-[1fr_1fr_32px] gap-2 px-1">
             <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest text-center">Trips</span>
             <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest text-center">Bonus (฿)</span>
             <span />
           </div>
-
           <div className="space-y-2 max-h-52 overflow-y-auto pr-0.5">
             {tiers.map((tier, i) => (
               <div key={i} className="grid grid-cols-[1fr_1fr_32px] gap-2 items-center">
                 <input
-                  type="number"
-                  min="0"
+                  type="number" min="0"
                   value={tier.trips || ''}
                   onChange={e => updateTier(i, 'trips', e.target.value)}
                   placeholder="5"
                   className="bg-secondary border border-white/10 rounded-xl px-3 py-2.5 text-sm font-mono text-white text-center outline-none focus:border-primary/50 transition-colors"
                 />
                 <input
-                  type="number"
-                  min="0"
+                  type="number" min="0"
                   value={tier.bonus || ''}
                   onChange={e => updateTier(i, 'bonus', e.target.value)}
                   placeholder="30"
@@ -125,7 +122,7 @@ function IncentiveModal({ initial, onSave, onClose }: IncentiveModalProps) {
           disabled={!name.trim()}
           className="w-full py-4 rounded-2xl bg-gradient-to-r from-primary to-[#00b050] text-white font-extrabold text-sm shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-[0.98] transition-transform disabled:opacity-40 disabled:scale-100"
         >
-          Save Incentive
+          Save Intensive
         </button>
       </div>
     </div>
@@ -139,7 +136,11 @@ export default function ProfilePage() {
   const [fuelType, setFuelType] = useState<DriverProfile['fuelType']>(profile?.fuelType || '95');
   const [chargingType, setChargingType] = useState<'home' | 'public'>(profile?.chargingType || 'home');
   const [dailyGoal, setDailyGoal] = useState<string>(profile?.dailyGoal ? String(profile.dailyGoal) : '');
-  const [incentives, setIncentives] = useState<Incentive[]>(profile?.incentives ?? []);
+
+  // Only show today's intensives
+  const [intensives, setIntensives] = useState<Intensive[]>(
+    (profile?.intensives ?? []).filter(i => i.date === today)
+  );
 
   const [saved, setSaved] = useState(false);
   const [googleConnected, setGoogleConnected] = useState(isGoogleConnected());
@@ -148,20 +149,23 @@ export default function ProfilePage() {
   const [isAutoRestoring, setIsAutoRestoring] = useState(false);
   const [lastSync, setLastSync] = useState<string | null>(localStorage.getItem('gdrive_last_sync'));
   const [showClearConfirm, setShowClearConfirm] = useState(false);
-  const [showIncentiveModal, setShowIncentiveModal] = useState(false);
-  const [editingIncentive, setEditingIncentive] = useState<Incentive | undefined>(undefined);
-  const [deleteIncentiveId, setDeleteIncentiveId] = useState<string | null>(null);
+  const [showIntensiveModal, setShowIntensiveModal] = useState(false);
+  const [editingIntensive, setEditingIntensive] = useState<Intensive | undefined>(undefined);
+  const [deleteIntensiveId, setDeleteIntensiveId] = useState<string | null>(null);
 
   useEffect(() => { initGoogleIdentity(); }, []);
 
   const handleSave = () => {
+    // Merge today's intensives back with any other-day intensives still in storage
+    const allStored = getProfile()?.intensives ?? [];
+    const otherDays = allStored.filter(i => i.date !== today);
     const updated: DriverProfile = {
       vehicleType,
       fuelType: vehicleType === 'petrol' ? fuelType : undefined,
       chargingType: vehicleType === 'electric' ? chargingType : undefined,
       commissionRate: profile?.commissionRate || 0.20,
       dailyGoal: dailyGoal ? parseFloat(dailyGoal) : undefined,
-      incentives,
+      intensives: [...otherDays, ...intensives],
     };
     saveProfile(updated);
     setProfile(updated);
@@ -237,19 +241,19 @@ export default function ProfilePage() {
     setShowClearConfirm(false);
   };
 
-  // ── Incentive handlers ─────────────────────────────────────────────────────
-  const handleSaveIncentive = (incentive: Incentive) => {
-    setIncentives(prev => {
-      const exists = prev.find(i => i.id === incentive.id);
-      return exists ? prev.map(i => i.id === incentive.id ? incentive : i) : [...prev, incentive];
+  // ── Intensive handlers ─────────────────────────────────────────────────────
+  const handleSaveIntensive = (intensive: Intensive) => {
+    setIntensives(prev => {
+      const exists = prev.find(i => i.id === intensive.id);
+      return exists ? prev.map(i => i.id === intensive.id ? intensive : i) : [...prev, intensive];
     });
-    setShowIncentiveModal(false);
-    setEditingIncentive(undefined);
+    setShowIntensiveModal(false);
+    setEditingIntensive(undefined);
   };
 
-  const handleDeleteIncentive = (id: string) => {
-    setIncentives(prev => prev.filter(i => i.id !== id));
-    setDeleteIncentiveId(null);
+  const handleDeleteIntensive = (id: string) => {
+    setIntensives(prev => prev.filter(i => i.id !== id));
+    setDeleteIntensiveId(null);
   };
 
   return (
@@ -278,33 +282,21 @@ export default function ProfilePage() {
             </button>
           ))}
         </div>
-
         <div className={`transition-all duration-300 ease-in-out ${vehicleType === 'petrol' ? 'max-h-40 opacity-100 mt-4' : 'max-h-0 opacity-0 overflow-hidden'}`}>
           <div className="grid grid-cols-4 gap-2 pt-3 border-t border-white/5">
             {(['diesel', '91', '95', 'e20'] as const).map(fuel => (
-              <button
-                key={fuel}
-                onClick={() => setFuelType(fuel)}
-                className={`py-2 rounded-xl text-xs font-bold transition-all ${
-                  fuelType === fuel ? 'bg-primary/20 text-primary border border-primary/30' : 'bg-secondary border border-white/5 text-muted-foreground hover:border-white/10'
-                }`}
-              >
+              <button key={fuel} onClick={() => setFuelType(fuel)}
+                className={`py-2 rounded-xl text-xs font-bold transition-all ${fuelType === fuel ? 'bg-primary/20 text-primary border border-primary/30' : 'bg-secondary border border-white/5 text-muted-foreground hover:border-white/10'}`}>
                 {fuel.toUpperCase()}
               </button>
             ))}
           </div>
         </div>
-
         <div className={`transition-all duration-300 ease-in-out ${vehicleType === 'electric' ? 'max-h-40 opacity-100 mt-4' : 'max-h-0 opacity-0 overflow-hidden'}`}>
           <div className="grid grid-cols-2 gap-2 pt-3 border-t border-white/5">
             {([{ value: 'home', label: 'Home Charging' }, { value: 'public', label: 'Public Charging' }] as const).map(opt => (
-              <button
-                key={opt.value}
-                onClick={() => setChargingType(opt.value)}
-                className={`py-2.5 rounded-xl text-xs font-bold transition-all ${
-                  chargingType === opt.value ? 'bg-primary/20 text-primary border border-primary/30' : 'bg-secondary border border-white/5 text-muted-foreground hover:border-white/10'
-                }`}
-              >
+              <button key={opt.value} onClick={() => setChargingType(opt.value)}
+                className={`py-2.5 rounded-xl text-xs font-bold transition-all ${chargingType === opt.value ? 'bg-primary/20 text-primary border border-primary/30' : 'bg-secondary border border-white/5 text-muted-foreground hover:border-white/10'}`}>
                 {opt.label}
               </button>
             ))}
@@ -322,8 +314,7 @@ export default function ProfilePage() {
         <div className="relative">
           <span className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground font-bold text-sm">฿</span>
           <input
-            type="number"
-            min="0"
+            type="number" min="0"
             value={dailyGoal}
             onChange={e => setDailyGoal(e.target.value)}
             placeholder="1,200"
@@ -332,52 +323,50 @@ export default function ProfilePage() {
         </div>
       </div>
 
-      {/* ── Incentives ────────────────────────────────────────────────────── */}
+      {/* ── Today's Intensives ────────────────────────────────────────────── */}
       <div className="bg-card/70 backdrop-blur-xl border border-white/5 rounded-3xl p-5 space-y-4 shadow-xl">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Gift size={20} className="text-primary" />
-            <h3 className="text-sm font-bold tracking-widest text-muted-foreground uppercase">Incentives</h3>
+            <h3 className="text-sm font-bold tracking-widest text-muted-foreground uppercase">Intensives</h3>
           </div>
           <button
-            onClick={() => { setEditingIncentive(undefined); setShowIncentiveModal(true); }}
+            onClick={() => { setEditingIntensive(undefined); setShowIntensiveModal(true); }}
             className="flex items-center gap-1.5 text-xs font-bold text-primary bg-primary/10 hover:bg-primary/20 px-3 py-2 rounded-xl transition-colors"
           >
             <Plus size={14} /> Add
           </button>
         </div>
 
-        {incentives.length === 0 ? (
-          <p className="text-center text-xs text-muted-foreground py-4">No incentives yet. Tap + to add one.</p>
+        {/* Daily-reset notice */}
+        <div className="flex items-center gap-2 bg-white/5 border border-white/5 rounded-2xl px-3 py-2">
+          <CalendarDays size={13} className="text-muted-foreground shrink-0" />
+          <p className="text-[11px] text-muted-foreground leading-relaxed">
+            Intensives reset every day at <span className="text-white font-bold">00:00</span>. Add today's intensive each morning based on your platform's offer.
+          </p>
+        </div>
+
+        {intensives.length === 0 ? (
+          <p className="text-center text-xs text-muted-foreground py-3">No intensives for today. Tap + to add one.</p>
         ) : (
           <div className="space-y-2">
-            {incentives.map(inc => {
+            {intensives.map(inc => {
               const topTier = [...inc.tiers].sort((a, b) => b.trips - a.trips)[0];
               return (
-                <div
-                  key={inc.id}
-                  className="flex items-center justify-between bg-secondary/40 border border-white/5 rounded-2xl p-4 group"
-                >
-                  <button
-                    className="flex-1 text-left"
-                    onClick={() => { setEditingIncentive(inc); setShowIncentiveModal(true); }}
-                  >
+                <div key={inc.id} className="flex items-center justify-between bg-secondary/40 border border-white/5 rounded-2xl p-4 group">
+                  <button className="flex-1 text-left" onClick={() => { setEditingIntensive(inc); setShowIntensiveModal(true); }}>
                     <p className="text-sm font-bold text-white">{inc.name}</p>
                     <p className="text-xs text-muted-foreground mt-0.5">
                       {inc.tiers.length} tier{inc.tiers.length > 1 ? 's' : ''} · up to ฿{topTier?.bonus ?? 0} at {topTier?.trips ?? 0} trips
                     </p>
                   </button>
                   <div className="flex items-center gap-1">
-                    <button
-                      onClick={() => { setEditingIncentive(inc); setShowIncentiveModal(true); }}
-                      className="p-2 text-muted-foreground hover:text-white rounded-xl hover:bg-white/10 transition-all"
-                    >
+                    <button onClick={() => { setEditingIntensive(inc); setShowIntensiveModal(true); }}
+                      className="p-2 text-muted-foreground hover:text-white rounded-xl hover:bg-white/10 transition-all">
                       <ChevronRight size={16} />
                     </button>
-                    <button
-                      onClick={() => setDeleteIncentiveId(inc.id)}
-                      className="p-2 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-xl transition-all opacity-0 group-hover:opacity-100"
-                    >
+                    <button onClick={() => setDeleteIntensiveId(inc.id)}
+                      className="p-2 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-xl transition-all opacity-0 group-hover:opacity-100">
                       <Trash2 size={14} />
                     </button>
                   </div>
@@ -394,14 +383,11 @@ export default function ProfilePage() {
           <Cloud size={20} className="text-primary" />
           <h3 className="text-sm font-bold tracking-widest text-muted-foreground uppercase">Google Drive Backup</h3>
         </div>
-
         {!googleConnected ? (
           <div className="flex flex-col gap-3">
             <p className="text-xs font-medium text-muted-foreground">Log in with your Google account to automatically backup your shift history and profile to Google Drive.</p>
-            <button
-              onClick={handleGoogleConnect}
-              className="w-full flex items-center justify-center gap-3 bg-white text-black py-3.5 rounded-2xl font-bold text-sm hover:bg-gray-200 transition-colors"
-            >
+            <button onClick={handleGoogleConnect}
+              className="w-full flex items-center justify-center gap-3 bg-white text-black py-3.5 rounded-2xl font-bold text-sm hover:bg-gray-200 transition-colors">
               <LogIn size={18} /> Login with Google
             </button>
           </div>
@@ -425,19 +411,13 @@ export default function ProfilePage() {
               </div>
             )}
             <div className="grid grid-cols-2 gap-2">
-              <button
-                onClick={handleManualSync}
-                disabled={isSyncing || isRestoring || isAutoRestoring}
-                className="flex items-center justify-center gap-2 bg-secondary text-white py-3 rounded-2xl font-semibold text-sm border border-white/5 hover:bg-white/10 transition-colors disabled:opacity-50"
-              >
+              <button onClick={handleManualSync} disabled={isSyncing || isRestoring || isAutoRestoring}
+                className="flex items-center justify-center gap-2 bg-secondary text-white py-3 rounded-2xl font-semibold text-sm border border-white/5 hover:bg-white/10 transition-colors disabled:opacity-50">
                 <RefreshCw size={16} className={isSyncing ? 'animate-spin' : ''} />
                 {isSyncing ? 'Backing up...' : 'Backup ↑'}
               </button>
-              <button
-                onClick={handleRestore}
-                disabled={isSyncing || isRestoring || isAutoRestoring}
-                className="flex items-center justify-center gap-2 bg-secondary text-white py-3 rounded-2xl font-semibold text-sm border border-primary/20 hover:bg-primary/10 transition-colors disabled:opacity-50"
-              >
+              <button onClick={handleRestore} disabled={isSyncing || isRestoring || isAutoRestoring}
+                className="flex items-center justify-center gap-2 bg-secondary text-white py-3 rounded-2xl font-semibold text-sm border border-primary/20 hover:bg-primary/10 transition-colors disabled:opacity-50">
                 <Download size={16} className={isRestoring ? 'animate-bounce' : ''} />
                 {isRestoring ? 'Restoring...' : 'Restore ↓'}
               </button>
@@ -447,11 +427,8 @@ export default function ProfilePage() {
                 Last backup: {format(new Date(lastSync), 'MMM d, h:mm a')}
               </p>
             )}
-            <button
-              onClick={() => setShowClearConfirm(true)}
-              disabled={isSyncing || isRestoring || isAutoRestoring}
-              className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl text-sm font-bold text-destructive border border-destructive/20 bg-destructive/5 hover:bg-destructive/10 transition-colors disabled:opacity-50"
-            >
+            <button onClick={() => setShowClearConfirm(true)} disabled={isSyncing || isRestoring || isAutoRestoring}
+              className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl text-sm font-bold text-destructive border border-destructive/20 bg-destructive/5 hover:bg-destructive/10 transition-colors disabled:opacity-50">
               <Trash2 size={15} /> Clear All Local Data
             </button>
           </div>
@@ -469,23 +446,23 @@ export default function ProfilePage() {
       </button>
 
       {/* ── Modals / Alerts ───────────────────────────────────────────────── */}
-      {showIncentiveModal && (
-        <IncentiveModal
-          initial={editingIncentive}
-          onSave={handleSaveIncentive}
-          onClose={() => { setShowIncentiveModal(false); setEditingIncentive(undefined); }}
+      {showIntensiveModal && (
+        <IntensiveModal
+          initial={editingIntensive}
+          onSave={handleSaveIntensive}
+          onClose={() => { setShowIntensiveModal(false); setEditingIntensive(undefined); }}
         />
       )}
 
       <SweetAlert
-        show={!!deleteIncentiveId}
+        show={!!deleteIntensiveId}
         icon="warning"
-        title="Delete Incentive?"
-        description="This incentive will be removed. Make sure to save your profile after."
+        title="Delete Intensive?"
+        description="This intensive will be removed. Make sure to save your profile after."
         confirmText="Delete"
         cancelText="Cancel"
-        onConfirm={() => deleteIncentiveId && handleDeleteIncentive(deleteIncentiveId)}
-        onCancel={() => setDeleteIncentiveId(null)}
+        onConfirm={() => deleteIntensiveId && handleDeleteIntensive(deleteIntensiveId)}
+        onCancel={() => setDeleteIntensiveId(null)}
       />
 
       <SweetAlert
