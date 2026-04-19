@@ -1,21 +1,27 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { ShiftSession, Entry, ShiftStatus } from '@/lib/types';
 import { getSessions, saveSessions, getActiveSession, getProfile } from '@/lib/storage';
+import { isGoogleConnected, backupDataToDrive, scheduleMidnightExpiry } from '@/lib/googleDrive';
 import { format } from 'date-fns';
 import { Trash2, DollarSign, Receipt } from 'lucide-react';
 import AddEntryModal from './AddEntryModal';
 import EndShiftModal from './EndShiftModal';
+import SweetAlert from './SweetAlert';
 
 function generateId() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2);
 }
 
 export default function Dashboard() {
+  const navigate = useNavigate();
   const [sessions, setSessions] = useState<ShiftSession[]>(getSessions());
   const [activeSession, setActiveSession] = useState<ShiftSession | null>(getActiveSession());
   const [elapsed, setElapsed] = useState(0);
   const [showAddEntry, setShowAddEntry] = useState(false);
   const [showEndShift, setShowEndShift] = useState(false);
+  const [showLoginAlert, setShowLoginAlert] = useState(false);
+  const [isBackingUp, setIsBackingUp] = useState(false);
 
   const status: ShiftStatus = activeSession ? 'on_shift' : 'offline';
   const profile = getProfile();
@@ -51,6 +57,11 @@ export default function Dashboard() {
   };
 
   const startShift = () => {
+    // ต้อง login Google ก่อน
+    if (!isGoogleConnected()) {
+      setShowLoginAlert(true);
+      return;
+    }
     const session: ShiftSession = {
       id: generateId(),
       date: today,
@@ -85,7 +96,6 @@ export default function Dashboard() {
 
   const endShift = useCallback((grabPayout: number) => {
     if (!activeSession) return;
-    // functional update — guarantees we get the absolute latest entries
     setSessions(prev => {
       const updated = prev.map(s =>
         s.id === activeSession.id
@@ -93,6 +103,15 @@ export default function Dashboard() {
           : s
       );
       saveSessions(updated);
+
+      // Auto backup หลัง end shift (silent — ไม่บล็อก UI)
+      if (isGoogleConnected()) {
+        setIsBackingUp(true);
+        backupDataToDrive()
+          .catch(err => console.warn('Auto backup failed:', err))
+          .finally(() => setIsBackingUp(false));
+      }
+
       return updated;
     });
     setActiveSession(null);
@@ -116,6 +135,14 @@ export default function Dashboard() {
     const handler = () => setShowAddEntry(true);
     window.addEventListener('gbdriver:open-add-entry', handler);
     return () => window.removeEventListener('gbdriver:open-add-entry', handler);
+  }, []);
+
+  // ตั้ง timer logout ตี 0:00 และ listen event เมื่อ token หมดอายุ
+  useEffect(() => {
+    scheduleMidnightExpiry();
+    const handler = () => setShowLoginAlert(true);
+    window.addEventListener('gbdriver:google-disconnected', handler);
+    return () => window.removeEventListener('gbdriver:google-disconnected', handler);
   }, []);
 
   return (
@@ -240,6 +267,24 @@ export default function Dashboard() {
           onConfirm={(payout) => { endShift(payout); setShowEndShift(false); }}
           onClose={() => setShowEndShift(false)}
         />
+      )}
+
+      <SweetAlert
+        show={showLoginAlert}
+        icon="warning"
+        title="Login Required"
+        description="Please connect your Google account before starting a shift. Your data will be backed up automatically."
+        confirmText="Go to Profile"
+        cancelText="Cancel"
+        onConfirm={() => { setShowLoginAlert(false); navigate('/profile'); }}
+        onCancel={() => setShowLoginAlert(false)}
+      />
+
+      {isBackingUp && (
+        <div className="fixed bottom-28 left-1/2 -translate-x-1/2 bg-card/90 backdrop-blur-xl border border-white/10 rounded-full px-4 py-2 shadow-xl flex items-center gap-2 z-50 animate-in fade-in slide-in-from-bottom-2 duration-300">
+          <span className="w-2 h-2 rounded-full bg-primary animate-pulse"></span>
+          <span className="text-xs font-bold text-muted-foreground">Backing up to Drive…</span>
+        </div>
       )}
     </div>
   );

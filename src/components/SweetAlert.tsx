@@ -6,7 +6,9 @@ interface SweetAlertProps {
   title: string;
   description?: string;
   confirmText?: string;
+  cancelText?: string;
   onConfirm: () => void;
+  onCancel?: () => void;
 }
 
 const ICON_CONFIG = {
@@ -42,15 +44,19 @@ export default function SweetAlert({
   title,
   description,
   confirmText = 'OK',
+  cancelText,
   onConfirm,
+  onCancel,
 }: SweetAlertProps) {
+  const handleDismiss = () => (onCancel ?? onConfirm)();
+
   // Close on Escape
   useEffect(() => {
     if (!show) return;
-    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onConfirm(); };
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') handleDismiss(); };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [show, onConfirm]);
+  }, [show, onConfirm, onCancel]);
 
   if (!show) return null;
 
@@ -65,6 +71,7 @@ export default function SweetAlert({
       <div
         className="w-full max-w-[320px] bg-card/95 border border-white/10 rounded-3xl shadow-2xl p-8 flex flex-col items-center gap-5 animate-in zoom-in-90 fade-in duration-200"
         onClick={e => e.stopPropagation()}
+        style={{ boxShadow: '0 25px 60px rgba(0,0,0,0.6)' }}
       >
         {/* Icon circle */}
         <div className={`w-20 h-20 rounded-full flex items-center justify-center border-2 shadow-lg ${cfg.bg} ${cfg.border} ${cfg.ring}`}>
@@ -79,14 +86,24 @@ export default function SweetAlert({
           )}
         </div>
 
-        {/* Button */}
-        <button
-          onClick={onConfirm}
-          autoFocus
-          className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-primary to-[#00b050] text-white font-extrabold text-sm shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-[0.98] transition-transform"
-        >
-          {confirmText}
-        </button>
+        {/* Buttons */}
+        <div className={`w-full ${cancelText ? 'grid grid-cols-2 gap-3' : ''}`}>
+          {cancelText && onCancel && (
+            <button
+              onClick={onCancel}
+              className="w-full py-3.5 rounded-2xl bg-secondary text-muted-foreground font-bold text-sm border border-white/5 hover:bg-white/10 active:scale-[0.98] transition-all"
+            >
+              {cancelText}
+            </button>
+          )}
+          <button
+            onClick={onConfirm}
+            autoFocus
+            className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-primary to-[#00b050] text-white font-extrabold text-sm shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-[0.98] transition-transform"
+          >
+            {confirmText}
+          </button>
+        </div>
       </div>
     </div>
   );

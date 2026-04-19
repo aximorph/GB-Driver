@@ -8,11 +8,34 @@ declare global {
 
 const CLIENT_ID = '540767703144-9h94ro0h0nu4rrsr9m9g0svedm6a2cga.apps.googleusercontent.com';
 const SCOPES = 'https://www.googleapis.com/auth/drive.file';
+const TOKEN_KEY = 'gdrive_token';
+const TOKEN_DATE_KEY = 'gdrive_token_date'; // วันที่ login (YYYY-MM-DD)
 
 let tokenClient: any = null;
-// Use localStorage so "connected" state persists across sessions
-// (actual token still expires, but UI remembers user was connected)
-let accessToken: string | null = localStorage.getItem('gdrive_token');
+let accessToken: string | null = null;
+
+// ตรวจสอบ token เมื่อ load — ถ้าเป็นของเมื่อวานให้ clear ออก
+function loadToken(): string | null {
+  const token = localStorage.getItem(TOKEN_KEY);
+  const tokenDate = localStorage.getItem(TOKEN_DATE_KEY);
+  const today = new Date().toISOString().split('T')[0];
+  if (token && tokenDate === today) return token;
+  // token หมดอายุ (วันใหม่)
+  if (token) {
+    localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(TOKEN_DATE_KEY);
+  }
+  return null;
+}
+
+accessToken = loadToken();
+
+function saveToken(token: string) {
+  const today = new Date().toISOString().split('T')[0];
+  accessToken = token;
+  localStorage.setItem(TOKEN_KEY, token);
+  localStorage.setItem(TOKEN_DATE_KEY, today);
+}
 
 export function isGoogleConnected(): boolean {
   return !!accessToken;
@@ -25,7 +48,21 @@ export function disconnectGoogle() {
     } catch (e) {}
   }
   accessToken = null;
-  localStorage.removeItem('gdrive_token');
+  localStorage.removeItem(TOKEN_KEY);
+  localStorage.removeItem(TOKEN_DATE_KEY);
+  localStorage.removeItem('gdrive_last_sync');
+}
+
+// ตั้ง timer ให้ logout อัตโนมัติตอน 00:00
+export function scheduleMidnightExpiry() {
+  const now = new Date();
+  const midnight = new Date(now);
+  midnight.setHours(24, 0, 0, 0);
+  const ms = midnight.getTime() - now.getTime();
+  setTimeout(() => {
+    disconnectGoogle();
+    window.dispatchEvent(new CustomEvent('gbdriver:google-disconnected'));
+  }, ms);
 }
 
 export function initGoogleIdentity(): Promise<void> {
@@ -54,8 +91,7 @@ function setupClient() {
     scope: SCOPES,
     callback: (response: any) => {
       if (response && response.access_token) {
-        accessToken = response.access_token;
-        localStorage.setItem('gdrive_token', response.access_token);
+        saveToken(response.access_token);
       }
     },
   });
@@ -68,8 +104,7 @@ export function requestGoogleLogin(): Promise<string> {
       if (response.error) {
         reject(response);
       } else {
-        accessToken = response.access_token;
-        localStorage.setItem('gdrive_token', response.access_token);
+        saveToken(response.access_token);
         resolve(response.access_token);
       }
     };
