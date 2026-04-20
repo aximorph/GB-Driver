@@ -128,34 +128,31 @@ function IntensiveModal({ initial, onSave, onClose }: IntensiveModalProps) {
               <Plus size={13} /> Add Tier
             </button>
           </div>
-          <div className="grid grid-cols-[1fr_1fr_32px] gap-2 px-1">
-            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest text-center">Trips</span>
-            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest text-center">Bonus (฿)</span>
-            <span />
-          </div>
           <div className="space-y-2 max-h-52 overflow-y-auto pr-0.5">
             {tiers.map((tier, i) => (
-              <div key={i} className="grid grid-cols-[1fr_1fr_32px] gap-2 items-center">
+              <div key={i} className="flex items-center gap-2 bg-secondary/40 border border-white/5 rounded-2xl px-3 py-2.5">
+                <span className="text-[10px] font-bold text-muted-foreground w-5 shrink-0">{i + 1}.</span>
                 <input
                   type="number" min="0"
                   value={tier.trips || ''}
                   onChange={e => updateTier(i, 'trips', e.target.value)}
-                  placeholder="5"
-                  className="bg-secondary border border-white/10 rounded-xl px-3 py-2.5 text-sm font-mono text-white text-center outline-none focus:border-primary/50 transition-colors"
+                  placeholder="0"
+                  className="w-14 bg-black/20 border border-white/10 rounded-lg px-2 py-1.5 text-sm font-mono text-white text-center outline-none focus:border-primary/50 transition-colors shrink-0"
                 />
+                <span className="text-[11px] text-muted-foreground shrink-0">trips → ฿</span>
                 <input
                   type="number" min="0"
                   value={tier.bonus || ''}
                   onChange={e => updateTier(i, 'bonus', e.target.value)}
-                  placeholder="30"
-                  className="bg-secondary border border-white/10 rounded-xl px-3 py-2.5 text-sm font-mono text-white text-center outline-none focus:border-primary/50 transition-colors"
+                  placeholder="0"
+                  className="w-16 bg-black/20 border border-white/10 rounded-lg px-2 py-1.5 text-sm font-mono text-white text-center outline-none focus:border-primary/50 transition-colors shrink-0"
                 />
                 <button
                   onClick={() => removeTier(i)}
                   disabled={tiers.length === 1}
-                  className="w-8 h-8 flex items-center justify-center rounded-xl text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-all disabled:opacity-20"
+                  className="ml-auto w-7 h-7 flex items-center justify-center rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-all disabled:opacity-20 shrink-0"
                 >
-                  <X size={15} />
+                  <X size={13} />
                 </button>
               </div>
             ))}
