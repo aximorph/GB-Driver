@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { DriverProfile, Intensive, IntensiveTier, IntensiveCountsFor } from '@/lib/types';
-import { getProfile, saveProfile, saveSessions } from '@/lib/storage';
+import { getProfile, saveProfile, saveSessions, getSessions } from '@/lib/storage';
 import { Zap, Fuel, Cloud, CheckCircle2, LogIn, RefreshCw, LogOut, Download, Trash2, Plus, Target, Gift, X, ChevronRight, Clock3 } from 'lucide-react';
 import { format } from 'date-fns';
 import { initGoogleIdentity, requestGoogleLogin, backupDataToDrive, restoreFromDrive, isGoogleConnected, disconnectGoogle } from '@/lib/googleDrive';
@@ -275,17 +275,24 @@ export default function ProfilePage() {
     try {
       await requestGoogleLogin();
       setGoogleConnected(true);
-      setIsAutoRestoring(true);
-      try {
-        const found = await restoreFromDrive();
-        if (found) {
-          setProfile(getProfile());
-          setTimeout(() => window.location.reload(), 800);
+
+      // Auto-restore ONLY when this device has no local data at all.
+      // If local sessions exist they are assumed to be newer — skip restore
+      // to prevent overwriting data the user hasn't backed up yet.
+      const hasLocalData = getSessions().length > 0;
+      if (!hasLocalData) {
+        setIsAutoRestoring(true);
+        try {
+          const found = await restoreFromDrive();
+          if (found) {
+            setProfile(getProfile());
+            setTimeout(() => window.location.reload(), 800);
+          }
+        } catch (err) {
+          console.warn('Auto-restore failed:', err);
+        } finally {
+          setIsAutoRestoring(false);
         }
-      } catch (err) {
-        console.warn('Auto-restore failed:', err);
-      } finally {
-        setIsAutoRestoring(false);
       }
     } catch (err) {
       console.error('Google login failed:', err);
