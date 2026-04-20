@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { DriverProfile, Intensive, IntensiveTier } from '@/lib/types';
+import { DriverProfile, Intensive, IntensiveTier, IntensiveCountsFor } from '@/lib/types';
 import { getProfile, saveProfile, saveSessions } from '@/lib/storage';
 import { Zap, Fuel, Cloud, CheckCircle2, LogIn, RefreshCw, LogOut, Download, Trash2, Plus, Target, Gift, X, ChevronRight, Clock3 } from 'lucide-react';
 import { format } from 'date-fns';
@@ -57,6 +57,7 @@ function IntensiveModal({ initial, onSave, onClose }: IntensiveModalProps) {
   const [tiers, setTiers] = useState<IntensiveTier[]>(
     initial?.tiers ?? [{ trips: 0, bonus: 0 }]
   );
+  const [countsFor, setCountsFor] = useState<IntensiveCountsFor>(initial?.countsFor ?? 'ride');
   const [hasTimeWindow, setHasTimeWindow] = useState(!!(initial?.startTime || initial?.endTime));
   const [startTime, setStartTime] = useState(initial?.startTime ?? '15:00');
   const [endTime, setEndTime] = useState(initial?.endTime ?? '20:00');
@@ -76,6 +77,7 @@ function IntensiveModal({ initial, onSave, onClose }: IntensiveModalProps) {
       id: initial?.id ?? generateId(),
       name: name.trim(),
       enabled: initial?.enabled ?? true,
+      countsFor,
       startTime: hasTimeWindow ? startTime : undefined,
       endTime: hasTimeWindow ? endTime : undefined,
       tiers: sorted,
@@ -112,6 +114,27 @@ function IntensiveModal({ initial, onSave, onClose }: IntensiveModalProps) {
             placeholder="e.g. Monday Peak, Weekend Special"
             className="w-full bg-secondary border border-white/10 rounded-2xl px-4 py-3 text-sm text-white placeholder:text-muted-foreground outline-none focus:border-primary/50 transition-colors"
           />
+        </div>
+
+        {/* Counts For */}
+        <div className="space-y-1.5">
+          <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Counts For</label>
+          <div className="flex bg-secondary/60 p-1 rounded-2xl border border-white/5 gap-1">
+            {([
+              { value: 'ride',    label: 'ส่งคน' },
+              { value: 'express', label: 'ส่งของ' },
+              { value: 'all',     label: 'ทั้งหมด' },
+            ] as const).map(opt => (
+              <button key={opt.value} type="button" onClick={() => setCountsFor(opt.value)}
+                className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all ${
+                  countsFor === opt.value
+                    ? 'bg-primary/20 text-primary border border-primary/30'
+                    : 'text-muted-foreground hover:text-white'
+                }`}>
+                {opt.label}
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* Time Window (optional) */}
@@ -214,7 +237,8 @@ export default function ProfilePage() {
   const [intensives, setIntensives] = useState<Intensive[]>(
     (profile?.intensives ?? []).map(i => ({
       ...i,
-      enabled: i.enabled ?? true, // migrate old items without enabled field
+      enabled: i.enabled ?? true,
+      countsFor: i.countsFor ?? 'ride', // migrate old items
     }))
   );
 
@@ -438,10 +462,17 @@ export default function ProfilePage() {
                   {/* Info (click to edit) */}
                   <button className="flex-1 text-left min-w-0" onClick={() => { setEditingIntensive(inc); setShowIntensiveModal(true); }}>
                     <p className={`text-sm font-bold truncate ${inc.enabled ? 'text-white' : 'text-muted-foreground'}`}>{inc.name}</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      {inc.tiers.length} tier{inc.tiers.length > 1 ? 's' : ''} · up to ฿{topTier?.bonus ?? 0} at {topTier?.trips ?? 0} trips
-                      {inc.startTime && <span className="ml-1.5 font-mono">· {inc.startTime}–{inc.endTime}</span>}
-                    </p>
+                    <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                      <span className="text-[10px] font-bold bg-white/5 border border-white/10 px-1.5 py-0.5 rounded-md text-muted-foreground">
+                        {inc.countsFor === 'ride' ? 'ส่งคน' : inc.countsFor === 'express' ? 'ส่งของ' : 'ทั้งหมด'}
+                      </span>
+                      <span className="text-xs text-muted-foreground">
+                        up to ฿{topTier?.bonus ?? 0} · {inc.tiers.length} tier{inc.tiers.length > 1 ? 's' : ''}
+                      </span>
+                      {inc.startTime && (
+                        <span className="text-[10px] font-mono text-muted-foreground">{inc.startTime}–{inc.endTime}</span>
+                      )}
+                    </div>
                   </button>
 
                   {/* Edit + Delete */}

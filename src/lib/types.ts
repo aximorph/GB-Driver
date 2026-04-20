@@ -3,12 +3,15 @@ export interface IntensiveTier {
   bonus: number;
 }
 
+export type IntensiveCountsFor = 'ride' | 'express' | 'all';
+
 export interface Intensive {
   id: string;
   name: string;
-  enabled: boolean;   // user can toggle on/off without deleting
-  startTime?: string; // "HH:mm" optional — only count trips within this window
-  endTime?: string;   // "HH:mm" optional
+  enabled: boolean;
+  countsFor: IntensiveCountsFor; // which Grab order types count toward this intensive
+  startTime?: string;
+  endTime?: string;
   tiers: IntensiveTier[];
 }
 

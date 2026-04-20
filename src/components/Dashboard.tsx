@@ -13,15 +13,18 @@ function generateId() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2);
 }
 
-// Count income trips that fall within the intensive's time window (if set).
-// Only Grab ride orders count — Bolt orders and express orders are excluded.
+// Count income trips eligible for this intensive.
+// Bolt orders never count. Order type filter depends on intensive.countsFor.
 function countEligibleTrips(entries: Entry[], intensive: Intensive): number {
-  const trips = entries.filter(e =>
-    e.type === 'income' &&
-    !e.note?.startsWith('Intensive:') &&
-    (e.platform === 'grab' || !e.platform) &&    // exclude Bolt
-    (e.orderType === 'ride' || !e.orderType)     // exclude express
-  );
+  const cf = intensive.countsFor ?? 'ride';
+  const trips = entries.filter(e => {
+    if (e.type !== 'income') return false;
+    if (e.note?.startsWith('Intensive:')) return false;
+    if (e.platform === 'bolt') return false; // Bolt never counts
+    if (cf === 'ride') return (e.orderType === 'ride' || !e.orderType);
+    if (cf === 'express') return e.orderType === 'express';
+    return true; // 'all' — any Grab order
+  });
   if (!intensive.startTime && !intensive.endTime) return trips.length;
   return trips.filter(e => {
     const d = new Date(e.timestamp);
