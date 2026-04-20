@@ -13,6 +13,8 @@ interface Props {
 
 export default function AddEntryModal({ onSave, onClose }: Props) {
   const [type, setType] = useState<'income' | 'expense'>('income');
+  const [platform, setPlatform] = useState<'grab' | 'bolt'>('grab');
+  const [orderType, setOrderType] = useState<'ride' | 'express'>('ride');
   const [appFare, setAppFare] = useState('');
   const [customerPaid, setCustomerPaid] = useState('');
   const [driverReceived, setDriverReceived] = useState('');
@@ -27,19 +29,16 @@ export default function AddEntryModal({ onSave, onClose }: Props) {
   const profile = getProfile();
   const isFuelSelected = type === 'expense' && expenseCategory === 'Fuel';
 
-  // Fetch fuel price when Fuel category is selected
   useEffect(() => {
     if (!isFuelSelected) return;
-    if (fuelPrice !== null) return; // already fetched
-    if (!profile?.fuelType) return; // electric or not set
-
+    if (fuelPrice !== null) return;
+    if (!profile?.fuelType) return;
     setFuelLoading(true);
     getFuelPrice(profile.fuelType)
       .then(price => setFuelPrice(price))
       .finally(() => setFuelLoading(false));
   }, [isFuelSelected, profile?.fuelType]);
 
-  // Auto-calculate liters from amount ÷ price
   const fuelLiters =
     isFuelSelected && fuelPrice && fuelPrice > 0 && parseFloat(amount) > 0
       ? (parseFloat(amount) / fuelPrice).toFixed(2)
@@ -55,7 +54,7 @@ export default function AddEntryModal({ onSave, onClose }: Props) {
   const handleSave = () => {
     if (type === 'income') {
       if (!fareNum) return;
-      onSave({ type, appFare: fareNum, customerPaid: paidNum, tip, driverNet, amount: fareNum, note });
+      onSave({ type, platform, orderType, appFare: fareNum, customerPaid: paidNum, tip, driverNet, amount: fareNum, note });
     } else {
       const expAmount = parseFloat(amount) || 0;
       if (!expAmount) return;
@@ -70,7 +69,7 @@ export default function AddEntryModal({ onSave, onClose }: Props) {
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-end justify-center" onClick={onClose}>
-      <div className="w-full max-w-[430px] bg-card/95 backdrop-blur-3xl border-t border-white/10 rounded-t-[2rem] p-6 space-y-6 shadow-[0_-20px_60px_-15px_rgba(0,0,0,0.7)] animate-in slide-in-from-bottom" onClick={e => e.stopPropagation()}>
+      <div className="w-full max-w-[430px] bg-card/95 backdrop-blur-3xl border-t border-white/10 rounded-t-[2rem] p-6 space-y-5 shadow-[0_-20px_60px_-15px_rgba(0,0,0,0.7)] animate-in slide-in-from-bottom" onClick={e => e.stopPropagation()}>
         <div className="flex justify-between items-center px-1">
           <h2 className="text-xl font-extrabold text-white">Add Entry</h2>
           <button onClick={onClose} className="text-muted-foreground hover:text-white transition-colors bg-white/5 rounded-full w-8 h-8 flex items-center justify-center">✕</button>
@@ -79,14 +78,12 @@ export default function AddEntryModal({ onSave, onClose }: Props) {
         {/* Type Toggle */}
         <div className="flex bg-secondary/50 p-1.5 rounded-2xl border border-white/5">
           {(['income', 'expense'] as const).map(t => (
-            <button
-              key={t}
-              onClick={() => setType(t)}
-              className={`flex-1 py-3 rounded-xl text-sm font-bold transition-all duration-300 ${type === t
+            <button key={t} onClick={() => setType(t)}
+              className={`flex-1 py-3 rounded-xl text-sm font-bold transition-all duration-300 ${
+                type === t
                   ? t === 'income' ? 'bg-primary text-white shadow-md scale-[0.98]' : 'bg-destructive text-white shadow-md scale-[0.98]'
                   : 'text-muted-foreground hover:text-white'
-                }`}
-            >
+              }`}>
               {t === 'income' ? 'Income' : 'Expense'}
             </button>
           ))}
@@ -94,6 +91,49 @@ export default function AddEntryModal({ onSave, onClose }: Props) {
 
         {type === 'income' ? (
           <div className="space-y-4">
+            {/* Platform + Order Type */}
+            <div className="flex gap-2">
+              {/* Platform */}
+              <div className="flex bg-secondary/60 p-1 rounded-xl border border-white/5 gap-1 flex-1">
+                {(['grab', 'bolt'] as const).map(p => (
+                  <button key={p} onClick={() => setPlatform(p)}
+                    className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                      platform === p ? 'bg-primary/20 text-primary border border-primary/30' : 'text-muted-foreground hover:text-white'
+                    }`}>
+                    {p === 'grab' ? 'Grab' : 'Bolt'}
+                  </button>
+                ))}
+              </div>
+              {/* Order Type */}
+              <div className="flex bg-secondary/60 p-1 rounded-xl border border-white/5 gap-1 flex-1">
+                {([
+                  { value: 'ride', label: 'ส่งคน' },
+                  { value: 'express', label: 'ส่งของ' },
+                ] as const).map(o => (
+                  <button key={o.value} onClick={() => setOrderType(o.value)}
+                    className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                      orderType === o.value ? 'bg-primary/20 text-primary border border-primary/30' : 'text-muted-foreground hover:text-white'
+                    }`}>
+                    {o.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Express / Bolt notice */}
+            {(orderType === 'express' || platform === 'bolt') && (
+              <div className="flex items-center gap-2 bg-warning/5 border border-warning/15 rounded-xl px-3 py-2">
+                <span className="text-warning text-xs">⚠</span>
+                <p className="text-[11px] text-muted-foreground">
+                  {orderType === 'express' && platform === 'bolt'
+                    ? 'Bolt express orders'
+                    : orderType === 'express'
+                    ? 'Express orders'
+                    : 'Bolt orders'} won't count toward intensive missions.
+                </p>
+              </div>
+            )}
+
             <InputField label="App Fare" prefix="฿" value={appFare} onChange={setAppFare} />
             <InputField label="Customer Paid" prefix="฿" value={customerPaid} onChange={setCustomerPaid} />
             <InputField label="Driver Received" prefix="฿" value={driverReceived} onChange={setDriverReceived} />
@@ -114,18 +154,13 @@ export default function AddEntryModal({ onSave, onClose }: Props) {
               <label className="text-xs text-muted-foreground mb-1 block">Category</label>
               <select
                 value={expenseCategory}
-                onChange={e => {
-                  setExpenseCategory(e.target.value);
-                  setAmount('');
-                  setFuelLiters('');
-                }}
+                onChange={e => { setExpenseCategory(e.target.value); setAmount(''); }}
                 className="w-full bg-secondary text-foreground rounded-lg p-2.5 text-sm border border-border"
               >
                 {EXPENSE_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
               </select>
             </div>
 
-            {/* Fuel-specific: show price per liter, user enters amount paid */}
             {isFuelSelected && (
               <div className="bg-primary/5 border border-primary/15 rounded-2xl p-4 space-y-3">
                 <div className="flex items-center justify-between">
@@ -137,16 +172,12 @@ export default function AddEntryModal({ onSave, onClose }: Props) {
                   ) : fuelPrice !== null ? (
                     <span className="font-mono font-bold text-primary text-sm">
                       ฿{fuelPrice.toFixed(2)}/L
-                      {profile?.fuelType && (
-                        <span className="text-muted-foreground font-normal ml-1">({profile.fuelType.toUpperCase()})</span>
-                      )}
+                      {profile?.fuelType && <span className="text-muted-foreground font-normal ml-1">({profile.fuelType.toUpperCase()})</span>}
                     </span>
                   ) : (
                     <span className="text-xs text-muted-foreground">Set fuel type in Profile</span>
                   )}
                 </div>
-
-                {/* Result: show calculated liters */}
                 {fuelLiters !== null && (
                   <div className="bg-black/20 rounded-xl p-3 flex justify-between items-center border border-white/5">
                     <span className="text-xs text-muted-foreground">฿{amount} ÷ ฿{fuelPrice?.toFixed(2)}/L</span>
@@ -156,29 +187,19 @@ export default function AddEntryModal({ onSave, onClose }: Props) {
               </div>
             )}
 
-            <InputField
-              label={isFuelSelected ? 'Amount Paid' : 'Amount'}
-              prefix="฿"
-              value={amount}
-              onChange={setAmount}
-            />
+            <InputField label={isFuelSelected ? 'Amount Paid' : 'Amount'} prefix="฿" value={amount} onChange={setAmount} />
           </div>
         )}
 
         <div>
           <label className="text-xs text-muted-foreground mb-1 block">Note (optional)</label>
-          <input
-            value={note}
-            onChange={e => setNote(e.target.value)}
+          <input value={note} onChange={e => setNote(e.target.value)}
             className="w-full bg-secondary text-foreground rounded-lg p-2.5 text-sm border border-border"
-            placeholder="Add a note..."
-          />
+            placeholder="Add a note..." />
         </div>
 
-        <button
-          onClick={handleSave}
-          className="w-full py-4 rounded-2xl bg-gradient-to-r from-primary to-[#00b050] text-white font-extrabold text-base shadow-lg shadow-primary/20 hover:scale-[1.02] transition-transform"
-        >
+        <button onClick={handleSave}
+          className="w-full py-4 rounded-2xl bg-gradient-to-r from-primary to-[#00b050] text-white font-extrabold text-base shadow-lg shadow-primary/20 hover:scale-[1.02] transition-transform">
           Save Entry
         </button>
       </div>
@@ -186,22 +207,19 @@ export default function AddEntryModal({ onSave, onClose }: Props) {
   );
 }
 
-function InputField({ label, prefix, value, onChange, readOnly }: { label: string; prefix: string; value: string; onChange: (v: string) => void; readOnly?: boolean }) {
+function InputField({ label, prefix, value, onChange, readOnly }: {
+  label: string; prefix: string; value: string; onChange: (v: string) => void; readOnly?: boolean;
+}) {
   return (
     <div>
       <label className="text-xs font-medium text-muted-foreground mb-1.5 block px-1">{label}</label>
       <div className="relative">
         <span className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground text-base font-medium">{prefix}</span>
-        <input
-          type="number"
-          value={value}
-          onChange={e => onChange(e.target.value)}
-          readOnly={readOnly}
+        <input type="number" value={value} onChange={e => onChange(e.target.value)} readOnly={readOnly}
           className={`w-full bg-input/40 text-white rounded-xl p-3.5 pl-10 text-base font-mono border border-white/5 transition-all placeholder:text-muted-foreground/50 outline-none ${
             readOnly ? 'opacity-70 cursor-default' : 'focus:bg-input/80 focus:border-primary/50'
           }`}
-          placeholder="0"
-        />
+          placeholder="0" />
       </div>
     </div>
   );

@@ -13,10 +13,14 @@ function generateId() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2);
 }
 
-// Count income trips that fall within the intensive's time window (if set)
+// Count income trips that fall within the intensive's time window (if set).
+// Only Grab ride orders count — Bolt orders and express orders are excluded.
 function countEligibleTrips(entries: Entry[], intensive: Intensive): number {
-  const trips = entries.filter(
-    e => e.type === 'income' && !e.note?.startsWith('Intensive:')
+  const trips = entries.filter(e =>
+    e.type === 'income' &&
+    !e.note?.startsWith('Intensive:') &&
+    (e.platform === 'grab' || !e.platform) &&    // exclude Bolt
+    (e.orderType === 'ride' || !e.orderType)     // exclude express
   );
   if (!intensive.startTime && !intensive.endTime) return trips.length;
   return trips.filter(e => {
@@ -130,12 +134,14 @@ export default function Dashboard() {
 
   const endShift = useCallback((grabPayout: number) => {
     if (!activeSession) return;
+
     setSessions(prev => {
       // ── Build intensive bonus entries ──────────────────────────────────────
+      // NOTE: prev already contains the active session with all its entries.
+      // Do NOT concat activeSession.entries — that would double-count them.
       const allTodayEntries = prev
         .filter(s => s.date === today)
-        .flatMap(s => s.entries)
-        .concat(activeSession.entries); // include current (unsaved) entries
+        .flatMap(s => s.entries);
 
       const bonusEntries: Entry[] = [];
       const todayIntensivesNow = (getProfile()?.intensives ?? []).filter(i => i.date === today);
@@ -164,28 +170,27 @@ export default function Dashboard() {
 
       const updated = prev.map(s =>
         s.id === activeSession.id
-          ? {
-              ...s,
-              endTime: new Date().toISOString(),
-              grabPayoutAmount: grabPayout,
-              entries: [...s.entries, ...bonusEntries],
-            }
+          ? { ...s, endTime: new Date().toISOString(), grabPayoutAmount: grabPayout, entries: [...s.entries, ...bonusEntries] }
           : s
       );
       saveSessions(updated);
-
-      // Auto backup หลัง end shift (silent — ไม่บล็อก UI)
-      if (isGoogleConnected()) {
-        setIsBackingUp(true);
-        backupDataToDrive()
-          .catch(err => console.warn('Auto backup failed:', err))
-          .finally(() => setIsBackingUp(false));
-      }
-
       return updated;
     });
+
     setActiveSession(null);
     window.dispatchEvent(new CustomEvent('gbdriver:session-changed'));
+
+    // ── Auto backup OUTSIDE setSessions (side-effects must not live in updaters)
+    if (isGoogleConnected()) {
+      setIsBackingUp(true);
+      backupDataToDrive()
+        .then(() => {
+          const syncTime = new Date().toISOString();
+          localStorage.setItem('gdrive_last_sync', syncTime);
+        })
+        .catch(err => console.warn('Auto backup failed:', err))
+        .finally(() => setIsBackingUp(false));
+    }
   }, [activeSession]);
 
   const deleteEntry = useCallback((entryId: string) => {
@@ -416,9 +421,22 @@ export default function Dashboard() {
                     {entry.type === 'income' ? <DollarSign size={20} strokeWidth={2.5} /> : <Receipt size={20} strokeWidth={2.5} />}
                   </div>
                   <div>
-                    <h4 className="font-bold text-sm text-foreground">
-                      {entry.type === 'income' ? 'Income' : (entry.expenseCategory || 'Expense')}
-                    </h4>
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <h4 className="font-bold text-sm text-foreground">
+                        {entry.type === 'income'
+                          ? entry.note?.startsWith('Intensive:') ? entry.note : (entry.orderType === 'express' ? 'ส่งของ' : 'ส่งคน')
+                          : (entry.expenseCategory || 'Expense')}
+                      </h4>
+                      {entry.type === 'income' && !entry.note?.startsWith('Intensive:') && (
+                        <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-md uppercase ${
+                          entry.platform === 'bolt'
+                            ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/20'
+                            : 'bg-primary/15 text-primary border border-primary/20'
+                        }`}>
+                          {entry.platform === 'bolt' ? 'Bolt' : 'Grab'}
+                        </span>
+                      )}
+                    </div>
                     <p className="text-xs text-muted-foreground font-medium">
                       {format(new Date(entry.timestamp), 'h:mm a')}
                       {entry.fuelLiters && entry.fuelLiters > 0 && (
