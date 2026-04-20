@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { DriverProfile, Intensive, IntensiveTier } from '@/lib/types';
 import { getProfile, saveProfile, saveSessions } from '@/lib/storage';
-import { Zap, Fuel, Cloud, CheckCircle2, LogIn, RefreshCw, LogOut, Download, Trash2, Plus, Target, Gift, X, ChevronRight, CalendarDays, Clock3 } from 'lucide-react';
+import { Zap, Fuel, Cloud, CheckCircle2, LogIn, RefreshCw, LogOut, Download, Trash2, Plus, Target, Gift, X, ChevronRight, Clock3 } from 'lucide-react';
 import { format } from 'date-fns';
 import { initGoogleIdentity, requestGoogleLogin, backupDataToDrive, restoreFromDrive, isGoogleConnected, disconnectGoogle } from '@/lib/googleDrive';
 import SweetAlert from '@/components/SweetAlert';
@@ -10,7 +10,6 @@ function generateId() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2);
 }
 
-const today = new Date().toISOString().split('T')[0];
 
 // ─── 24-hour Time Picker ─────────────────────────────────────────────────────
 function TimePicker24({ value, onChange }: { value: string; onChange: (v: string) => void }) {
@@ -59,7 +58,7 @@ function IntensiveModal({ initial, onSave, onClose }: IntensiveModalProps) {
     initial?.tiers ?? [{ trips: 0, bonus: 0 }]
   );
   const [hasTimeWindow, setHasTimeWindow] = useState(!!(initial?.startTime || initial?.endTime));
-  const [startTime, setStartTime] = useState(initial?.startTime ?? '08:00');
+  const [startTime, setStartTime] = useState(initial?.startTime ?? '15:00');
   const [endTime, setEndTime] = useState(initial?.endTime ?? '20:00');
 
   const addTier = () => setTiers(t => [...t, { trips: 0, bonus: 0 }]);
@@ -76,7 +75,7 @@ function IntensiveModal({ initial, onSave, onClose }: IntensiveModalProps) {
     onSave({
       id: initial?.id ?? generateId(),
       name: name.trim(),
-      date: today,
+      enabled: initial?.enabled ?? true,
       startTime: hasTimeWindow ? startTime : undefined,
       endTime: hasTimeWindow ? endTime : undefined,
       tiers: sorted,
@@ -212,9 +211,11 @@ export default function ProfilePage() {
   const [chargingType, setChargingType] = useState<'home' | 'public'>(profile?.chargingType || 'home');
   const [dailyGoal, setDailyGoal] = useState<string>(profile?.dailyGoal ? String(profile.dailyGoal) : '');
 
-  // Only show today's intensives
   const [intensives, setIntensives] = useState<Intensive[]>(
-    (profile?.intensives ?? []).filter(i => i.date === today)
+    (profile?.intensives ?? []).map(i => ({
+      ...i,
+      enabled: i.enabled ?? true, // migrate old items without enabled field
+    }))
   );
 
   const [saved, setSaved] = useState(false);
@@ -231,16 +232,13 @@ export default function ProfilePage() {
   useEffect(() => { initGoogleIdentity(); }, []);
 
   const handleSave = () => {
-    // Merge today's intensives back with any other-day intensives still in storage
-    const allStored = getProfile()?.intensives ?? [];
-    const otherDays = allStored.filter(i => i.date !== today);
     const updated: DriverProfile = {
       vehicleType,
       fuelType: vehicleType === 'petrol' ? fuelType : undefined,
       chargingType: vehicleType === 'electric' ? chargingType : undefined,
       commissionRate: profile?.commissionRate || 0.20,
       dailyGoal: dailyGoal ? parseFloat(dailyGoal) : undefined,
-      intensives: [...otherDays, ...intensives],
+      intensives,
     };
     saveProfile(updated);
     setProfile(updated);
@@ -331,6 +329,10 @@ export default function ProfilePage() {
     setDeleteIntensiveId(null);
   };
 
+  const toggleIntensive = (id: string) => {
+    setIntensives(prev => prev.map(i => i.id === id ? { ...i, enabled: !i.enabled } : i));
+  };
+
   return (
     <div className="pb-24 p-4 space-y-5 relative animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full blur-3xl -z-10 translate-x-16 -translate-y-16" />
@@ -413,30 +415,37 @@ export default function ProfilePage() {
           </button>
         </div>
 
-        {/* Daily-reset notice */}
-        <div className="flex items-center gap-2 bg-white/5 border border-white/5 rounded-2xl px-3 py-2">
-          <CalendarDays size={13} className="text-muted-foreground shrink-0" />
-          <p className="text-[11px] text-muted-foreground leading-relaxed">
-            Intensives reset every day at <span className="text-white font-bold">00:00</span>. Add today's intensive each morning based on your platform's offer.
-          </p>
-        </div>
-
         {intensives.length === 0 ? (
-          <p className="text-center text-xs text-muted-foreground py-3">No intensives for today. Tap + to add one.</p>
+          <p className="text-center text-xs text-muted-foreground py-3">No intensives yet. Tap + to add one.</p>
         ) : (
           <div className="space-y-2">
             {intensives.map(inc => {
               const topTier = [...inc.tiers].sort((a, b) => b.trips - a.trips)[0];
               return (
-                <div key={inc.id} className="flex items-center justify-between bg-secondary/40 border border-white/5 rounded-2xl p-4 group">
-                  <button className="flex-1 text-left" onClick={() => { setEditingIntensive(inc); setShowIntensiveModal(true); }}>
-                    <p className="text-sm font-bold text-white">{inc.name}</p>
+                <div key={inc.id} className={`flex items-center gap-3 border rounded-2xl p-4 group transition-all ${
+                  inc.enabled
+                    ? 'bg-secondary/40 border-white/5'
+                    : 'bg-white/[0.02] border-white/5 opacity-50'
+                }`}>
+                  {/* Toggle */}
+                  <button
+                    onClick={() => toggleIntensive(inc.id)}
+                    className={`shrink-0 w-10 h-6 rounded-full relative transition-all ${inc.enabled ? 'bg-primary' : 'bg-white/10'}`}
+                  >
+                    <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${inc.enabled ? 'left-5' : 'left-1'}`} />
+                  </button>
+
+                  {/* Info (click to edit) */}
+                  <button className="flex-1 text-left min-w-0" onClick={() => { setEditingIntensive(inc); setShowIntensiveModal(true); }}>
+                    <p className={`text-sm font-bold truncate ${inc.enabled ? 'text-white' : 'text-muted-foreground'}`}>{inc.name}</p>
                     <p className="text-xs text-muted-foreground mt-0.5">
                       {inc.tiers.length} tier{inc.tiers.length > 1 ? 's' : ''} · up to ฿{topTier?.bonus ?? 0} at {topTier?.trips ?? 0} trips
-                      {inc.startTime && <span className="ml-1.5 font-mono text-[10px]">· {inc.startTime}–{inc.endTime}</span>}
+                      {inc.startTime && <span className="ml-1.5 font-mono">· {inc.startTime}–{inc.endTime}</span>}
                     </p>
                   </button>
-                  <div className="flex items-center gap-1">
+
+                  {/* Edit + Delete */}
+                  <div className="flex items-center gap-1 shrink-0">
                     <button onClick={() => { setEditingIntensive(inc); setShowIntensiveModal(true); }}
                       className="p-2 text-muted-foreground hover:text-white rounded-xl hover:bg-white/10 transition-all">
                       <ChevronRight size={16} />

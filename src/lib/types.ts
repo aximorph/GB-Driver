@@ -6,7 +6,7 @@ export interface IntensiveTier {
 export interface Intensive {
   id: string;
   name: string;
-  date: string;       // YYYY-MM-DD — the day this intensive applies to
+  enabled: boolean;   // user can toggle on/off without deleting
   startTime?: string; // "HH:mm" optional — only count trips within this window
   endTime?: string;   // "HH:mm" optional
   tiers: IntensiveTier[];

@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ShiftSession, Entry, ShiftStatus, Intensive } from '@/lib/types';
-import { getSessions, saveSessions, getActiveSession, getProfile, saveProfile } from '@/lib/storage';
+import { getSessions, saveSessions, getActiveSession, getProfile } from '@/lib/storage';
 import { isGoogleConnected, backupDataToDrive, scheduleMidnightExpiry } from '@/lib/googleDrive';
 import { format } from 'date-fns';
 import { Trash2, DollarSign, Receipt, Gift, Clock3 } from 'lucide-react';
@@ -52,15 +52,6 @@ export default function Dashboard() {
   const profile = getProfile();
   const today = new Date().toISOString().split('T')[0];
 
-  // Auto-clear intensives from previous days at load time
-  useEffect(() => {
-    const p = getProfile();
-    if (!p?.intensives) return;
-    const cleaned = p.intensives.filter(i => i.date === today);
-    if (cleaned.length !== p.intensives.length) {
-      saveProfile({ ...p, intensives: cleaned });
-    }
-  }, []);
 
   // entries ของ session ที่กำลัง active เท่านั้น — หายเมื่อ end shift
   const activeEntries = activeSession?.entries ?? [];
@@ -75,8 +66,8 @@ export default function Dashboard() {
   const totalExpenses = todayEntries.filter(e => e.type === 'expense').reduce((sum, e) => sum + e.amount, 0);
   const netEarnings = grossEarnings + totalTips - totalExpenses;
 
-  // Intensive — exclude entries that are already-recorded bonus entries from counting
-  const todayIntensives = (profile?.intensives ?? []).filter(i => i.date === today);
+  // Only show enabled intensives
+  const todayIntensives = (profile?.intensives ?? []).filter(i => i.enabled !== false);
 
   useEffect(() => {
     if (!activeSession) return;
@@ -144,7 +135,7 @@ export default function Dashboard() {
         .flatMap(s => s.entries);
 
       const bonusEntries: Entry[] = [];
-      const todayIntensivesNow = (getProfile()?.intensives ?? []).filter(i => i.date === today);
+      const todayIntensivesNow = (getProfile()?.intensives ?? []).filter(i => i.enabled !== false);
 
       for (const intensive of todayIntensivesNow) {
         const eligible = countEligibleTrips(allTodayEntries, intensive);
