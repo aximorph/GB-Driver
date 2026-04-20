@@ -1,16 +1,37 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ShiftSession, Entry, ShiftStatus } from '@/lib/types';
+import { ShiftSession, Entry, ShiftStatus, Intensive } from '@/lib/types';
 import { getSessions, saveSessions, getActiveSession, getProfile, saveProfile } from '@/lib/storage';
 import { isGoogleConnected, backupDataToDrive, scheduleMidnightExpiry } from '@/lib/googleDrive';
 import { format } from 'date-fns';
-import { Trash2, DollarSign, Receipt, Gift } from 'lucide-react';
+import { Trash2, DollarSign, Receipt, Gift, Clock3 } from 'lucide-react';
 import AddEntryModal from './AddEntryModal';
 import EndShiftModal from './EndShiftModal';
 import SweetAlert from './SweetAlert';
 
 function generateId() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2);
+}
+
+// Count income trips that fall within the intensive's time window (if set)
+function countEligibleTrips(entries: Entry[], intensive: Intensive): number {
+  const trips = entries.filter(
+    e => e.type === 'income' && !e.note?.startsWith('Intensive:')
+  );
+  if (!intensive.startTime && !intensive.endTime) return trips.length;
+  return trips.filter(e => {
+    const d = new Date(e.timestamp);
+    const hhmm = `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`;
+    return hhmm >= (intensive.startTime ?? '00:00') && hhmm <= (intensive.endTime ?? '23:59');
+  }).length;
+}
+
+// Return the highest reached tier's bonus (0 if none)
+function getEarnedBonus(intensive: Intensive, eligibleTrips: number): number {
+  const reached = [...intensive.tiers]
+    .sort((a, b) => a.trips - b.trips)
+    .filter(t => eligibleTrips >= t.trips);
+  return reached[reached.length - 1]?.bonus ?? 0;
 }
 
 export default function Dashboard() {
@@ -50,8 +71,7 @@ export default function Dashboard() {
   const totalExpenses = todayEntries.filter(e => e.type === 'expense').reduce((sum, e) => sum + e.amount, 0);
   const netEarnings = grossEarnings + totalTips - totalExpenses;
 
-  // Intensive progress
-  const todayTrips = todayEntries.filter(e => e.type === 'income').length;
+  // Intensive — exclude entries that are already-recorded bonus entries from counting
   const todayIntensives = (profile?.intensives ?? []).filter(i => i.date === today);
 
   useEffect(() => {
@@ -111,9 +131,45 @@ export default function Dashboard() {
   const endShift = useCallback((grabPayout: number) => {
     if (!activeSession) return;
     setSessions(prev => {
+      // ── Build intensive bonus entries ──────────────────────────────────────
+      const allTodayEntries = prev
+        .filter(s => s.date === today)
+        .flatMap(s => s.entries)
+        .concat(activeSession.entries); // include current (unsaved) entries
+
+      const bonusEntries: Entry[] = [];
+      const todayIntensivesNow = (getProfile()?.intensives ?? []).filter(i => i.date === today);
+
+      for (const intensive of todayIntensivesNow) {
+        const eligible = countEligibleTrips(allTodayEntries, intensive);
+        const bonus = getEarnedBonus(intensive, eligible);
+        if (bonus <= 0) continue;
+
+        // Skip if bonus already recorded in a previous session today
+        const alreadyRecorded = allTodayEntries.some(
+          e => e.note === `Intensive: ${intensive.name}`
+        );
+        if (alreadyRecorded) continue;
+
+        bonusEntries.push({
+          id: generateId(),
+          sessionId: activeSession.id,
+          timestamp: new Date().toISOString(),
+          type: 'income',
+          amount: bonus,
+          driverNet: bonus,
+          note: `Intensive: ${intensive.name}`,
+        });
+      }
+
       const updated = prev.map(s =>
         s.id === activeSession.id
-          ? { ...s, endTime: new Date().toISOString(), grabPayoutAmount: grabPayout }
+          ? {
+              ...s,
+              endTime: new Date().toISOString(),
+              grabPayoutAmount: grabPayout,
+              entries: [...s.entries, ...bonusEntries],
+            }
           : s
       );
       saveSessions(updated);
@@ -251,48 +307,70 @@ export default function Dashboard() {
           <h3 className="text-xs font-black text-muted-foreground px-2 tracking-widest uppercase">Intensive</h3>
           {todayIntensives.map(intensive => {
             const sortedTiers = [...intensive.tiers].sort((a, b) => a.trips - b.trips);
-            const reachedTiers = sortedTiers.filter(t => todayTrips >= t.trips);
-            const currentTier = reachedTiers[reachedTiers.length - 1] ?? null;
-            const nextTier = sortedTiers.find(t => todayTrips < t.trips) ?? null;
-            const totalBonus = currentTier?.bonus ?? 0;
-            const progressMax = nextTier?.trips ?? (currentTier?.trips ?? 1);
+            const eligibleTrips = countEligibleTrips(todayEntries, intensive);
+            const earnedBonus = getEarnedBonus(intensive, eligibleTrips);
+            const currentTier = [...sortedTiers].filter(t => eligibleTrips >= t.trips).pop() ?? null;
+            const nextTier = sortedTiers.find(t => eligibleTrips < t.trips) ?? null;
             const progressFrom = currentTier?.trips ?? 0;
             const pct = nextTier
-              ? ((todayTrips - progressFrom) / (nextTier.trips - progressFrom)) * 100
+              ? ((eligibleTrips - progressFrom) / (nextTier.trips - progressFrom)) * 100
               : 100;
 
+            // Check if bonus already recorded (from a previous shift today)
+            const alreadyRecorded = todayEntries.some(
+              e => e.note === `Intensive: ${intensive.name}`
+            );
+
+            // Is current time within the intensive window?
+            const now = new Date();
+            const nowHHMM = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+            const isInWindow = !intensive.startTime || (nowHHMM >= intensive.startTime && nowHHMM <= (intensive.endTime ?? '23:59'));
+
             return (
-              <div key={intensive.id} className="bg-card/80 backdrop-blur-xl border border-white/5 rounded-2xl p-5 shadow-xl space-y-3">
+              <div key={intensive.id} className={`bg-card/80 backdrop-blur-xl border rounded-2xl p-5 shadow-xl space-y-3 ${!isInWindow ? 'border-white/5 opacity-70' : 'border-white/5'}`}>
+                {/* Header */}
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <Gift size={16} className="text-primary" />
+                    <Gift size={16} className={isInWindow ? 'text-primary' : 'text-muted-foreground'} />
                     <span className="text-sm font-bold text-white">{intensive.name}</span>
+                    {!isInWindow && (
+                      <span className="text-[10px] text-muted-foreground bg-white/5 px-2 py-0.5 rounded-md font-mono">outside window</span>
+                    )}
                   </div>
-                  {totalBonus > 0 && (
-                    <span className="text-xs font-mono font-extrabold text-primary bg-primary/10 border border-primary/20 px-2.5 py-1 rounded-lg">
-                      +฿{totalBonus}
-                    </span>
-                  )}
+                  {alreadyRecorded ? (
+                    <span className="text-[10px] font-bold text-primary bg-primary/10 border border-primary/20 px-2 py-1 rounded-lg">Recorded ✓</span>
+                  ) : earnedBonus > 0 ? (
+                    <span className="text-xs font-mono font-extrabold text-warning bg-warning/10 border border-warning/20 px-2.5 py-1 rounded-lg">+฿{earnedBonus} pending</span>
+                  ) : null}
                 </div>
+
+                {/* Time window badge */}
+                {(intensive.startTime || intensive.endTime) && (
+                  <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground font-mono">
+                    <Clock3 size={11} />
+                    <span>{intensive.startTime ?? '00:00'} – {intensive.endTime ?? '23:59'}</span>
+                    {isInWindow && <span className="text-primary font-bold ml-1">● Active</span>}
+                  </div>
+                )}
 
                 {/* Trip count + bar */}
                 <div className="space-y-1.5">
                   <div className="flex justify-between items-center">
                     <span className="text-xs font-bold text-muted-foreground">
-                      {todayTrips} trip{todayTrips !== 1 ? 's' : ''}
+                      {eligibleTrips} eligible trip{eligibleTrips !== 1 ? 's' : ''}
                     </span>
                     {nextTier ? (
                       <span className="text-[10px] text-muted-foreground font-mono">
-                        {nextTier.trips - todayTrips} more → <span className="text-warning font-bold">+฿{nextTier.bonus}</span>
+                        {nextTier.trips - eligibleTrips} more → <span className="text-warning font-bold">+฿{nextTier.bonus}</span>
                       </span>
-                    ) : (
+                    ) : earnedBonus > 0 ? (
                       <span className="text-[10px] text-primary font-bold">Max tier reached ✓</span>
-                    )}
+                    ) : null}
                   </div>
                   <div className="h-2 bg-white/5 rounded-full overflow-hidden">
                     <div
-                      className={`h-full rounded-full transition-all duration-700 ${!nextTier ? 'bg-primary shadow-[0_0_8px_rgba(0,242,96,0.4)]' : 'bg-primary/60'}`}
-                      style={{ width: `${Math.min(pct, 100)}%` }}
+                      className={`h-full rounded-full transition-all duration-700 ${!nextTier && earnedBonus > 0 ? 'bg-primary shadow-[0_0_8px_rgba(0,242,96,0.4)]' : 'bg-primary/60'}`}
+                      style={{ width: `${Math.min(Math.max(pct, 0), 100)}%` }}
                     />
                   </div>
                 </div>
@@ -300,12 +378,10 @@ export default function Dashboard() {
                 {/* Tier badges */}
                 <div className="flex gap-2 flex-wrap">
                   {sortedTiers.map((tier, idx) => {
-                    const reached = todayTrips >= tier.trips;
+                    const reached = eligibleTrips >= tier.trips;
                     return (
                       <div key={idx} className={`flex items-center gap-1 px-2.5 py-1.5 rounded-xl border text-[11px] font-bold transition-all ${
-                        reached
-                          ? 'bg-primary/20 border-primary/30 text-primary'
-                          : 'bg-white/5 border-white/5 text-muted-foreground'
+                        reached ? 'bg-primary/20 border-primary/30 text-primary' : 'bg-white/5 border-white/5 text-muted-foreground'
                       }`}>
                         <span>{tier.trips}×</span>
                         <span>฿{tier.bonus}</span>
@@ -314,6 +390,13 @@ export default function Dashboard() {
                     );
                   })}
                 </div>
+
+                {/* Pending note */}
+                {earnedBonus > 0 && !alreadyRecorded && (
+                  <p className="text-[10px] text-muted-foreground text-center pt-1 border-t border-white/5">
+                    ฿{earnedBonus} will be recorded to history when you end your shift
+                  </p>
+                )}
               </div>
             );
           })}

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { DriverProfile, Intensive, IntensiveTier } from '@/lib/types';
 import { getProfile, saveProfile, saveSessions } from '@/lib/storage';
-import { Zap, Fuel, Cloud, CheckCircle2, LogIn, RefreshCw, LogOut, Download, Trash2, Plus, Target, Gift, X, ChevronRight, CalendarDays } from 'lucide-react';
+import { Zap, Fuel, Cloud, CheckCircle2, LogIn, RefreshCw, LogOut, Download, Trash2, Plus, Target, Gift, X, ChevronRight, CalendarDays, Clock3 } from 'lucide-react';
 import { format } from 'date-fns';
 import { initGoogleIdentity, requestGoogleLogin, backupDataToDrive, restoreFromDrive, isGoogleConnected, disconnectGoogle } from '@/lib/googleDrive';
 import SweetAlert from '@/components/SweetAlert';
@@ -24,6 +24,9 @@ function IntensiveModal({ initial, onSave, onClose }: IntensiveModalProps) {
   const [tiers, setTiers] = useState<IntensiveTier[]>(
     initial?.tiers ?? [{ trips: 0, bonus: 0 }]
   );
+  const [hasTimeWindow, setHasTimeWindow] = useState(!!(initial?.startTime || initial?.endTime));
+  const [startTime, setStartTime] = useState(initial?.startTime ?? '08:00');
+  const [endTime, setEndTime] = useState(initial?.endTime ?? '20:00');
 
   const addTier = () => setTiers(t => [...t, { trips: 0, bonus: 0 }]);
   const removeTier = (i: number) => setTiers(t => t.filter((_, idx) => idx !== i));
@@ -36,7 +39,14 @@ function IntensiveModal({ initial, onSave, onClose }: IntensiveModalProps) {
   const handleSave = () => {
     if (!name.trim()) return;
     const sorted = [...tiers].sort((a, b) => a.trips - b.trips);
-    onSave({ id: initial?.id ?? generateId(), name: name.trim(), date: today, tiers: sorted });
+    onSave({
+      id: initial?.id ?? generateId(),
+      name: name.trim(),
+      date: today,
+      startTime: hasTimeWindow ? startTime : undefined,
+      endTime: hasTimeWindow ? endTime : undefined,
+      tiers: sorted,
+    });
   };
 
   return (
@@ -69,6 +79,42 @@ function IntensiveModal({ initial, onSave, onClose }: IntensiveModalProps) {
             placeholder="e.g. Monday Peak, Weekend Special"
             className="w-full bg-secondary border border-white/10 rounded-2xl px-4 py-3 text-sm text-white placeholder:text-muted-foreground outline-none focus:border-primary/50 transition-colors"
           />
+        </div>
+
+        {/* Time Window (optional) */}
+        <div className="space-y-3">
+          <button
+            type="button"
+            onClick={() => setHasTimeWindow(v => !v)}
+            className={`w-full flex items-center justify-between px-4 py-3 rounded-2xl border transition-all ${
+              hasTimeWindow
+                ? 'bg-primary/10 border-primary/30 text-primary'
+                : 'bg-secondary border-white/10 text-muted-foreground'
+            }`}
+          >
+            <div className="flex items-center gap-2 text-sm font-bold">
+              <Clock3 size={15} />
+              Time window (optional)
+            </div>
+            <div className={`w-10 h-5 rounded-full transition-all relative ${hasTimeWindow ? 'bg-primary' : 'bg-white/10'}`}>
+              <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-all ${hasTimeWindow ? 'left-5' : 'left-0.5'}`} />
+            </div>
+          </button>
+          {hasTimeWindow && (
+            <div className="flex items-center gap-3">
+              <div className="flex-1 space-y-1">
+                <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Start</label>
+                <input type="time" value={startTime} onChange={e => setStartTime(e.target.value)}
+                  className="w-full bg-secondary border border-white/10 rounded-xl px-3 py-2.5 text-sm font-mono text-white outline-none focus:border-primary/50 transition-colors" />
+              </div>
+              <span className="text-muted-foreground mt-5">–</span>
+              <div className="flex-1 space-y-1">
+                <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">End</label>
+                <input type="time" value={endTime} onChange={e => setEndTime(e.target.value)}
+                  className="w-full bg-secondary border border-white/10 rounded-xl px-3 py-2.5 text-sm font-mono text-white outline-none focus:border-primary/50 transition-colors" />
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Tiers */}
@@ -358,6 +404,7 @@ export default function ProfilePage() {
                     <p className="text-sm font-bold text-white">{inc.name}</p>
                     <p className="text-xs text-muted-foreground mt-0.5">
                       {inc.tiers.length} tier{inc.tiers.length > 1 ? 's' : ''} · up to ฿{topTier?.bonus ?? 0} at {topTier?.trips ?? 0} trips
+                      {inc.startTime && <span className="ml-1.5 font-mono text-[10px]">· {inc.startTime}–{inc.endTime}</span>}
                     </p>
                   </button>
                   <div className="flex items-center gap-1">

@@ -6,7 +6,9 @@ export interface IntensiveTier {
 export interface Intensive {
   id: string;
   name: string;
-  date: string; // YYYY-MM-DD — the day this intensive applies to
+  date: string;       // YYYY-MM-DD — the day this intensive applies to
+  startTime?: string; // "HH:mm" optional — only count trips within this window
+  endTime?: string;   // "HH:mm" optional
   tiers: IntensiveTier[];
 }
 
