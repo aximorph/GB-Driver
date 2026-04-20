@@ -12,6 +12,40 @@ function generateId() {
 
 const today = new Date().toISOString().split('T')[0];
 
+// ─── 24-hour Time Picker ─────────────────────────────────────────────────────
+function TimePicker24({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const [h, m] = value.split(':').map(Number);
+
+  const setH = (val: string) => {
+    const n = Math.min(23, Math.max(0, parseInt(val) || 0));
+    onChange(`${n.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`);
+  };
+  const setM = (val: string) => {
+    const n = Math.min(59, Math.max(0, parseInt(val) || 0));
+    onChange(`${h.toString().padStart(2, '0')}:${n.toString().padStart(2, '0')}`);
+  };
+
+  const inputCls = 'w-12 bg-secondary border border-white/10 rounded-xl py-2 text-sm font-mono text-white text-center outline-none focus:border-primary/50 transition-colors';
+
+  return (
+    <div className="flex items-center gap-1">
+      <input
+        type="number" min={0} max={23}
+        value={h.toString().padStart(2, '0')}
+        onChange={e => setH(e.target.value)}
+        className={inputCls}
+      />
+      <span className="text-white font-bold text-base">:</span>
+      <input
+        type="number" min={0} max={59}
+        value={m.toString().padStart(2, '0')}
+        onChange={e => setM(e.target.value)}
+        className={inputCls}
+      />
+    </div>
+  );
+}
+
 // ─── Intensive Modal ──────────────────────────────────────────────────────────
 interface IntensiveModalProps {
   initial?: Intensive;
@@ -101,17 +135,15 @@ function IntensiveModal({ initial, onSave, onClose }: IntensiveModalProps) {
             </div>
           </button>
           {hasTimeWindow && (
-            <div className="flex items-center gap-3">
-              <div className="flex-1 space-y-1">
+            <div className="flex items-center justify-center gap-3 py-1">
+              <div className="flex flex-col items-center gap-1.5">
                 <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Start</label>
-                <input type="time" value={startTime} onChange={e => setStartTime(e.target.value)}
-                  className="w-full bg-secondary border border-white/10 rounded-xl px-3 py-2.5 text-sm font-mono text-white outline-none focus:border-primary/50 transition-colors" />
+                <TimePicker24 value={startTime} onChange={setStartTime} />
               </div>
-              <span className="text-muted-foreground mt-5">–</span>
-              <div className="flex-1 space-y-1">
+              <span className="text-muted-foreground mt-4 text-lg">–</span>
+              <div className="flex flex-col items-center gap-1.5">
                 <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">End</label>
-                <input type="time" value={endTime} onChange={e => setEndTime(e.target.value)}
-                  className="w-full bg-secondary border border-white/10 rounded-xl px-3 py-2.5 text-sm font-mono text-white outline-none focus:border-primary/50 transition-colors" />
+                <TimePicker24 value={endTime} onChange={setEndTime} />
               </div>
             </div>
           )}
