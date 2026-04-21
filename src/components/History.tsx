@@ -3,8 +3,10 @@ import { getSessions, saveSessions } from '@/lib/storage';
 import { ShiftSession } from '@/lib/types';
 import { format, startOfWeek, parseISO } from 'date-fns';
 import { Trash2, Star } from 'lucide-react';
+import { useT } from '@/context/LangContext';
 
 export default function History() {
+  const t = useT();
   const [tab, setTab] = useState<'daily' | 'weekly'>('daily');
   const [expandedDate, setExpandedDate] = useState<string | null>(null);
   const [sessions, setSessions] = useState<ShiftSession[]>(() =>
@@ -53,7 +55,7 @@ export default function History() {
 
   // Delete all sessions for a given date key
   const deleteGroup = (key: string, groupSessions: ShiftSession[]) => {
-    if (!confirm(`Delete all data for this period? This cannot be undone.`)) return;
+    if (!confirm(t('hist_delete_confirm'))) return;
     const groupIds = new Set(groupSessions.map(s => s.id));
     const allSessions = getSessions(); // includes active sessions
     const updated = allSessions.filter(s => !groupIds.has(s.id));
@@ -93,22 +95,22 @@ export default function History() {
     <div className="pb-28 p-4 space-y-5 relative animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full blur-3xl -z-10 translate-x-32 -translate-y-32"></div>
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-extrabold text-white tracking-tight drop-shadow-sm">History</h1>
+        <h1 className="text-3xl font-extrabold text-white tracking-tight drop-shadow-sm">{t('hist_title')}</h1>
         <button onClick={exportCSV} className="text-xs bg-primary/10 text-primary hover:bg-primary/20 border border-primary/20 px-4 py-2 rounded-xl font-bold transition-colors">
-          Export CSV
+          {t('hist_export_csv')}
         </button>
       </div>
 
       <div className="grid grid-cols-2 gap-2 bg-secondary/50 p-1.5 rounded-2xl border border-white/5">
-        {(['daily', 'weekly'] as const).map(t => (
+        {(['daily', 'weekly'] as const).map(tabOption => (
           <button
-            key={t}
-            onClick={() => setTab(t)}
+            key={tabOption}
+            onClick={() => setTab(tabOption)}
             className={`py-2.5 rounded-xl text-sm font-bold transition-all ${
-              tab === t ? 'bg-primary/20 text-primary shadow-sm scale-[0.98]' : 'text-muted-foreground hover:text-foreground'
+              tab === tabOption ? 'bg-primary/20 text-primary shadow-sm scale-[0.98]' : 'text-muted-foreground hover:text-foreground'
             }`}
           >
-            {t === 'daily' ? 'Daily' : 'Weekly'}
+            {tabOption === 'daily' ? t('hist_daily') : t('hist_weekly')}
           </button>
         ))}
       </div>
@@ -126,18 +128,18 @@ export default function History() {
               >
                 <div>
                   <p className="text-base font-bold text-white">
-                    {tab === 'daily' ? format(parseISO(key), 'EEE, MMM d') : `Week of ${format(parseISO(key), 'MMM d')}`}
+                    {tab === 'daily' ? format(parseISO(key), 'EEE, MMM d') : `${t('hist_week_of')} ${format(parseISO(key), 'MMM d')}`}
                   </p>
                   <div className="flex items-center gap-2 mt-0.5">
-                    <p className="text-xs font-medium text-primary">{stats.trips} trips</p>
+                    <p className="text-xs font-medium text-primary">{stats.trips} {t('hist_trips')}</p>
                     {stats.onlineTime && (
-                      <p className="text-xs font-medium text-muted-foreground">· {stats.onlineTime} online</p>
+                      <p className="text-xs font-medium text-muted-foreground">· {stats.onlineTime} {t('hist_online')}</p>
                     )}
                   </div>
                 </div>
                 <div className="text-right">
                   <p className="font-mono text-lg font-extrabold text-primary drop-shadow-sm">฿{stats.net.toFixed(0)}</p>
-                  <p className="text-xs font-medium text-muted-foreground">net</p>
+                  <p className="text-xs font-medium text-muted-foreground">{t('hist_net')}</p>
                 </div>
               </button>
               {/* Delete group button */}
@@ -154,13 +156,13 @@ export default function History() {
             {isExpanded && (
               <div className="border-t border-white/5 p-4 space-y-3 bg-black/20">
                 <div className="grid grid-cols-4 gap-2 text-center">
-                  <MiniStat label="Gross" value={stats.gross} />
-                  <MiniStat label="Tips" value={stats.tips} />
-                  <MiniStat label="Expenses" value={stats.expenses} />
-                  <MiniStat label="Net" value={stats.net} />
+                  <MiniStat label={t('hist_gross')} value={stats.gross} />
+                  <MiniStat label={t('hist_tips')} value={stats.tips} />
+                  <MiniStat label={t('hist_expenses')} value={stats.expenses} />
+                  <MiniStat label={t('hist_net_label')} value={stats.net} />
                 </div>
                 {ss.flatMap(s => s.entries).length === 0 && (
-                  <p className="text-center text-xs text-muted-foreground py-2">No entries</p>
+                  <p className="text-center text-xs text-muted-foreground py-2">{t('hist_no_entries')}</p>
                 )}
                 {ss.flatMap(s => s.entries).map(e => (
                   <div key={e.id} className="flex items-center justify-between bg-card border border-white/5 rounded-xl p-3 shadow-inner group">
@@ -171,7 +173,7 @@ export default function History() {
                       <div className="min-w-0">
                         <div className="flex items-center gap-1.5 flex-wrap">
                           <span className="text-xs font-medium text-white truncate">
-                            {e.note || e.expenseCategory || 'Trip'}
+                            {e.note || e.expenseCategory || t('hist_trip_label')}
                           </span>
                           {/* Tip badge */}
                           {e.tip && e.tip > 0 && (
@@ -219,7 +221,7 @@ export default function History() {
       })}
 
       {data.length === 0 && (
-        <div className="text-center py-12 text-muted-foreground text-sm">No shift history yet</div>
+        <div className="text-center py-12 text-muted-foreground text-sm">{t('hist_no_history')}</div>
       )}
     </div>
   );

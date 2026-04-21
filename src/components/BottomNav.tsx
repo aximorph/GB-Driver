@@ -3,9 +3,11 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import { getActiveSession } from '@/lib/storage';
 import { Home, Clock, BarChart2, User, Plus } from 'lucide-react';
 import SweetAlert from './SweetAlert';
+import { useT } from '@/context/LangContext';
 
 export default function BottomNav() {
   const navigate = useNavigate();
+  const t = useT();
   const [isOnShift, setIsOnShift] = useState(!!getActiveSession());
   const [showAlert, setShowAlert] = useState(false);
 
@@ -36,9 +38,9 @@ export default function BottomNav() {
       <SweetAlert
         show={showAlert}
         icon="warning"
-        title="No Active Shift"
-        description="Please start a shift before adding an entry."
-        confirmText="Got it"
+        title={t('nav_no_shift_title')}
+        description={t('nav_no_shift_desc')}
+        confirmText={t('nav_got_it')}
         onConfirm={() => setShowAlert(false)}
       />
 
@@ -46,11 +48,11 @@ export default function BottomNav() {
         <div className="max-w-[430px] mx-auto flex justify-around items-end py-3 px-2 pb-6">
           <NavLink to="/" className={linkClass} end>
             <Home size={22} strokeWidth={2.5} className="mb-0.5" />
-            <span>Dashboard</span>
+            <span>{t('nav_dashboard')}</span>
           </NavLink>
           <NavLink to="/history" className={linkClass}>
             <Clock size={22} strokeWidth={2.5} className="mb-0.5" />
-            <span>History</span>
+            <span>{t('nav_history')}</span>
           </NavLink>
 
           {/* Center Add Button */}
@@ -69,16 +71,16 @@ export default function BottomNav() {
             }`}>
               <Plus size={32} strokeWidth={2.5} />
             </span>
-            <span className="text-xs">Add</span>
+            <span className="text-xs">{t('nav_add')}</span>
           </button>
 
           <NavLink to="/analytics" className={linkClass}>
             <BarChart2 size={22} strokeWidth={2.5} className="mb-0.5" />
-            <span>Analytics</span>
+            <span>{t('nav_analytics')}</span>
           </NavLink>
           <NavLink to="/profile" className={linkClass}>
             <User size={22} strokeWidth={2.5} className="mb-0.5" />
-            <span>Profile</span>
+            <span>{t('nav_profile')}</span>
           </NavLink>
         </div>
       </nav>

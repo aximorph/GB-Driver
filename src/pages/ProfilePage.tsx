@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react';
 import { DriverProfile, Intensive, IntensiveTier, IntensiveCountsFor } from '@/lib/types';
 import { getProfile, saveProfile, saveSessions, getSessions } from '@/lib/storage';
-import { Zap, Fuel, Cloud, CheckCircle2, LogIn, RefreshCw, LogOut, Download, Trash2, Plus, Target, Gift, X, ChevronRight, Clock3 } from 'lucide-react';
+import { Zap, Fuel, Cloud, CheckCircle2, LogIn, RefreshCw, LogOut, Download, Trash2, Plus, Target, Gift, X, ChevronRight, Clock3, Globe } from 'lucide-react';
 import { format } from 'date-fns';
 import { initGoogleIdentity, requestGoogleLogin, backupDataToDrive, restoreFromDrive, isGoogleConnected, disconnectGoogle } from '@/lib/googleDrive';
 import SweetAlert from '@/components/SweetAlert';
+import { useLang, useT } from '@/context/LangContext';
+import type { Lang } from '@/lib/i18n';
 
 function generateId() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2);
@@ -50,9 +52,10 @@ interface IntensiveModalProps {
   initial?: Intensive;
   onSave: (intensive: Intensive) => void;
   onClose: () => void;
+  t: (key: import('@/lib/i18n').TranslationKey) => string;
 }
 
-function IntensiveModal({ initial, onSave, onClose }: IntensiveModalProps) {
+function IntensiveModal({ initial, onSave, onClose, t }: IntensiveModalProps) {
   const [name, setName] = useState(initial?.name ?? '');
   const [tiers, setTiers] = useState<IntensiveTier[]>(
     initial?.tiers ?? [{ trips: 0, bonus: 0 }]
@@ -97,7 +100,7 @@ function IntensiveModal({ initial, onSave, onClose }: IntensiveModalProps) {
         {/* Header */}
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-extrabold text-white">
-            {initial ? 'Edit Intensive' : 'New Intensive'}
+            {initial ? t('modal_edit_intensive') : t('modal_new_intensive')}
           </h2>
           <button onClick={onClose} className="p-2 text-muted-foreground hover:text-white rounded-xl hover:bg-white/10 transition-all">
             <X size={20} />
@@ -106,24 +109,24 @@ function IntensiveModal({ initial, onSave, onClose }: IntensiveModalProps) {
 
         {/* Name */}
         <div className="space-y-1.5">
-          <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Intensive Name</label>
+          <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest">{t('modal_intensive_name')}</label>
           <input
             type="text"
             value={name}
             onChange={e => setName(e.target.value)}
-            placeholder="e.g. Monday Peak, Weekend Special"
+            placeholder={t('modal_intensive_name_placeholder')}
             className="w-full bg-secondary border border-white/10 rounded-2xl px-4 py-3 text-sm text-white placeholder:text-muted-foreground outline-none focus:border-primary/50 transition-colors"
           />
         </div>
 
         {/* Counts For */}
         <div className="space-y-1.5">
-          <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Counts For</label>
+          <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest">{t('modal_counts_for')}</label>
           <div className="flex bg-secondary/60 p-1 rounded-2xl border border-white/5 gap-1">
             {([
-              { value: 'ride',    label: 'Taxi' },
-              { value: 'express', label: 'Express' },
-              { value: 'all',     label: 'ทั้งหมด' },
+              { value: 'ride',    labelKey: 'profile_intensive_taxi' },
+              { value: 'express', labelKey: 'profile_intensive_express' },
+              { value: 'all',     labelKey: 'profile_intensive_all' },
             ] as const).map(opt => (
               <button key={opt.value} type="button" onClick={() => setCountsFor(opt.value)}
                 className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all ${
@@ -131,7 +134,7 @@ function IntensiveModal({ initial, onSave, onClose }: IntensiveModalProps) {
                     ? 'bg-primary/20 text-primary border border-primary/30'
                     : 'text-muted-foreground hover:text-white'
                 }`}>
-                {opt.label}
+                {t(opt.labelKey)}
               </button>
             ))}
           </div>
@@ -150,7 +153,7 @@ function IntensiveModal({ initial, onSave, onClose }: IntensiveModalProps) {
           >
             <div className="flex items-center gap-2 text-sm font-bold">
               <Clock3 size={15} />
-              Time window (optional)
+              {t('modal_time_window')}
             </div>
             <div className={`w-10 h-5 rounded-full transition-all relative ${hasTimeWindow ? 'bg-primary' : 'bg-white/10'}`}>
               <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-all ${hasTimeWindow ? 'left-5' : 'left-0.5'}`} />
@@ -159,12 +162,12 @@ function IntensiveModal({ initial, onSave, onClose }: IntensiveModalProps) {
           {hasTimeWindow && (
             <div className="flex items-center justify-center gap-3 py-1">
               <div className="flex flex-col items-center gap-1.5">
-                <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Start</label>
+                <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">{t('modal_time_start')}</label>
                 <TimePicker24 value={startTime} onChange={setStartTime} />
               </div>
               <span className="text-muted-foreground mt-4 text-lg">–</span>
               <div className="flex flex-col items-center gap-1.5">
-                <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">End</label>
+                <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">{t('modal_time_end')}</label>
                 <TimePicker24 value={endTime} onChange={setEndTime} />
               </div>
             </div>
@@ -174,12 +177,12 @@ function IntensiveModal({ initial, onSave, onClose }: IntensiveModalProps) {
         {/* Tiers */}
         <div className="space-y-2">
           <div className="flex items-center justify-between">
-            <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Reward Tiers</label>
+            <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest">{t('modal_reward_tiers')}</label>
             <button
               onClick={addTier}
               className="flex items-center gap-1 text-xs font-bold text-primary bg-primary/10 hover:bg-primary/20 px-3 py-1.5 rounded-xl transition-colors"
             >
-              <Plus size={13} /> Add Tier
+              <Plus size={13} /> {t('modal_add_tier')}
             </button>
           </div>
           <div className="space-y-2 max-h-52 overflow-y-auto pr-0.5">
@@ -193,7 +196,7 @@ function IntensiveModal({ initial, onSave, onClose }: IntensiveModalProps) {
                   placeholder="0"
                   className="w-14 bg-black/20 border border-white/10 rounded-lg px-2 py-1.5 text-sm font-mono text-white text-center outline-none focus:border-primary/50 transition-colors shrink-0"
                 />
-                <span className="text-[11px] text-muted-foreground shrink-0">trips → ฿</span>
+                <span className="text-[11px] text-muted-foreground shrink-0">{t('modal_trips_arrow')}</span>
                 <input
                   type="number" min="0"
                   value={tier.bonus || ''}
@@ -219,7 +222,7 @@ function IntensiveModal({ initial, onSave, onClose }: IntensiveModalProps) {
           disabled={!name.trim()}
           className="w-full py-4 rounded-2xl bg-gradient-to-r from-primary to-[#00b050] text-white font-extrabold text-sm shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-[0.98] transition-transform disabled:opacity-40 disabled:scale-100"
         >
-          Save Intensive
+          {t('modal_save_intensive')}
         </button>
       </div>
     </div>
@@ -228,11 +231,15 @@ function IntensiveModal({ initial, onSave, onClose }: IntensiveModalProps) {
 
 // ─── Main ProfilePage ─────────────────────────────────────────────────────────
 export default function ProfilePage() {
+  const { lang, setLang } = useLang();
+  const t = useT();
+
   const [profile, setProfile] = useState<DriverProfile | null>(getProfile());
   const [vehicleType, setVehicleType] = useState<'electric' | 'petrol'>(profile?.vehicleType || 'petrol');
   const [fuelType, setFuelType] = useState<DriverProfile['fuelType']>(profile?.fuelType || '95');
   const [chargingType, setChargingType] = useState<'home' | 'public'>(profile?.chargingType || 'home');
   const [dailyGoal, setDailyGoal] = useState<string>(profile?.dailyGoal ? String(profile.dailyGoal) : '');
+  const [selectedLang, setSelectedLang] = useState<Lang>(profile?.language ?? lang);
 
   const [intensives, setIntensives] = useState<Intensive[]>(
     (profile?.intensives ?? []).map(i => ({
@@ -263,9 +270,11 @@ export default function ProfilePage() {
       commissionRate: profile?.commissionRate || 0.20,
       dailyGoal: dailyGoal ? parseFloat(dailyGoal) : undefined,
       intensives,
+      language: selectedLang,
     };
     saveProfile(updated);
     setProfile(updated);
+    setLang(selectedLang); // Apply language change app-wide
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
   };
@@ -296,7 +305,7 @@ export default function ProfilePage() {
       }
     } catch (err) {
       console.error('Google login failed:', err);
-      alert('Failed to connect to Google Drive.');
+      alert(t('alert_google_failed'));
     }
   };
 
@@ -311,27 +320,27 @@ export default function ProfilePage() {
       localStorage.setItem('gdrive_last_sync', syncTime);
     } catch (err) {
       console.error('Backup failed:', err);
-      alert('Failed to backup to Google Drive.');
+      alert(t('alert_backup_failed'));
     } finally {
       setIsSyncing(false);
     }
   };
 
   const handleRestore = async () => {
-    if (!confirm('This will overwrite your current local data with the backup from Google Drive. Continue?')) return;
+    if (!confirm(t('alert_restore_confirm'))) return;
     setIsRestoring(true);
     try {
       const found = await restoreFromDrive();
       if (found) {
         setProfile(getProfile());
-        alert('✅ Data restored successfully! The page will reload.');
+        alert(t('alert_restore_success'));
         window.location.reload();
       } else {
-        alert('No backup file found on Google Drive.');
+        alert(t('alert_restore_not_found'));
       }
     } catch (err) {
       console.error('Restore failed:', err);
-      alert('Failed to restore from Google Drive.');
+      alert(t('alert_restore_failed'));
     } finally {
       setIsRestoring(false);
     }
@@ -367,11 +376,11 @@ export default function ProfilePage() {
   return (
     <div className="pb-24 p-4 space-y-5 relative animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full blur-3xl -z-10 translate-x-16 -translate-y-16" />
-      <h1 className="text-3xl font-extrabold text-white tracking-tight drop-shadow-sm">Profile</h1>
+      <h1 className="text-3xl font-extrabold text-white tracking-tight drop-shadow-sm">{t('profile_title')}</h1>
 
       {/* ── Vehicle Type ──────────────────────────────────────────────────── */}
       <div className="bg-card/70 backdrop-blur-xl border border-white/5 rounded-3xl p-5 space-y-3 shadow-xl">
-        <h3 className="text-sm font-bold tracking-widest text-muted-foreground uppercase px-1">Vehicle Type</h3>
+        <h3 className="text-sm font-bold tracking-widest text-muted-foreground uppercase px-1">{t('profile_vehicle_type')}</h3>
         <div className="grid grid-cols-2 gap-3">
           {(['electric', 'petrol'] as const).map(type => (
             <button
@@ -386,7 +395,7 @@ export default function ProfilePage() {
               <div className={vehicleType === type ? 'text-primary' : ''}>
                 {type === 'electric' ? <Zap size={28} /> : <Fuel size={28} />}
               </div>
-              <span className="font-bold text-sm">{type === 'electric' ? 'Electric' : 'Petrol/Gas'}</span>
+              <span className="font-bold text-sm">{type === 'electric' ? t('profile_electric') : t('profile_petrol')}</span>
             </button>
           ))}
         </div>
@@ -402,10 +411,13 @@ export default function ProfilePage() {
         </div>
         <div className={`transition-all duration-300 ease-in-out ${vehicleType === 'electric' ? 'max-h-40 opacity-100 mt-4' : 'max-h-0 opacity-0 overflow-hidden'}`}>
           <div className="grid grid-cols-2 gap-2 pt-3 border-t border-white/5">
-            {([{ value: 'home', label: 'Home Charging' }, { value: 'public', label: 'Public Charging' }] as const).map(opt => (
+            {([
+              { value: 'home' as const, labelKey: 'profile_home_charging' as const },
+              { value: 'public' as const, labelKey: 'profile_public_charging' as const },
+            ]).map(opt => (
               <button key={opt.value} onClick={() => setChargingType(opt.value)}
                 className={`py-2.5 rounded-xl text-xs font-bold transition-all ${chargingType === opt.value ? 'bg-primary/20 text-primary border border-primary/30' : 'bg-secondary border border-white/5 text-muted-foreground hover:border-white/10'}`}>
-                {opt.label}
+                {t(opt.labelKey)}
               </button>
             ))}
           </div>
@@ -416,16 +428,16 @@ export default function ProfilePage() {
       <div className="bg-card/70 backdrop-blur-xl border border-white/5 rounded-3xl p-5 space-y-4 shadow-xl">
         <div className="flex items-center gap-2">
           <Target size={20} className="text-primary" />
-          <h3 className="text-sm font-bold tracking-widest text-muted-foreground uppercase">Daily Earnings Goal</h3>
+          <h3 className="text-sm font-bold tracking-widest text-muted-foreground uppercase">{t('profile_daily_goal_title')}</h3>
         </div>
-        <p className="text-xs text-muted-foreground -mt-2">Set a net earnings target per day. Progress will be shown on your Dashboard.</p>
+        <p className="text-xs text-muted-foreground -mt-2">{t('profile_daily_goal_desc')}</p>
         <div className="relative">
           <span className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground font-bold text-sm">฿</span>
           <input
             type="number" min="0"
             value={dailyGoal}
             onChange={e => setDailyGoal(e.target.value)}
-            placeholder="1,200"
+            placeholder={t('profile_daily_goal_placeholder')}
             className="w-full bg-secondary border border-white/10 rounded-2xl pl-8 pr-4 py-3.5 text-white font-mono font-bold text-base outline-none focus:border-primary/50 transition-colors"
           />
         </div>
@@ -436,22 +448,23 @@ export default function ProfilePage() {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Gift size={20} className="text-primary" />
-            <h3 className="text-sm font-bold tracking-widest text-muted-foreground uppercase">Intensives</h3>
+            <h3 className="text-sm font-bold tracking-widest text-muted-foreground uppercase">{t('profile_intensives_title')}</h3>
           </div>
           <button
             onClick={() => { setEditingIntensive(undefined); setShowIntensiveModal(true); }}
             className="flex items-center gap-1.5 text-xs font-bold text-primary bg-primary/10 hover:bg-primary/20 px-3 py-2 rounded-xl transition-colors"
           >
-            <Plus size={14} /> Add
+            <Plus size={14} /> {t('nav_add')}
           </button>
         </div>
 
         {intensives.length === 0 ? (
-          <p className="text-center text-xs text-muted-foreground py-3">No intensives yet. Tap + to add one.</p>
+          <p className="text-center text-xs text-muted-foreground py-3">{t('profile_no_intensives')}</p>
         ) : (
           <div className="space-y-2">
             {intensives.map(inc => {
               const topTier = [...inc.tiers].sort((a, b) => b.trips - a.trips)[0];
+              const tierCount = inc.tiers.length;
               return (
                 <div key={inc.id} className={`flex items-center gap-3 border rounded-2xl p-4 group transition-all ${
                   inc.enabled
@@ -471,10 +484,10 @@ export default function ProfilePage() {
                     <p className={`text-sm font-bold truncate ${inc.enabled ? 'text-white' : 'text-muted-foreground'}`}>{inc.name}</p>
                     <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
                       <span className="text-[10px] font-bold bg-white/5 border border-white/10 px-1.5 py-0.5 rounded-md text-muted-foreground">
-                        {inc.countsFor === 'ride' ? 'Taxi' : inc.countsFor === 'express' ? 'Express' : 'ทั้งหมด'}
+                        {inc.countsFor === 'ride' ? t('profile_intensive_taxi') : inc.countsFor === 'express' ? t('profile_intensive_express') : t('profile_intensive_all')}
                       </span>
                       <span className="text-xs text-muted-foreground">
-                        up to ฿{topTier?.bonus ?? 0} · {inc.tiers.length} tier{inc.tiers.length > 1 ? 's' : ''}
+                        {t('profile_intensive_up_to')} ฿{topTier?.bonus ?? 0} · {tierCount} {tierCount > 1 ? t('profile_intensive_tiers') : t('profile_intensive_tier')}
                       </span>
                       {inc.startTime && (
                         <span className="text-[10px] font-mono text-muted-foreground">{inc.startTime}–{inc.endTime}</span>
@@ -504,14 +517,14 @@ export default function ProfilePage() {
       <div className="bg-card/70 backdrop-blur-xl border border-white/5 rounded-3xl p-5 space-y-4 shadow-xl">
         <div className="flex items-center gap-2">
           <Cloud size={20} className="text-primary" />
-          <h3 className="text-sm font-bold tracking-widest text-muted-foreground uppercase">Google Drive Backup</h3>
+          <h3 className="text-sm font-bold tracking-widest text-muted-foreground uppercase">{t('profile_gdrive_title')}</h3>
         </div>
         {!googleConnected ? (
           <div className="flex flex-col gap-3">
-            <p className="text-xs font-medium text-muted-foreground">Log in with your Google account to automatically backup your shift history and profile to Google Drive.</p>
+            <p className="text-xs font-medium text-muted-foreground">{t('profile_gdrive_desc')}</p>
             <button onClick={handleGoogleConnect}
               className="w-full flex items-center justify-center gap-3 bg-white text-black py-3.5 rounded-2xl font-bold text-sm hover:bg-gray-200 transition-colors">
-              <LogIn size={18} /> Login with Google
+              <LogIn size={18} /> {t('profile_gdrive_login_btn')}
             </button>
           </div>
         ) : (
@@ -520,8 +533,8 @@ export default function ProfilePage() {
               <div className="flex items-center gap-3">
                 <CheckCircle2 size={24} className="text-primary" />
                 <div>
-                  <p className="text-sm font-bold text-white">Connected</p>
-                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider mt-0.5">Auto-backup enabled</p>
+                  <p className="text-sm font-bold text-white">{t('profile_gdrive_connected')}</p>
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider mt-0.5">{t('profile_gdrive_auto_backup')}</p>
                 </div>
               </div>
               <button onClick={handleGoogleDisconnect} className="p-2 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-xl transition-all">
@@ -530,32 +543,61 @@ export default function ProfilePage() {
             </div>
             {isAutoRestoring && (
               <div className="flex items-center justify-center gap-2 py-2 text-xs font-bold text-primary animate-pulse">
-                <Download size={14} className="animate-bounce" /> Restoring your data from Drive…
+                <Download size={14} className="animate-bounce" /> {t('profile_gdrive_restoring')}
               </div>
             )}
             <div className="grid grid-cols-2 gap-2">
               <button onClick={handleManualSync} disabled={isSyncing || isRestoring || isAutoRestoring}
                 className="flex items-center justify-center gap-2 bg-secondary text-white py-3 rounded-2xl font-semibold text-sm border border-white/5 hover:bg-white/10 transition-colors disabled:opacity-50">
                 <RefreshCw size={16} className={isSyncing ? 'animate-spin' : ''} />
-                {isSyncing ? 'Backing up...' : 'Backup ↑'}
+                {isSyncing ? t('profile_gdrive_backing_up') : t('profile_gdrive_backup_btn')}
               </button>
               <button onClick={handleRestore} disabled={isSyncing || isRestoring || isAutoRestoring}
                 className="flex items-center justify-center gap-2 bg-secondary text-white py-3 rounded-2xl font-semibold text-sm border border-primary/20 hover:bg-primary/10 transition-colors disabled:opacity-50">
                 <Download size={16} className={isRestoring ? 'animate-bounce' : ''} />
-                {isRestoring ? 'Restoring...' : 'Restore ↓'}
+                {isRestoring ? t('profile_gdrive_restoring_btn') : t('profile_gdrive_restore_btn')}
               </button>
             </div>
             {lastSync && (
               <p className="text-center text-[11px] text-muted-foreground font-mono">
-                Last backup: {format(new Date(lastSync), 'MMM d, h:mm a')}
+                {t('profile_gdrive_last_backup')} {format(new Date(lastSync), 'MMM d, h:mm a')}
               </p>
             )}
             <button onClick={() => setShowClearConfirm(true)} disabled={isSyncing || isRestoring || isAutoRestoring}
               className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl text-sm font-bold text-destructive border border-destructive/20 bg-destructive/5 hover:bg-destructive/10 transition-colors disabled:opacity-50">
-              <Trash2 size={15} /> Clear All Local Data
+              <Trash2 size={15} /> {t('profile_clear_data_btn')}
             </button>
           </div>
         )}
+      </div>
+
+      {/* ── Language ──────────────────────────────────────────────────────── */}
+      <div className="bg-card/70 backdrop-blur-xl border border-white/5 rounded-3xl p-5 space-y-3 shadow-xl">
+        <div className="flex items-center gap-2">
+          <Globe size={20} className="text-primary" />
+          <h3 className="text-sm font-bold tracking-widest text-muted-foreground uppercase">{t('profile_language_title')}</h3>
+        </div>
+        <div className="flex bg-secondary/60 p-1 rounded-2xl border border-white/5 gap-1">
+          {([
+            { value: 'en' as const, label: 'English' },
+            { value: 'th' as const, label: 'ภาษาไทย' },
+          ]).map(opt => (
+            <button
+              key={opt.value}
+              onClick={() => setSelectedLang(opt.value)}
+              className={`flex-1 py-3 rounded-xl text-sm font-bold transition-all ${
+                selectedLang === opt.value
+                  ? 'bg-primary/20 text-primary border border-primary/30 shadow-sm scale-[0.98]'
+                  : 'text-muted-foreground hover:text-white'
+              }`}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+        <p className="text-[11px] text-muted-foreground text-center px-2">
+          {selectedLang === 'en' ? 'Language will change when you save.' : 'ภาษาจะเปลี่ยนเมื่อกด Save'}
+        </p>
       </div>
 
       {/* ── Save ──────────────────────────────────────────────────────────── */}
@@ -565,7 +607,7 @@ export default function ProfilePage() {
           saved ? 'bg-primary/20 text-primary border border-primary/20 shadow-none' : 'bg-gradient-to-r from-primary to-[#00b050] text-white shadow-primary/20'
         }`}
       >
-        {saved ? '✓ Saved!' : 'Save Changes'}
+        {saved ? t('profile_saved_btn') : t('profile_save_btn')}
       </button>
 
       {/* ── Modals / Alerts ───────────────────────────────────────────────── */}
@@ -574,16 +616,17 @@ export default function ProfilePage() {
           initial={editingIntensive}
           onSave={handleSaveIntensive}
           onClose={() => { setShowIntensiveModal(false); setEditingIntensive(undefined); }}
+          t={t}
         />
       )}
 
       <SweetAlert
         show={!!deleteIntensiveId}
         icon="warning"
-        title="Delete Intensive?"
-        description="This intensive will be removed. Make sure to save your profile after."
-        confirmText="Delete"
-        cancelText="Cancel"
+        title={t('alert_delete_intensive_title')}
+        description={t('alert_delete_intensive_desc')}
+        confirmText={t('alert_delete_intensive_confirm')}
+        cancelText={t('alert_cancel')}
         onConfirm={() => deleteIntensiveId && handleDeleteIntensive(deleteIntensiveId)}
         onCancel={() => setDeleteIntensiveId(null)}
       />
@@ -591,10 +634,10 @@ export default function ProfilePage() {
       <SweetAlert
         show={showClearConfirm}
         icon="error"
-        title="Clear All Data?"
-        description="This will permanently delete all shift sessions and history from this device. Your Google Drive backup (if any) will not be affected."
-        confirmText="Yes, Clear"
-        cancelText="Cancel"
+        title={t('alert_clear_data_title')}
+        description={t('alert_clear_data_desc')}
+        confirmText={t('alert_clear_data_confirm')}
+        cancelText={t('alert_cancel')}
         onConfirm={handleClearData}
         onCancel={() => setShowClearConfirm(false)}
       />

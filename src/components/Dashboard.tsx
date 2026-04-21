@@ -8,6 +8,7 @@ import { Trash2, DollarSign, Receipt, Gift, Clock3 } from 'lucide-react';
 import AddEntryModal from './AddEntryModal';
 import EndShiftModal from './EndShiftModal';
 import SweetAlert from './SweetAlert';
+import { useT } from '@/context/LangContext';
 
 function generateId() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2);
@@ -43,6 +44,7 @@ function getEarnedBonus(intensive: Intensive, eligibleTrips: number): number {
 
 export default function Dashboard() {
   const navigate = useNavigate();
+  const t = useT();
   const [sessions, setSessions] = useState<ShiftSession[]>(getSessions());
   const [activeSession, setActiveSession] = useState<ShiftSession | null>(getActiveSession());
   const [elapsed, setElapsed] = useState(0);
@@ -228,10 +230,10 @@ export default function Dashboard() {
       <div className="bg-card/80 backdrop-blur-xl border border-white/5 rounded-2xl p-5 shadow-2xl relative overflow-hidden">
         <div className="absolute top-0 right-0 w-32 h-32 bg-primary/10 rounded-full blur-3xl -z-10 translate-x-12 -translate-y-12"></div>
         <div className="flex items-center justify-between z-10">
-          <span className="text-sm font-medium text-muted-foreground">Shift Status</span>
+          <span className="text-sm font-medium text-muted-foreground">{t('dash_shift_status')}</span>
           <span className={`text-xs font-mono font-bold px-2.5 py-1 rounded-full shadow-inner ${status === 'on_shift' ? 'bg-primary border border-primary/50 text-white' : 'bg-secondary text-muted-foreground'
             }`}>
-            {status === 'on_shift' ? 'ON SHIFT' : 'OFFLINE'}
+            {status === 'on_shift' ? t('dash_on_shift') : t('dash_offline')}
           </span>
         </div>
 
@@ -246,14 +248,14 @@ export default function Dashboard() {
             onClick={startShift}
             className="w-full py-4 mt-2 rounded-xl bg-gradient-to-r from-primary to-[#00b050] shadow-lg shadow-primary/20 text-white font-bold text-sm animate-pulse-glow hover:scale-[1.02] transition-transform"
           >
-            START SHIFT
+            {t('dash_start_shift')}
           </button>
         ) : (
           <button
             onClick={() => setShowEndShift(true)}
             className="w-full py-4 mt-2 rounded-xl bg-destructive text-white font-bold text-sm shadow-lg shadow-destructive/20 hover:scale-[1.02] transition-transform"
           >
-            END SHIFT
+            {t('dash_end_shift')}
           </button>
         )}
       </div>
@@ -262,14 +264,14 @@ export default function Dashboard() {
       <div className="bg-card/80 backdrop-blur-xl border border-white/5 rounded-3xl p-6 shadow-xl relative overflow-hidden">
         <div className="absolute -bottom-8 -right-8 w-40 h-40 bg-white/5 rounded-full blur-3xl -z-10"></div>
         <div className="flex justify-between items-end mb-6">
-          <h3 className="text-xs font-black text-muted-foreground tracking-widest uppercase">Summary</h3>
-          <p className="text-[10px] font-bold text-primary/80 bg-primary/10 px-2 py-1 rounded-md">{todayEntries.length} entries</p>
+          <h3 className="text-xs font-black text-muted-foreground tracking-widest uppercase">{t('dash_summary')}</h3>
+          <p className="text-[10px] font-bold text-primary/80 bg-primary/10 px-2 py-1 rounded-md">{todayEntries.length} {t('dash_entries')}</p>
         </div>
         <div className="grid grid-cols-2 gap-x-6 gap-y-5">
-          <SummaryItem label="Net Earnings" value={netEarnings} color="text-white text-2xl" />
-          <SummaryItem label="Gross" value={grossEarnings} color="text-primary text-xl" />
-          <SummaryItem label="Tips" value={totalTips} color="text-warning text-xl" />
-          <SummaryItem label="Expenses" value={totalExpenses} color="text-destructive text-xl" />
+          <SummaryItem label={t('dash_net_earnings')} value={netEarnings} color="text-white text-2xl" />
+          <SummaryItem label={t('dash_gross')} value={grossEarnings} color="text-primary text-xl" />
+          <SummaryItem label={t('dash_tips')} value={totalTips} color="text-warning text-xl" />
+          <SummaryItem label={t('dash_expenses')} value={totalExpenses} color="text-destructive text-xl" />
         </div>
 
         {/* Daily Goal Progress */}
@@ -281,7 +283,7 @@ export default function Dashboard() {
               return (
                 <>
                   <div className="flex justify-between items-center">
-                    <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Daily Goal</span>
+                    <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">{t('dash_daily_goal')}</span>
                     <span className={`text-[10px] font-bold font-mono ${reached ? 'text-primary' : 'text-muted-foreground'}`}>
                       ฿{netEarnings.toFixed(0)} / ฿{profile.dailyGoal!.toFixed(0)}
                       {reached && ' ✓'}
@@ -303,7 +305,7 @@ export default function Dashboard() {
       {/* Intensive Progress */}
       {todayIntensives.length > 0 && (
         <div className="space-y-3">
-          <h3 className="text-xs font-black text-muted-foreground px-2 tracking-widest uppercase">Intensive</h3>
+          <h3 className="text-xs font-black text-muted-foreground px-2 tracking-widest uppercase">{t('dash_intensive')}</h3>
           {todayIntensives.map(intensive => {
             const sortedTiers = [...intensive.tiers].sort((a, b) => a.trips - b.trips);
             const eligibleTrips = countEligibleTrips(todayEntries, intensive);
@@ -333,13 +335,13 @@ export default function Dashboard() {
                     <Gift size={16} className={isInWindow ? 'text-primary' : 'text-muted-foreground'} />
                     <span className="text-sm font-bold text-white">{intensive.name}</span>
                     {!isInWindow && (
-                      <span className="text-[10px] text-muted-foreground bg-white/5 px-2 py-0.5 rounded-md font-mono">outside window</span>
+                      <span className="text-[10px] text-muted-foreground bg-white/5 px-2 py-0.5 rounded-md font-mono">{t('dash_outside_window')}</span>
                     )}
                   </div>
                   {alreadyRecorded ? (
-                    <span className="text-[10px] font-bold text-primary bg-primary/10 border border-primary/20 px-2 py-1 rounded-lg">Recorded ✓</span>
+                    <span className="text-[10px] font-bold text-primary bg-primary/10 border border-primary/20 px-2 py-1 rounded-lg">{t('dash_recorded')}</span>
                   ) : earnedBonus > 0 ? (
-                    <span className="text-xs font-mono font-extrabold text-warning bg-warning/10 border border-warning/20 px-2.5 py-1 rounded-lg">+฿{earnedBonus} pending</span>
+                    <span className="text-xs font-mono font-extrabold text-warning bg-warning/10 border border-warning/20 px-2.5 py-1 rounded-lg">+฿{earnedBonus} {t('dash_pending')}</span>
                   ) : null}
                 </div>
 
@@ -348,7 +350,7 @@ export default function Dashboard() {
                   <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground font-mono">
                     <Clock3 size={11} />
                     <span>{intensive.startTime ?? '00:00'} – {intensive.endTime ?? '23:59'}</span>
-                    {isInWindow && <span className="text-primary font-bold ml-1">● Active</span>}
+                    {isInWindow && <span className="text-primary font-bold ml-1">{t('dash_active')}</span>}
                   </div>
                 )}
 
@@ -356,14 +358,14 @@ export default function Dashboard() {
                 <div className="space-y-1.5">
                   <div className="flex justify-between items-center">
                     <span className="text-xs font-bold text-muted-foreground">
-                      {eligibleTrips} eligible trip{eligibleTrips !== 1 ? 's' : ''}
+                      {eligibleTrips} {eligibleTrips !== 1 ? t('dash_eligible_trips') : t('dash_eligible_trip')}
                     </span>
                     {nextTier ? (
                       <span className="text-[10px] text-muted-foreground font-mono">
-                        {nextTier.trips - eligibleTrips} more → <span className="text-warning font-bold">+฿{nextTier.bonus}</span>
+                        {nextTier.trips - eligibleTrips} {t('dash_more_for')} <span className="text-warning font-bold">+฿{nextTier.bonus}</span>
                       </span>
                     ) : earnedBonus > 0 ? (
-                      <span className="text-[10px] text-primary font-bold">Max tier reached ✓</span>
+                      <span className="text-[10px] text-primary font-bold">{t('dash_max_tier')}</span>
                     ) : null}
                   </div>
                   <div className="h-2 bg-white/5 rounded-full overflow-hidden">
@@ -393,7 +395,7 @@ export default function Dashboard() {
                 {/* Pending note */}
                 {earnedBonus > 0 && !alreadyRecorded && (
                   <p className="text-[10px] text-muted-foreground text-center pt-1 border-t border-white/5">
-                    ฿{earnedBonus} will be recorded to history when you end your shift
+                    ฿{earnedBonus} {t('dash_bonus_pending_note')}
                   </p>
                 )}
               </div>
@@ -405,7 +407,7 @@ export default function Dashboard() {
       {/* Recent Entries — เฉพาะ active session เท่านั้น หายเมื่อ end shift */}
       {activeEntries.length > 0 && (
         <div className="space-y-4">
-          <h3 className="text-xs font-black text-muted-foreground px-2 tracking-widest uppercase mt-6 mb-2">Recent Shifts</h3>
+          <h3 className="text-xs font-black text-muted-foreground px-2 tracking-widest uppercase mt-6 mb-2">{t('dash_recent_shifts')}</h3>
           {[...activeEntries].reverse().map(entry => (
             <div key={entry.id} className="bg-card/70 backdrop-blur-xl border border-white/5 rounded-3xl p-5 flex flex-col gap-3 shadow-lg hover:bg-card/90 transition-all">
               <div className="flex items-center justify-between">
@@ -418,8 +420,8 @@ export default function Dashboard() {
                     <div className="flex items-center gap-1.5 flex-wrap">
                       <h4 className="font-bold text-sm text-foreground">
                         {entry.type === 'income'
-                          ? entry.note?.startsWith('Intensive:') ? entry.note : (entry.orderType === 'express' ? 'Express' : 'Taxi')
-                          : (entry.expenseCategory || 'Expense')}
+                          ? entry.note?.startsWith('Intensive:') ? entry.note : (entry.orderType === 'express' ? t('dash_express') : t('dash_taxi'))
+                          : (entry.expenseCategory || t('dash_expenses'))}
                       </h4>
                       {entry.type === 'income' && !entry.note?.startsWith('Intensive:') && (
                         <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-md uppercase ${
@@ -427,7 +429,7 @@ export default function Dashboard() {
                             ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/20'
                             : 'bg-primary/15 text-primary border border-primary/20'
                         }`}>
-                          {entry.platform === 'bolt' ? 'Bolt' : 'Grab'}
+                          {entry.platform === 'bolt' ? t('dash_bolt') : t('dash_grab')}
                         </span>
                       )}
                     </div>
@@ -444,7 +446,7 @@ export default function Dashboard() {
                     ฿{entry.type === 'income' ? ((entry.driverNet || 0) + (entry.tip || 0)).toFixed(0) : entry.amount.toFixed(0)}
                   </p>
                   {entry.tip && entry.tip > 0 && (
-                    <p className="text-[10px] text-warning font-bold uppercase mt-0.5">+ ฿{entry.tip.toFixed(0)} tip</p>
+                    <p className="text-[10px] text-warning font-bold uppercase mt-0.5">+ ฿{entry.tip.toFixed(0)} {t('dash_tip_label')}</p>
                   )}
                   <button onClick={() => deleteEntry(entry.id)} className="mt-2 text-muted-foreground hover:text-destructive transition-colors bg-white/5 hover:bg-white/10 p-1.5 rounded-lg flex items-center justify-center ml-auto">
                     <Trash2 size={14} />
@@ -454,7 +456,7 @@ export default function Dashboard() {
 
               {entry.type === 'income' && entry.appFare && entry.driverNet && (
                 <div className="bg-black/20 rounded-xl p-3 flex justify-between items-center border border-white/5 mt-1">
-                  <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-widest">App Deduction</span>
+                  <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-widest">{t('dash_app_deduction')}</span>
                   <span className="text-xs font-mono font-bold text-destructive">
                     ฿{Math.max(0, entry.appFare - entry.driverNet).toFixed(0)} ({entry.appFare > 0 ? ((Math.max(0, entry.appFare - entry.driverNet) / entry.appFare) * 100).toFixed(1) : 0}%)
                   </span>
@@ -483,10 +485,10 @@ export default function Dashboard() {
       <SweetAlert
         show={showLoginAlert}
         icon="warning"
-        title="Login Required"
-        description="Please connect your Google account before starting a shift. Your data will be backed up automatically."
-        confirmText="Go to Profile"
-        cancelText="Cancel"
+        title={t('dash_login_required_title')}
+        description={t('dash_login_required_desc')}
+        confirmText={t('dash_go_to_profile')}
+        cancelText={t('dash_cancel')}
         onConfirm={() => { setShowLoginAlert(false); navigate('/profile'); }}
         onCancel={() => setShowLoginAlert(false)}
       />
@@ -494,7 +496,7 @@ export default function Dashboard() {
       {isBackingUp && (
         <div className="fixed bottom-28 left-1/2 -translate-x-1/2 bg-card/90 backdrop-blur-xl border border-white/10 rounded-full px-4 py-2 shadow-xl flex items-center gap-2 z-50 animate-in fade-in slide-in-from-bottom-2 duration-300">
           <span className="w-2 h-2 rounded-full bg-primary animate-pulse"></span>
-          <span className="text-xs font-bold text-muted-foreground">Backing up to Drive…</span>
+          <span className="text-xs font-bold text-muted-foreground">{t('dash_backing_up')}</span>
         </div>
       )}
     </div>

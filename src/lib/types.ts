@@ -22,6 +22,7 @@ export interface DriverProfile {
   commissionRate: number;
   dailyGoal?: number;
   intensives?: Intensive[];
+  language?: 'en' | 'th';
 }
 
 export interface ShiftSession {

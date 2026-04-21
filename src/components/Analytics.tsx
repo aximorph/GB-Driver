@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { getSessions } from '@/lib/storage';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from 'recharts';
 import { format, subDays, parseISO } from 'date-fns';
+import { useT } from '@/context/LangContext';
 
 const GREEN = 'hsl(145, 100%, 45%)';
 const YELLOW = 'hsl(54, 100%, 62%)';
@@ -9,6 +10,7 @@ const RED = 'hsl(0, 76%, 60%)';
 const COLORS = [GREEN, YELLOW, RED];
 
 export default function Analytics() {
+  const t = useT();
   const sessions = getSessions().filter(s => s.endTime);
 
   const barData = useMemo(() => {
@@ -29,10 +31,11 @@ export default function Analytics() {
     const income = entries.filter(e => e.type === 'income').reduce((s, e) => s + (e.driverNet || 0) + (e.tip || 0), 0);
     const expenses = entries.filter(e => e.type === 'expense').reduce((s, e) => s + e.amount, 0);
     return [
-      { name: 'Income', value: income },
-      { name: 'Expenses', value: expenses },
+      { name: t('analytics_income'), value: income },
+      { name: t('analytics_expenses'), value: expenses },
     ];
-  }, [sessions]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessions, t]);
 
   const tipStats = useMemo(() => {
     const incomeEntries = sessions.flatMap(s => s.entries).filter(e => e.type === 'income');
@@ -73,15 +76,15 @@ export default function Analytics() {
   return (
     <div className="pb-24 p-4 space-y-5 relative animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="absolute top-0 left-0 w-64 h-64 bg-primary/5 rounded-full blur-3xl -z-10 -translate-x-16 -translate-y-16"></div>
-      <h1 className="text-3xl font-extrabold text-white tracking-tight drop-shadow-sm">Analytics</h1>
+      <h1 className="text-3xl font-extrabold text-white tracking-tight drop-shadow-sm">{t('analytics_title')}</h1>
 
       {sessions.length === 0 ? (
-        <div className="text-center py-12 text-muted-foreground text-sm">Complete some shifts to see analytics</div>
+        <div className="text-center py-12 text-muted-foreground text-sm">{t('analytics_no_data')}</div>
       ) : (
         <>
           {/* Earnings Bar Chart */}
           <div className="bg-card/70 backdrop-blur-xl border border-white/5 rounded-3xl p-5 shadow-xl">
-            <h3 className="text-sm font-semibold text-muted-foreground mb-3">Last 14 Days Earnings</h3>
+            <h3 className="text-sm font-semibold text-muted-foreground mb-3">{t('analytics_14_days')}</h3>
             <ResponsiveContainer width="100%" height={200}>
               <BarChart data={barData}>
                 <XAxis dataKey="date" tick={{ fontSize: 10, fill: 'hsl(215, 16%, 52%)' }} />
@@ -95,7 +98,7 @@ export default function Analytics() {
 
           {/* Hourly Heatmap — col=day, row=hour */}
           <div className="bg-card/70 backdrop-blur-xl border border-white/5 rounded-3xl p-5 shadow-xl">
-            <h3 className="text-sm font-semibold text-muted-foreground mb-3">Hourly Earnings Heatmap</h3>
+            <h3 className="text-sm font-semibold text-muted-foreground mb-3">{t('analytics_heatmap')}</h3>
             <div className="flex gap-1">
               {/* Hour labels column */}
               <div className="flex flex-col gap-0.5 shrink-0">
@@ -145,7 +148,7 @@ export default function Analytics() {
           {/* Income vs Expense Pie */}
           <div className="grid grid-cols-2 gap-4">
             <div className="bg-card/70 backdrop-blur-xl border border-white/5 rounded-3xl p-5 shadow-xl">
-              <h3 className="text-sm font-semibold text-muted-foreground mb-2">Income vs Expense</h3>
+              <h3 className="text-sm font-semibold text-muted-foreground mb-2">{t('analytics_pie')}</h3>
               <ResponsiveContainer width="100%" height={120}>
                 <PieChart>
                   <Pie data={pieData} dataKey="value" cx="50%" cy="50%" outerRadius={45} innerRadius={25}>
@@ -157,11 +160,11 @@ export default function Analytics() {
             </div>
 
             <div className="bg-card/70 backdrop-blur-xl border border-white/5 rounded-3xl p-5 shadow-xl">
-              <h3 className="text-sm font-semibold text-muted-foreground mb-2">Tip Rate</h3>
+              <h3 className="text-sm font-semibold text-muted-foreground mb-2">{t('analytics_tip_rate')}</h3>
               <div className="text-center space-y-1 pt-4">
                 <p className="font-mono text-2xl font-bold text-warning">฿{tipStats.avgTip.toFixed(0)}</p>
-                <p className="text-xs text-muted-foreground">avg tip/trip</p>
-                <p className="text-xs text-muted-foreground">{tipStats.totalTrips} trips total</p>
+                <p className="text-xs text-muted-foreground">{t('analytics_avg_tip')}</p>
+                <p className="text-xs text-muted-foreground">{tipStats.totalTrips} {t('analytics_trips_total')}</p>
               </div>
             </div>
           </div>
@@ -169,7 +172,7 @@ export default function Analytics() {
           {/* Vehicle Cost Tracker */}
           {fuelData.length > 0 && (
             <div className="bg-card/70 backdrop-blur-xl border border-white/5 rounded-3xl p-5 shadow-xl">
-              <h3 className="text-sm font-semibold text-muted-foreground mb-3">Vehicle Cost Tracker</h3>
+              <h3 className="text-sm font-semibold text-muted-foreground mb-3">{t('analytics_vehicle_cost')}</h3>
               <ResponsiveContainer width="100%" height={150}>
                 <LineChart data={fuelData}>
                   <XAxis dataKey="date" tick={{ fontSize: 10, fill: 'hsl(215, 16%, 52%)' }} />

@@ -3,6 +3,7 @@ import { Entry } from '@/lib/types';
 import { getProfile } from '@/lib/storage';
 import { getFuelPrice } from '@/lib/fuelApi';
 import { Loader2 } from 'lucide-react';
+import { useT } from '@/context/LangContext';
 
 const EXPENSE_CATEGORIES = ['Fuel', 'Charging', 'Food', 'Parking', 'Maintenance', 'Other'];
 
@@ -12,6 +13,7 @@ interface Props {
 }
 
 export default function AddEntryModal({ onSave, onClose }: Props) {
+  const t = useT();
   const [type, setType] = useState<'income' | 'expense'>('income');
   const [platform, setPlatform] = useState<'grab' | 'bolt'>('grab');
   const [orderType, setOrderType] = useState<'ride' | 'express'>('ride');
@@ -71,20 +73,20 @@ export default function AddEntryModal({ onSave, onClose }: Props) {
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-end justify-center" onClick={onClose}>
       <div className="w-full max-w-[430px] bg-card/95 backdrop-blur-3xl border-t border-white/10 rounded-t-[2rem] p-6 space-y-5 shadow-[0_-20px_60px_-15px_rgba(0,0,0,0.7)] animate-in slide-in-from-bottom" onClick={e => e.stopPropagation()}>
         <div className="flex justify-between items-center px-1">
-          <h2 className="text-xl font-extrabold text-white">Add Entry</h2>
+          <h2 className="text-xl font-extrabold text-white">{t('add_title')}</h2>
           <button onClick={onClose} className="text-muted-foreground hover:text-white transition-colors bg-white/5 rounded-full w-8 h-8 flex items-center justify-center">✕</button>
         </div>
 
         {/* Type Toggle */}
         <div className="flex bg-secondary/50 p-1.5 rounded-2xl border border-white/5">
-          {(['income', 'expense'] as const).map(t => (
-            <button key={t} onClick={() => setType(t)}
+          {(['income', 'expense'] as const).map(tp => (
+            <button key={tp} onClick={() => setType(tp)}
               className={`flex-1 py-3 rounded-xl text-sm font-bold transition-all duration-300 ${
-                type === t
-                  ? t === 'income' ? 'bg-primary text-white shadow-md scale-[0.98]' : 'bg-destructive text-white shadow-md scale-[0.98]'
+                type === tp
+                  ? tp === 'income' ? 'bg-primary text-white shadow-md scale-[0.98]' : 'bg-destructive text-white shadow-md scale-[0.98]'
                   : 'text-muted-foreground hover:text-white'
               }`}>
-              {t === 'income' ? 'Income' : 'Expense'}
+              {tp === 'income' ? t('add_income') : t('add_expense')}
             </button>
           ))}
         </div>
@@ -100,21 +102,21 @@ export default function AddEntryModal({ onSave, onClose }: Props) {
                     className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-all ${
                       platform === p ? 'bg-primary/20 text-primary border border-primary/30' : 'text-muted-foreground hover:text-white'
                     }`}>
-                    {p === 'grab' ? 'Grab' : 'Bolt'}
+                    {p === 'grab' ? t('add_grab') : t('add_bolt')}
                   </button>
                 ))}
               </div>
               {/* Order Type */}
               <div className="flex bg-secondary/60 p-1 rounded-xl border border-white/5 gap-1 flex-1">
                 {([
-                  { value: 'ride', label: 'Taxi' },
-                  { value: 'express', label: 'Express' },
-                ] as const).map(o => (
+                  { value: 'ride' as const, labelKey: 'add_taxi' as const },
+                  { value: 'express' as const, labelKey: 'add_express' as const },
+                ]).map(o => (
                   <button key={o.value} onClick={() => setOrderType(o.value)}
                     className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-all ${
                       orderType === o.value ? 'bg-primary/20 text-primary border border-primary/30' : 'text-muted-foreground hover:text-white'
                     }`}>
-                    {o.label}
+                    {t(o.labelKey)}
                   </button>
                 ))}
               </div>
@@ -126,32 +128,32 @@ export default function AddEntryModal({ onSave, onClose }: Props) {
                 <span className="text-warning text-xs">⚠</span>
                 <p className="text-[11px] text-muted-foreground">
                   {orderType === 'express' && platform === 'bolt'
-                    ? 'Bolt express orders'
+                    ? t('add_bolt_express_warn')
                     : orderType === 'express'
-                    ? 'Express orders'
-                    : 'Bolt orders'} won't count toward intensive missions.
+                    ? t('add_express_only_warn')
+                    : t('add_bolt_only_warn')} {t('add_no_intensive')}
                 </p>
               </div>
             )}
 
-            <InputField label="App Fare" prefix="฿" value={appFare} onChange={setAppFare} />
-            <InputField label="Customer Paid" prefix="฿" value={customerPaid} onChange={setCustomerPaid} />
-            <InputField label="Driver Received" prefix="฿" value={driverReceived} onChange={setDriverReceived} />
+            <InputField label={t('add_app_fare')} prefix="฿" value={appFare} onChange={setAppFare} />
+            <InputField label={t('add_customer_paid')} prefix="฿" value={customerPaid} onChange={setCustomerPaid} />
+            <InputField label={t('add_driver_received')} prefix="฿" value={driverReceived} onChange={setDriverReceived} />
             {tip > 0 && (
               <div className="bg-warning/10 border border-warning/20 rounded-xl p-3 text-center">
-                <span className="text-warning font-mono font-bold">Tip: ฿{tip.toFixed(0)}</span>
+                <span className="text-warning font-mono font-bold">{t('add_tip_label')} ฿{tip.toFixed(0)}</span>
               </div>
             )}
             {(fareNum > 0 && driverNet > 0) && (
               <div className="bg-destructive/10 border border-destructive/20 rounded-xl p-3 text-center">
-                <span className="text-destructive font-mono font-bold">App Deducted: ฿{appDeducted.toFixed(0)} ({appDeductedPct.toFixed(1)}%)</span>
+                <span className="text-destructive font-mono font-bold">{t('add_app_deducted')} ฿{appDeducted.toFixed(0)} ({appDeductedPct.toFixed(1)}%)</span>
               </div>
             )}
           </div>
         ) : (
           <div className="space-y-3">
             <div>
-              <label className="text-xs text-muted-foreground mb-1 block">Category</label>
+              <label className="text-xs text-muted-foreground mb-1 block">{t('add_category')}</label>
               <select
                 value={expenseCategory}
                 onChange={e => { setExpenseCategory(e.target.value); setAmount(''); }}
@@ -164,10 +166,10 @@ export default function AddEntryModal({ onSave, onClose }: Props) {
             {isFuelSelected && (
               <div className="bg-primary/5 border border-primary/15 rounded-2xl p-4 space-y-3">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Current Fuel Price</span>
+                  <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">{t('add_fuel_price_label')}</span>
                   {fuelLoading ? (
                     <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                      <Loader2 size={12} className="animate-spin" /> Fetching...
+                      <Loader2 size={12} className="animate-spin" /> {t('add_fuel_fetching')}
                     </span>
                   ) : fuelPrice !== null ? (
                     <span className="font-mono font-bold text-primary text-sm">
@@ -175,7 +177,7 @@ export default function AddEntryModal({ onSave, onClose }: Props) {
                       {profile?.fuelType && <span className="text-muted-foreground font-normal ml-1">({profile.fuelType.toUpperCase()})</span>}
                     </span>
                   ) : (
-                    <span className="text-xs text-muted-foreground">Set fuel type in Profile</span>
+                    <span className="text-xs text-muted-foreground">{t('add_fuel_set_profile')}</span>
                   )}
                 </div>
                 {fuelLiters !== null && (
@@ -187,20 +189,20 @@ export default function AddEntryModal({ onSave, onClose }: Props) {
               </div>
             )}
 
-            <InputField label={isFuelSelected ? 'Amount Paid' : 'Amount'} prefix="฿" value={amount} onChange={setAmount} />
+            <InputField label={isFuelSelected ? t('add_amount_paid') : t('add_amount')} prefix="฿" value={amount} onChange={setAmount} />
           </div>
         )}
 
         <div>
-          <label className="text-xs text-muted-foreground mb-1 block">Note (optional)</label>
+          <label className="text-xs text-muted-foreground mb-1 block">{t('add_note_label')}</label>
           <input value={note} onChange={e => setNote(e.target.value)}
             className="w-full bg-secondary text-foreground rounded-lg p-2.5 text-sm border border-border"
-            placeholder="Add a note..." />
+            placeholder={t('add_note_placeholder')} />
         </div>
 
         <button onClick={handleSave}
           className="w-full py-4 rounded-2xl bg-gradient-to-r from-primary to-[#00b050] text-white font-extrabold text-base shadow-lg shadow-primary/20 hover:scale-[1.02] transition-transform">
-          Save Entry
+          {t('add_save')}
         </button>
       </div>
     </div>
