@@ -4,8 +4,17 @@ import { getProfile } from '@/lib/storage';
 import { getFuelPrice } from '@/lib/fuelApi';
 import { Loader2 } from 'lucide-react';
 import { useT } from '@/context/LangContext';
+import type { TranslationKey } from '@/lib/i18n';
 
-const EXPENSE_CATEGORIES = ['Fuel', 'Charging', 'Food', 'Parking', 'Maintenance', 'Other'];
+// Keys stay in English (stored in data); labels come from i18n
+const EXPENSE_CATEGORIES: { value: string; labelKey: TranslationKey }[] = [
+  { value: 'Fuel',        labelKey: 'cat_fuel' },
+  { value: 'Charging',    labelKey: 'cat_charging' },
+  { value: 'Food',        labelKey: 'cat_food' },
+  { value: 'Parking',     labelKey: 'cat_parking' },
+  { value: 'Maintenance', labelKey: 'cat_maintenance' },
+  { value: 'Other',       labelKey: 'cat_other' },
+];
 
 interface Props {
   onSave: (entry: Omit<Entry, 'id' | 'sessionId' | 'timestamp'>) => void;
@@ -20,7 +29,7 @@ export default function AddEntryModal({ onSave, onClose }: Props) {
   const [appFare, setAppFare] = useState('');
   const [customerPaid, setCustomerPaid] = useState('');
   const [driverReceived, setDriverReceived] = useState('');
-  const [expenseCategory, setExpenseCategory] = useState(EXPENSE_CATEGORIES[0]);
+  const [expenseCategory, setExpenseCategory] = useState(EXPENSE_CATEGORIES[0].value);
   const [amount, setAmount] = useState('');
   const [note, setNote] = useState('');
 
@@ -159,7 +168,7 @@ export default function AddEntryModal({ onSave, onClose }: Props) {
                 onChange={e => { setExpenseCategory(e.target.value); setAmount(''); }}
                 className="w-full bg-secondary text-foreground rounded-lg p-2.5 text-sm border border-border"
               >
-                {EXPENSE_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                {EXPENSE_CATEGORIES.map(c => <option key={c.value} value={c.value}>{t(c.labelKey)}</option>)}
               </select>
             </div>
 
