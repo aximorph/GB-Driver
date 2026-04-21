@@ -418,7 +418,7 @@ export default function Dashboard() {
                     <div className="flex items-center gap-1.5 flex-wrap">
                       <h4 className="font-bold text-sm text-foreground">
                         {entry.type === 'income'
-                          ? entry.note?.startsWith('Intensive:') ? entry.note : (entry.orderType === 'express' ? 'ส่งของ' : 'ส่งคน')
+                          ? entry.note?.startsWith('Intensive:') ? entry.note : (entry.orderType === 'express' ? 'Express' : 'Taxi')
                           : (entry.expenseCategory || 'Expense')}
                       </h4>
                       {entry.type === 'income' && !entry.note?.startsWith('Intensive:') && (

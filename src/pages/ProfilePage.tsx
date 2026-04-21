@@ -121,8 +121,8 @@ function IntensiveModal({ initial, onSave, onClose }: IntensiveModalProps) {
           <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Counts For</label>
           <div className="flex bg-secondary/60 p-1 rounded-2xl border border-white/5 gap-1">
             {([
-              { value: 'ride',    label: 'ส่งคน' },
-              { value: 'express', label: 'ส่งของ' },
+              { value: 'ride',    label: 'Taxi' },
+              { value: 'express', label: 'Express' },
               { value: 'all',     label: 'ทั้งหมด' },
             ] as const).map(opt => (
               <button key={opt.value} type="button" onClick={() => setCountsFor(opt.value)}
@@ -471,7 +471,7 @@ export default function ProfilePage() {
                     <p className={`text-sm font-bold truncate ${inc.enabled ? 'text-white' : 'text-muted-foreground'}`}>{inc.name}</p>
                     <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
                       <span className="text-[10px] font-bold bg-white/5 border border-white/10 px-1.5 py-0.5 rounded-md text-muted-foreground">
-                        {inc.countsFor === 'ride' ? 'ส่งคน' : inc.countsFor === 'express' ? 'ส่งของ' : 'ทั้งหมด'}
+                        {inc.countsFor === 'ride' ? 'Taxi' : inc.countsFor === 'express' ? 'Express' : 'ทั้งหมด'}
                       </span>
                       <span className="text-xs text-muted-foreground">
                         up to ฿{topTier?.bonus ?? 0} · {inc.tiers.length} tier{inc.tiers.length > 1 ? 's' : ''}

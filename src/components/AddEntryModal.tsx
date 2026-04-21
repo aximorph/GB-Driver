@@ -107,8 +107,8 @@ export default function AddEntryModal({ onSave, onClose }: Props) {
               {/* Order Type */}
               <div className="flex bg-secondary/60 p-1 rounded-xl border border-white/5 gap-1 flex-1">
                 {([
-                  { value: 'ride', label: 'ส่งคน' },
-                  { value: 'express', label: 'ส่งของ' },
+                  { value: 'ride', label: 'Taxi' },
+                  { value: 'express', label: 'Express' },
                 ] as const).map(o => (
                   <button key={o.value} onClick={() => setOrderType(o.value)}
                     className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-all ${
