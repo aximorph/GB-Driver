@@ -37,7 +37,8 @@ function countEligibleTrips(entries: Entry[], intensive: Intensive): number {
   });
   if (!intensive.startTime && !intensive.endTime) return trips.length;
   return trips.filter(e => {
-    const d = new Date(e.timestamp);
+    // Use trip START time (when job appeared) if available; fall back to entry timestamp
+    const d = new Date(e.tripStartTime ?? e.timestamp);
     const hhmm = `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`;
     return hhmm >= (intensive.startTime ?? '00:00') && hhmm <= (intensive.endTime ?? '23:59');
   }).length;
