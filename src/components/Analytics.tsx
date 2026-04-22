@@ -3,6 +3,7 @@ import { getSessions } from '@/lib/storage';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from 'recharts';
 import { format, subDays, parseISO } from 'date-fns';
 import { useT } from '@/context/LangContext';
+import { useIsLandscape } from '@/hooks/useIsLandscape';
 
 const GREEN = 'hsl(145, 100%, 45%)';
 const YELLOW = 'hsl(54, 100%, 62%)';
@@ -10,6 +11,7 @@ const RED = 'hsl(0, 76%, 60%)';
 const COLORS = [GREEN, YELLOW, RED];
 
 export default function Analytics() {
+  const isLandscape = useIsLandscape();
   const t = useT();
   const sessions = getSessions().filter(s => s.endTime);
 
@@ -74,7 +76,7 @@ export default function Analytics() {
   }, [sessions]);
 
   return (
-    <div className="pb-24 p-4 space-y-5 relative animate-in fade-in slide-in-from-bottom-4 duration-500">
+    <div className={`p-4 space-y-5 relative animate-in fade-in slide-in-from-bottom-4 duration-500 ${isLandscape ? 'pb-4' : 'pb-24'}`}>
       <div className="absolute top-0 left-0 w-64 h-64 bg-primary/5 rounded-full blur-3xl -z-10 -translate-x-16 -translate-y-16"></div>
       <h1 className="text-3xl font-extrabold text-white tracking-tight drop-shadow-sm">{t('analytics_title')}</h1>
 

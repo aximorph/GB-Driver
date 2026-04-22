@@ -42,7 +42,7 @@ export default function EndShiftModal({ session, onConfirm, onClose }: Props) {
 
   return (
     <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={onClose}>
-      <div className="w-full max-w-[430px] bg-card border border-border rounded-xl p-5 space-y-4" onClick={e => e.stopPropagation()}>
+      <div className="w-full max-w-[430px] bg-card border border-border rounded-xl p-5 space-y-4 max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
         <h2 className="text-lg font-bold text-foreground">{t('end_title')}</h2>
 
         <div className="bg-secondary rounded-lg p-3 text-center">

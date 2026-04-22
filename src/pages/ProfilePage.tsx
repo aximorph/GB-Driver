@@ -7,6 +7,7 @@ import { initGoogleIdentity, requestGoogleLogin, backupDataToDrive, restoreFromD
 import SweetAlert from '@/components/SweetAlert';
 import { useLang, useT } from '@/context/LangContext';
 import type { Lang } from '@/lib/i18n';
+import { useIsLandscape } from '@/hooks/useIsLandscape';
 
 function generateId() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2);
@@ -233,6 +234,7 @@ function IntensiveModal({ initial, onSave, onClose, t }: IntensiveModalProps) {
 export default function ProfilePage() {
   const { lang, setLang } = useLang();
   const t = useT();
+  const isLandscape = useIsLandscape();
 
   const [profile, setProfile] = useState<DriverProfile | null>(getProfile());
   const [vehicleType, setVehicleType] = useState<'electric' | 'petrol'>(profile?.vehicleType || 'petrol');
@@ -374,7 +376,7 @@ export default function ProfilePage() {
   };
 
   return (
-    <div className="pb-24 p-4 space-y-5 relative animate-in fade-in slide-in-from-bottom-4 duration-500">
+    <div className={`p-4 space-y-5 relative animate-in fade-in slide-in-from-bottom-4 duration-500 ${isLandscape ? 'pb-4' : 'pb-24'}`}>
       <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full blur-3xl -z-10 translate-x-16 -translate-y-16" />
       <h1 className="text-3xl font-extrabold text-white tracking-tight drop-shadow-sm">{t('profile_title')}</h1>
 

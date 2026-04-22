@@ -4,6 +4,7 @@ import { ShiftSession } from '@/lib/types';
 import { format, startOfWeek, parseISO } from 'date-fns';
 import { Trash2, Star, Clock, Activity, Coffee } from 'lucide-react';
 import { useT } from '@/context/LangContext';
+import { useIsLandscape } from '@/hooks/useIsLandscape';
 
 function formatDuration(secs: number): string {
   const h = Math.floor(secs / 3600);
@@ -14,6 +15,7 @@ function formatDuration(secs: number): string {
 
 export default function History() {
   const t = useT();
+  const isLandscape = useIsLandscape();
   const [tab, setTab] = useState<'daily' | 'weekly'>('daily');
   const [expandedDate, setExpandedDate] = useState<string | null>(null);
   const [sessions, setSessions] = useState<ShiftSession[]>(() =>
@@ -109,7 +111,7 @@ export default function History() {
   const data = tab === 'daily' ? dailyData : weeklyData;
 
   return (
-    <div className="pb-28 p-4 space-y-5 relative animate-in fade-in slide-in-from-bottom-4 duration-500">
+    <div className={`p-4 space-y-5 relative animate-in fade-in slide-in-from-bottom-4 duration-500 ${isLandscape ? 'pb-4' : 'pb-28'}`}>
       <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full blur-3xl -z-10 translate-x-32 -translate-y-32"></div>
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-extrabold text-white tracking-tight drop-shadow-sm">{t('hist_title')}</h1>
