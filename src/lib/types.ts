@@ -50,6 +50,8 @@ export interface Entry {
   note?: string;
   fuelPrice?: number;
   fuelLiters?: number;
+  tripDuration?: number;    // seconds, income trips only
+  tripStartTime?: string;   // ISO timestamp when trip started
 }
 
 export type ShiftStatus = 'offline' | 'on_shift' | 'shift_ended';

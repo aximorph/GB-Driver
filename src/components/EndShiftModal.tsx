@@ -1,11 +1,19 @@
 import { useState } from 'react';
 import { ShiftSession } from '@/lib/types';
 import { useT } from '@/context/LangContext';
+import { Clock, Activity, Coffee } from 'lucide-react';
 
 interface Props {
   session: ShiftSession;
   onConfirm: (grabPayout: number) => void;
   onClose: () => void;
+}
+
+function formatDuration(secs: number): string {
+  const h = Math.floor(secs / 3600);
+  const m = Math.floor((secs % 3600) / 60).toString().padStart(2, '0');
+  const s = (secs % 60).toString().padStart(2, '0');
+  return h > 0 ? `${h}:${m}:${s}` : `${m}:${s}`;
 }
 
 export default function EndShiftModal({ session, onConfirm, onClose }: Props) {
@@ -18,6 +26,19 @@ export default function EndShiftModal({ session, onConfirm, onClose }: Props) {
 
   const payoutNum = parseFloat(grabPayout) || 0;
   const diff = payoutNum - calcGross;
+
+  // ── Time breakdown ─────────────────────────────────────────────────────────
+  const now = new Date();
+  const shiftStart = new Date(session.startTime);
+  const onlineSecs = Math.floor((now.getTime() - shiftStart.getTime()) / 1000);
+
+  // Sum of trip durations for income entries that have it (non-bonus)
+  const workingSecs = session.entries
+    .filter(e => e.type === 'income' && !e.note?.startsWith('Intensive:') && (e.tripDuration ?? 0) > 0)
+    .reduce((sum, e) => sum + (e.tripDuration ?? 0), 0);
+
+  const waitingSecs = Math.max(0, onlineSecs - workingSecs);
+  const hasTimeData = workingSecs > 0;
 
   return (
     <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={onClose}>
@@ -51,6 +72,31 @@ export default function EndShiftModal({ session, onConfirm, onClose }: Props) {
           </div>
         )}
 
+        {/* ── Time Breakdown ─────────────────────────────────────────────── */}
+        <div className="bg-secondary/60 rounded-xl border border-white/5 p-4 space-y-3">
+          <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest">{t('time_breakdown')}</p>
+          <div className="grid grid-cols-3 gap-2">
+            <TimeStatBox
+              icon={<Clock size={14} />}
+              label={t('time_online')}
+              value={formatDuration(onlineSecs)}
+              color="text-white"
+            />
+            <TimeStatBox
+              icon={<Activity size={14} />}
+              label={t('time_working')}
+              value={hasTimeData ? formatDuration(workingSecs) : '—'}
+              color="text-primary"
+            />
+            <TimeStatBox
+              icon={<Coffee size={14} />}
+              label={t('time_waiting')}
+              value={hasTimeData ? formatDuration(waitingSecs) : '—'}
+              color="text-warning"
+            />
+          </div>
+        </div>
+
         <div className="flex gap-3">
           <button onClick={onClose} className="flex-1 py-3 rounded-lg bg-secondary text-secondary-foreground font-semibold text-sm">
             {t('end_cancel')}
@@ -63,6 +109,21 @@ export default function EndShiftModal({ session, onConfirm, onClose }: Props) {
           </button>
         </div>
       </div>
+    </div>
+  );
+}
+
+function TimeStatBox({ icon, label, value, color }: {
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+  color: string;
+}) {
+  return (
+    <div className="bg-black/20 rounded-xl p-3 text-center border border-white/5 space-y-1">
+      <div className={`flex justify-center ${color} opacity-70`}>{icon}</div>
+      <p className={`font-mono font-bold text-sm ${color}`}>{value}</p>
+      <p className="text-[10px] text-muted-foreground">{label}</p>
     </div>
   );
 }

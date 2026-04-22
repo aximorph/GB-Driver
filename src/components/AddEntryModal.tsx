@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Entry } from '@/lib/types';
 import { getProfile } from '@/lib/storage';
 import { getFuelPrice } from '@/lib/fuelApi';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Timer } from 'lucide-react';
 import { useT } from '@/context/LangContext';
 import type { TranslationKey } from '@/lib/i18n';
 
@@ -16,14 +16,30 @@ const EXPENSE_CATEGORIES: { value: string; labelKey: TranslationKey }[] = [
   { value: 'Other',       labelKey: 'cat_other' },
 ];
 
+function formatDuration(secs: number): string {
+  const h = Math.floor(secs / 3600);
+  const m = Math.floor((secs % 3600) / 60).toString().padStart(2, '0');
+  const s = (secs % 60).toString().padStart(2, '0');
+  return h > 0 ? `${h}:${m}:${s}` : `${m}:${s}`;
+}
+
 interface Props {
+  initialType?: 'income' | 'expense';
+  initialTripDuration?: number;   // seconds from TripTimerDialog
+  initialTripStartTime?: string;  // ISO timestamp
   onSave: (entry: Omit<Entry, 'id' | 'sessionId' | 'timestamp'>) => void;
   onClose: () => void;
 }
 
-export default function AddEntryModal({ onSave, onClose }: Props) {
+export default function AddEntryModal({
+  initialType = 'income',
+  initialTripDuration,
+  initialTripStartTime,
+  onSave,
+  onClose,
+}: Props) {
   const t = useT();
-  const [type, setType] = useState<'income' | 'expense'>('income');
+  const [type, setType] = useState<'income' | 'expense'>(initialType);
   const [platform, setPlatform] = useState<'grab' | 'bolt'>('grab');
   const [orderType, setOrderType] = useState<'ride' | 'express'>('ride');
   const [appFare, setAppFare] = useState('');
@@ -56,7 +72,8 @@ export default function AddEntryModal({ onSave, onClose }: Props) {
       : null;
 
   const fareNum = parseFloat(appFare) || 0;
-  const paidNum = parseFloat(customerPaid) || 0;
+  // Customer Paid: if empty → treat as same as App Fare (no tip, no shortfall)
+  const paidNum = customerPaid !== '' ? (parseFloat(customerPaid) || 0) : fareNum;
   const driverNet = parseFloat(driverReceived) || 0;
   const tip = Math.max(0, paidNum - fareNum);
   const appDeducted = Math.max(0, fareNum - driverNet);
@@ -65,7 +82,21 @@ export default function AddEntryModal({ onSave, onClose }: Props) {
   const handleSave = () => {
     if (type === 'income') {
       if (!fareNum) return;
-      onSave({ type, platform, orderType, appFare: fareNum, customerPaid: paidNum, tip, driverNet, amount: fareNum, note });
+      onSave({
+        type,
+        platform,
+        orderType,
+        appFare: fareNum,
+        customerPaid: paidNum,
+        tip,
+        driverNet,
+        amount: fareNum,
+        note,
+        ...(initialTripDuration !== undefined && {
+          tripDuration: initialTripDuration,
+          tripStartTime: initialTripStartTime,
+        }),
+      });
     } else {
       const expAmount = parseFloat(amount) || 0;
       if (!expAmount) return;
@@ -82,11 +113,20 @@ export default function AddEntryModal({ onSave, onClose }: Props) {
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-end justify-center" onClick={onClose}>
       <div className="w-full max-w-[430px] bg-card/95 backdrop-blur-3xl border-t border-white/10 rounded-t-[2rem] p-6 space-y-5 shadow-[0_-20px_60px_-15px_rgba(0,0,0,0.7)] animate-in slide-in-from-bottom" onClick={e => e.stopPropagation()}>
         <div className="flex justify-between items-center px-1">
-          <h2 className="text-xl font-extrabold text-white">{t('add_title')}</h2>
+          <div className="flex items-center gap-2">
+            <h2 className="text-xl font-extrabold text-white">{t('add_title')}</h2>
+            {/* Trip duration badge */}
+            {initialTripDuration !== undefined && initialTripDuration > 0 && (
+              <span className="flex items-center gap-1 text-[11px] font-bold text-primary bg-primary/10 border border-primary/20 px-2 py-0.5 rounded-lg">
+                <Timer size={11} />
+                {formatDuration(initialTripDuration)}
+              </span>
+            )}
+          </div>
           <button onClick={onClose} className="text-muted-foreground hover:text-white transition-colors bg-white/5 rounded-full w-8 h-8 flex items-center justify-center">✕</button>
         </div>
 
-        {/* Type Toggle */}
+        {/* Type Toggle — only show if no pre-set duration (expense can still be toggled) */}
         <div className="flex bg-secondary/50 p-1.5 rounded-2xl border border-white/5">
           {(['income', 'expense'] as const).map(tp => (
             <button key={tp} onClick={() => setType(tp)}
@@ -104,7 +144,6 @@ export default function AddEntryModal({ onSave, onClose }: Props) {
           <div className="space-y-4">
             {/* Platform + Order Type */}
             <div className="flex gap-2">
-              {/* Platform */}
               <div className="flex bg-secondary/60 p-1 rounded-xl border border-white/5 gap-1 flex-1">
                 {(['grab', 'bolt'] as const).map(p => (
                   <button key={p} onClick={() => setPlatform(p)}
@@ -115,7 +154,6 @@ export default function AddEntryModal({ onSave, onClose }: Props) {
                   </button>
                 ))}
               </div>
-              {/* Order Type */}
               <div className="flex bg-secondary/60 p-1 rounded-xl border border-white/5 gap-1 flex-1">
                 {([
                   { value: 'ride' as const, labelKey: 'add_taxi' as const },
@@ -145,9 +183,20 @@ export default function AddEntryModal({ onSave, onClose }: Props) {
               </div>
             )}
 
-            <InputField label={t('add_app_fare')} prefix="฿" value={appFare} onChange={setAppFare} />
-            <InputField label={t('add_customer_paid')} prefix="฿" value={customerPaid} onChange={setCustomerPaid} />
+            {/* App Fare + Customer Paid — same row */}
+            <div className="grid grid-cols-2 gap-2">
+              <InputField label={t('add_app_fare')} prefix="฿" value={appFare} onChange={setAppFare} />
+              <InputField
+                label={t('add_customer_paid')}
+                prefix="฿"
+                value={customerPaid}
+                onChange={setCustomerPaid}
+                placeholder={fareNum > 0 ? fareNum.toFixed(0) : '0'}
+              />
+            </div>
+
             <InputField label={t('add_driver_received')} prefix="฿" value={driverReceived} onChange={setDriverReceived} />
+
             {tip > 0 && (
               <div className="bg-warning/10 border border-warning/20 rounded-xl p-3 text-center">
                 <span className="text-warning font-mono font-bold">{t('add_tip_label')} ฿{tip.toFixed(0)}</span>
@@ -218,19 +267,31 @@ export default function AddEntryModal({ onSave, onClose }: Props) {
   );
 }
 
-function InputField({ label, prefix, value, onChange, readOnly }: {
-  label: string; prefix: string; value: string; onChange: (v: string) => void; readOnly?: boolean;
+function InputField({
+  label, prefix, value, onChange, readOnly, placeholder,
+}: {
+  label: string;
+  prefix: string;
+  value: string;
+  onChange: (v: string) => void;
+  readOnly?: boolean;
+  placeholder?: string;
 }) {
   return (
     <div>
       <label className="text-xs font-medium text-muted-foreground mb-1.5 block px-1">{label}</label>
       <div className="relative">
         <span className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground text-base font-medium">{prefix}</span>
-        <input type="number" value={value} onChange={e => onChange(e.target.value)} readOnly={readOnly}
+        <input
+          type="number"
+          value={value}
+          onChange={e => onChange(e.target.value)}
+          readOnly={readOnly}
+          placeholder={placeholder ?? '0'}
           className={`w-full bg-input/40 text-white rounded-xl p-3.5 pl-10 text-base font-mono border border-white/5 transition-all placeholder:text-muted-foreground/50 outline-none ${
             readOnly ? 'opacity-70 cursor-default' : 'focus:bg-input/80 focus:border-primary/50'
           }`}
-          placeholder="0" />
+        />
       </div>
     </div>
   );

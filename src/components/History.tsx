@@ -2,8 +2,15 @@ import { useState, useMemo } from 'react';
 import { getSessions, saveSessions } from '@/lib/storage';
 import { ShiftSession } from '@/lib/types';
 import { format, startOfWeek, parseISO } from 'date-fns';
-import { Trash2, Star } from 'lucide-react';
+import { Trash2, Star, Clock, Activity, Coffee } from 'lucide-react';
 import { useT } from '@/context/LangContext';
+
+function formatDuration(secs: number): string {
+  const h = Math.floor(secs / 3600);
+  const m = Math.floor((secs % 3600) / 60).toString().padStart(2, '0');
+  const s = (secs % 60).toString().padStart(2, '0');
+  return h > 0 ? `${h}:${m}:${s}` : `${m}:${s}`;
+}
 
 export default function History() {
   const t = useT();
@@ -40,17 +47,27 @@ export default function History() {
     const tips = entries.filter(e => e.type === 'income').reduce((sum, e) => sum + (e.tip || 0), 0);
     const expenses = entries.filter(e => e.type === 'expense').reduce((sum, e) => sum + e.amount, 0);
     // รวมเวลา online ของทุก session ในกลุ่ม (เฉพาะที่จบแล้ว)
-    const totalMinutes = ss.reduce((sum, s) => {
+    const totalOnlineSecs = ss.reduce((sum, s) => {
       if (!s.endTime) return sum;
-      const mins = (new Date(s.endTime).getTime() - new Date(s.startTime).getTime()) / 60000;
-      return sum + mins;
+      return sum + Math.floor((new Date(s.endTime).getTime() - new Date(s.startTime).getTime()) / 1000);
     }, 0);
+    const totalMinutes = totalOnlineSecs / 60;
     const hours = Math.floor(totalMinutes / 60);
     const mins = Math.round(totalMinutes % 60);
-    const onlineTime = totalMinutes > 0
+    const onlineTime = totalOnlineSecs > 0
       ? hours > 0 ? `${hours}h ${mins}m` : `${mins}m`
       : null;
-    return { trips, gross, tips, expenses, net: gross + tips - expenses, onlineTime };
+
+    // Working time = sum of tripDuration from income entries (non-bonus)
+    const workingSecs = entries
+      .filter(e => e.type === 'income' && !e.note?.startsWith('Intensive:') && (e.tripDuration ?? 0) > 0)
+      .reduce((sum, e) => sum + (e.tripDuration ?? 0), 0);
+    const waitingSecs = Math.max(0, totalOnlineSecs - workingSecs);
+    const workingTime = workingSecs > 0 ? formatDuration(workingSecs) : null;
+    const waitingTime = workingSecs > 0 ? formatDuration(waitingSecs) : null;
+    const onlineTimeFmt = totalOnlineSecs > 0 ? formatDuration(totalOnlineSecs) : null;
+
+    return { trips, gross, tips, expenses, net: gross + tips - expenses, onlineTime, onlineTimeFmt, workingTime, waitingTime };
   };
 
   // Delete all sessions for a given date key
@@ -161,6 +178,33 @@ export default function History() {
                   <MiniStat label={t('hist_expenses')} value={stats.expenses} />
                   <MiniStat label={t('hist_net_label')} value={stats.net} />
                 </div>
+
+                {/* Time breakdown — only shown when trip-duration data is available */}
+                {(stats.onlineTimeFmt || stats.workingTime) && (
+                  <div className="bg-secondary/40 rounded-xl border border-white/5 p-3 space-y-2">
+                    <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">{t('time_breakdown')}</p>
+                    <div className="grid grid-cols-3 gap-2">
+                      <TimeStatMini
+                        icon={<Clock size={12} />}
+                        label={t('time_online')}
+                        value={stats.onlineTimeFmt ?? '—'}
+                        color="text-white"
+                      />
+                      <TimeStatMini
+                        icon={<Activity size={12} />}
+                        label={t('time_working')}
+                        value={stats.workingTime ?? '—'}
+                        color="text-primary"
+                      />
+                      <TimeStatMini
+                        icon={<Coffee size={12} />}
+                        label={t('time_waiting')}
+                        value={stats.waitingTime ?? '—'}
+                        color="text-warning"
+                      />
+                    </div>
+                  </div>
+                )}
                 {ss.flatMap(s => s.entries).length === 0 && (
                   <p className="text-center text-xs text-muted-foreground py-2">{t('hist_no_entries')}</p>
                 )}
@@ -232,6 +276,21 @@ function MiniStat({ label, value }: { label: string; value: number }) {
     <div>
       <p className="text-xs text-muted-foreground">{label}</p>
       <p className="font-mono text-xs font-bold text-foreground">฿{value.toFixed(0)}</p>
+    </div>
+  );
+}
+
+function TimeStatMini({ icon, label, value, color }: {
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+  color: string;
+}) {
+  return (
+    <div className="bg-black/20 rounded-lg p-2 text-center border border-white/5 space-y-1">
+      <div className={`flex justify-center ${color} opacity-70`}>{icon}</div>
+      <p className={`font-mono font-bold text-xs ${color}`}>{value}</p>
+      <p className="text-[9px] text-muted-foreground leading-tight">{label}</p>
     </div>
   );
 }

@@ -88,6 +88,20 @@ export const translations = {
     end_cancel: 'Cancel',
     end_confirm: 'Confirm & End',
 
+    // ── TripTimerDialog ────────────────────────────────────────────────────────
+    timer_new_trip: 'New Trip',
+    timer_start: 'Start',
+    timer_end: 'End Trip',
+    timer_cancel_trip: 'Cancel Trip',
+    timer_add_expense: 'Add Expense',
+    timer_in_progress: 'Trip in progress',
+    timer_duration_label: 'Trip time',
+    // ── Time stats ─────────────────────────────────────────────────────────────
+    time_online: 'Online',
+    time_working: 'Working',
+    time_waiting: 'Waiting',
+    time_breakdown: 'Time Breakdown',
+
     // ── AddEntryModal ──────────────────────────────────────────────────────────
     add_title: 'Add Entry',
     add_income: 'Income',
@@ -273,6 +287,20 @@ export const translations = {
     end_difference: 'ส่วนต่าง:',
     end_cancel: 'ยกเลิก',
     end_confirm: 'ยืนยัน & จบกะ',
+
+    // ── TripTimerDialog ────────────────────────────────────────────────────────
+    timer_new_trip: 'งานใหม่',
+    timer_start: 'รับงาน',
+    timer_end: 'ส่งเสร็จแล้ว',
+    timer_cancel_trip: 'ลูกค้ายกเลิก',
+    timer_add_expense: 'เพิ่มรายจ่าย',
+    timer_in_progress: 'กำลังส่งลูกค้า',
+    timer_duration_label: 'เวลาต่องาน',
+    // ── Time stats ─────────────────────────────────────────────────────────────
+    time_online: 'เวลาออนไลน์',
+    time_working: 'เวลาทำงาน',
+    time_waiting: 'เวลารองาน',
+    time_breakdown: 'สรุปเวลา',
 
     // ── AddEntryModal ──────────────────────────────────────────────────────────
     add_title: 'เพิ่มรายการ',

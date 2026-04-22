@@ -6,12 +6,20 @@ import { isGoogleConnected, backupDataToDrive, scheduleMidnightExpiry } from '@/
 import { format } from 'date-fns';
 import { Trash2, DollarSign, Receipt, Gift, Clock3 } from 'lucide-react';
 import AddEntryModal from './AddEntryModal';
+import TripTimerDialog from './TripTimerDialog';
 import EndShiftModal from './EndShiftModal';
 import SweetAlert from './SweetAlert';
 import { useT } from '@/context/LangContext';
 
 function generateId() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2);
+}
+
+function formatDuration(secs: number): string {
+  const h = Math.floor(secs / 3600);
+  const m = Math.floor((secs % 3600) / 60).toString().padStart(2, '0');
+  const s = (secs % 60).toString().padStart(2, '0');
+  return h > 0 ? `${h}:${m}:${s}` : `${m}:${s}`;
 }
 
 // Count income trips eligible for this intensive.
@@ -48,7 +56,11 @@ export default function Dashboard() {
   const [sessions, setSessions] = useState<ShiftSession[]>(getSessions());
   const [activeSession, setActiveSession] = useState<ShiftSession | null>(getActiveSession());
   const [elapsed, setElapsed] = useState(0);
+  const [showTripTimer, setShowTripTimer] = useState(false);
   const [showAddEntry, setShowAddEntry] = useState(false);
+  const [addEntryType, setAddEntryType] = useState<'income' | 'expense'>('income');
+  const [pendingTripDuration, setPendingTripDuration] = useState<number | undefined>(undefined);
+  const [pendingTripStartTime, setPendingTripStartTime] = useState<string | undefined>(undefined);
   const [showEndShift, setShowEndShift] = useState(false);
   const [showLoginAlert, setShowLoginAlert] = useState(false);
   const [isBackingUp, setIsBackingUp] = useState(false);
@@ -201,9 +213,9 @@ export default function Dashboard() {
     setActiveSession(prev => prev ? { ...prev, entries: prev.entries.filter(e => e.id !== entryId) } : null);
   }, []);
 
-  // Listen for add entry event from BottomNav
+  // Listen for add entry event from BottomNav → open TripTimerDialog
   useEffect(() => {
-    const handler = () => setShowAddEntry(true);
+    const handler = () => setShowTripTimer(true);
     window.addEventListener('gbdriver:open-add-entry', handler);
     return () => window.removeEventListener('gbdriver:open-add-entry', handler);
   }, []);
@@ -433,10 +445,15 @@ export default function Dashboard() {
                         </span>
                       )}
                     </div>
-                    <p className="text-xs text-muted-foreground font-medium">
-                      {format(new Date(entry.timestamp), 'h:mm a')}
+                    <p className="text-xs text-muted-foreground font-medium flex items-center gap-1.5 flex-wrap">
+                      <span>{format(new Date(entry.timestamp), 'h:mm a')}</span>
                       {entry.fuelLiters && entry.fuelLiters > 0 && (
-                        <span className="ml-1.5 text-primary font-semibold">· {entry.fuelLiters.toFixed(2)} L</span>
+                        <span className="text-primary font-semibold">· {entry.fuelLiters.toFixed(2)} L</span>
+                      )}
+                      {entry.tripDuration !== undefined && entry.tripDuration > 0 && (
+                        <span className="inline-flex items-center gap-0.5 text-[10px] font-bold text-primary/80 bg-primary/10 border border-primary/15 px-1.5 py-0.5 rounded-md font-mono">
+                          ⏱ {formatDuration(entry.tripDuration)}
+                        </span>
                       )}
                     </p>
                   </div>
@@ -467,10 +484,42 @@ export default function Dashboard() {
         </div>
       )}
 
+      {showTripTimer && (
+        <TripTimerDialog
+          onEndTrip={(duration, startTime) => {
+            setShowTripTimer(false);
+            setPendingTripDuration(duration);
+            setPendingTripStartTime(startTime);
+            setAddEntryType('income');
+            setShowAddEntry(true);
+          }}
+          onExpense={() => {
+            setShowTripTimer(false);
+            setPendingTripDuration(undefined);
+            setPendingTripStartTime(undefined);
+            setAddEntryType('expense');
+            setShowAddEntry(true);
+          }}
+          onClose={() => setShowTripTimer(false)}
+        />
+      )}
+
       {showAddEntry && (
         <AddEntryModal
-          onSave={(entry) => { addEntry(entry); setShowAddEntry(false); }}
-          onClose={() => setShowAddEntry(false)}
+          initialType={addEntryType}
+          initialTripDuration={pendingTripDuration}
+          initialTripStartTime={pendingTripStartTime}
+          onSave={(entry) => {
+            addEntry(entry);
+            setShowAddEntry(false);
+            setPendingTripDuration(undefined);
+            setPendingTripStartTime(undefined);
+          }}
+          onClose={() => {
+            setShowAddEntry(false);
+            setPendingTripDuration(undefined);
+            setPendingTripStartTime(undefined);
+          }}
         />
       )}
 
