@@ -25,6 +25,7 @@ function formatDuration(secs: number): string {
 
 interface Props {
   initialType?: 'income' | 'expense';
+  lockType?: boolean;              // when true, disables switching to the other tab
   initialTripDuration?: number;   // seconds from TripTimerDialog
   initialTripStartTime?: string;  // ISO timestamp
   onSave: (entry: Omit<Entry, 'id' | 'sessionId' | 'timestamp'>) => void;
@@ -33,6 +34,7 @@ interface Props {
 
 export default function AddEntryModal({
   initialType = 'income',
+  lockType = false,
   initialTripDuration,
   initialTripStartTime,
   onSave,
@@ -126,18 +128,28 @@ export default function AddEntryModal({
           <button onClick={onClose} className="text-muted-foreground hover:text-white transition-colors bg-white/5 rounded-full w-8 h-8 flex items-center justify-center">✕</button>
         </div>
 
-        {/* Type Toggle — only show if no pre-set duration (expense can still be toggled) */}
+        {/* Type Toggle */}
         <div className="flex bg-secondary/50 p-1.5 rounded-2xl border border-white/5">
-          {(['income', 'expense'] as const).map(tp => (
-            <button key={tp} onClick={() => setType(tp)}
-              className={`flex-1 py-3 rounded-xl text-sm font-bold transition-all duration-300 ${
-                type === tp
-                  ? tp === 'income' ? 'bg-primary text-white shadow-md scale-[0.98]' : 'bg-destructive text-white shadow-md scale-[0.98]'
-                  : 'text-muted-foreground hover:text-white'
-              }`}>
-              {tp === 'income' ? t('add_income') : t('add_expense')}
-            </button>
-          ))}
+          {(['income', 'expense'] as const).map(tp => {
+            const isActive = type === tp;
+            const isDisabled = lockType && !isActive;
+            return (
+              <button
+                key={tp}
+                onClick={() => !isDisabled && setType(tp)}
+                disabled={isDisabled}
+                className={`flex-1 py-3 rounded-xl text-sm font-bold transition-all duration-300 ${
+                  isActive
+                    ? tp === 'income' ? 'bg-primary text-white shadow-md scale-[0.98]' : 'bg-destructive text-white shadow-md scale-[0.98]'
+                    : isDisabled
+                    ? 'text-muted-foreground/30 cursor-not-allowed'
+                    : 'text-muted-foreground hover:text-white'
+                }`}
+              >
+                {tp === 'income' ? t('add_income') : t('add_expense')}
+              </button>
+            );
+          })}
         </div>
 
         {type === 'income' ? (

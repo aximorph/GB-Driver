@@ -447,6 +447,7 @@ export default function Dashboard() {
       {showAddEntry && (
         <AddEntryModal
           initialType={addEntryType}
+          lockType={true}
           initialTripDuration={pendingTripDuration}
           initialTripStartTime={pendingTripStartTime}
           onSave={(entry) => {
