@@ -59,8 +59,11 @@ export default function AddEntryModal({
   const isFuelSelected = type === 'expense' && expenseCategory === 'Fuel';
 
   useEffect(() => {
-    if (!isFuelSelected) return;
-    if (fuelPrice !== null) return;
+    if (!isFuelSelected) {
+      // Reset so next time Fuel is selected it always re-fetches
+      setFuelPrice(null);
+      return;
+    }
     if (!profile?.fuelType) return;
     setFuelLoading(true);
     getFuelPrice(profile.fuelType)
