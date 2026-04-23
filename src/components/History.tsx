@@ -210,56 +210,97 @@ export default function History() {
                 {ss.flatMap(s => s.entries).length === 0 && (
                   <p className="text-center text-xs text-muted-foreground py-2">{t('hist_no_entries')}</p>
                 )}
-                {ss.flatMap(s => s.entries).map(e => (
-                  <div key={e.id} className="flex items-center justify-between bg-card border border-white/5 rounded-xl p-3 shadow-inner group">
-                    <div className="flex items-center gap-3 min-w-0">
-                      <span className={`shrink-0 text-[10px] font-mono font-bold px-2 py-1 rounded-md ${
-                        e.type === 'income' ? 'bg-primary/20 text-primary' : 'bg-destructive/20 text-destructive'
-                      }`}>{e.type === 'income' ? 'IN' : 'EX'}</span>
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                          <span className="text-xs font-medium text-white truncate">
-                            {e.note || e.expenseCategory || t('hist_trip_label')}
-                          </span>
-                          {/* Tip badge */}
-                          {e.tip && e.tip > 0 && (
-                            <span className="flex items-center gap-0.5 text-[10px] font-bold text-warning bg-warning/10 border border-warning/20 px-1.5 py-0.5 rounded-md shrink-0">
-                              <Star size={9} fill="currentColor" />
-                              ฿{e.tip.toFixed(0)}
-                            </span>
-                          )}
+                {ss.flatMap(s => s.entries).map(e => {
+                  const isIncome = e.type === 'income';
+                  const isBonus = e.note?.startsWith('Intensive:');
+                  const appDeducted = isIncome && e.appFare && e.driverNet && e.appFare > e.driverNet
+                    ? Math.max(0, e.appFare - e.driverNet)
+                    : 0;
+                  const appDeductedPct = appDeducted > 0 && e.appFare
+                    ? (appDeducted / e.appFare) * 100
+                    : 0;
+
+                  return (
+                    <div key={e.id} className="bg-card border border-white/5 rounded-xl p-3 shadow-inner group">
+                      <div className="flex items-start justify-between gap-2">
+                        {/* Left: badge + details */}
+                        <div className="flex items-start gap-2.5 min-w-0 flex-1">
+                          <span className={`shrink-0 text-[10px] font-mono font-bold px-2 py-1 rounded-md mt-0.5 ${
+                            isIncome ? 'bg-primary/20 text-primary' : 'bg-destructive/20 text-destructive'
+                          }`}>{isIncome ? 'IN' : 'EX'}</span>
+
+                          <div className="min-w-0 flex-1">
+                            {/* Row 1: label + platform + order type + tip */}
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className="text-xs font-medium text-white">
+                                {isIncome
+                                  ? isBonus ? e.note : (e.orderType === 'express' ? t('add_express') : t('add_taxi'))
+                                  : (e.expenseCategory || t('hist_trip_label'))}
+                              </span>
+                              {/* Platform badge */}
+                              {isIncome && !isBonus && (
+                                <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-md uppercase ${
+                                  e.platform === 'bolt'
+                                    ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/20'
+                                    : 'bg-primary/15 text-primary border border-primary/20'
+                                }`}>
+                                  {e.platform === 'bolt' ? t('add_bolt') : t('add_grab')}
+                                </span>
+                              )}
+                              {/* Tip badge */}
+                              {e.tip && e.tip > 0 && (
+                                <span className="flex items-center gap-0.5 text-[10px] font-bold text-warning bg-warning/10 border border-warning/20 px-1.5 py-0.5 rounded-md shrink-0">
+                                  <Star size={9} fill="currentColor" />
+                                  ฿{e.tip.toFixed(0)}
+                                </span>
+                              )}
+                            </div>
+
+                            {/* Row 2: timestamp + trip duration + fuel liters */}
+                            <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                              <span className="text-[10px] text-muted-foreground font-mono">
+                                {format(new Date(e.timestamp), 'HH:mm')}
+                              </span>
+                              {e.tripDuration !== undefined && e.tripDuration > 0 && (
+                                <span className="inline-flex items-center gap-0.5 text-[10px] font-bold text-primary/80 bg-primary/10 border border-primary/15 px-1.5 py-0.5 rounded-md font-mono">
+                                  ⏱ {formatDuration(e.tripDuration)}
+                                </span>
+                              )}
+                              {e.fuelLiters && e.fuelPrice && (
+                                <span className="text-[10px] text-primary/70 font-mono">
+                                  · {e.fuelLiters.toFixed(2)}L @ ฿{e.fuelPrice.toFixed(2)}
+                                </span>
+                              )}
+                            </div>
+
+                            {/* Row 3: app deduction */}
+                            {appDeducted > 0 && (
+                              <div className="mt-1 flex items-center gap-1">
+                                <span className="text-[10px] text-destructive/80 font-mono">
+                                  {t('dash_app_deduction')} ฿{appDeducted.toFixed(0)} ({appDeductedPct.toFixed(1)}%)
+                                </span>
+                              </div>
+                            )}
+                          </div>
                         </div>
-                        <div className="flex items-center gap-1.5 mt-0.5">
-                          {/* Time */}
-                          <span className="text-[10px] text-muted-foreground font-mono">
-                            {format(new Date(e.timestamp), 'HH:mm')}
+
+                        {/* Right: amount + delete */}
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <span className="font-mono text-sm font-bold text-white">
+                            ฿{isIncome ? ((e.driverNet || 0) + (e.tip || 0)).toFixed(0) : e.amount.toFixed(0)}
                           </span>
-                          {/* Fuel liters */}
-                          {e.fuelLiters && e.fuelPrice && (
-                            <span className="text-[10px] text-primary/70 font-mono">
-                              · {e.fuelLiters.toFixed(2)}L
-                            </span>
-                          )}
+                          <button
+                            onClick={() => deleteEntry(e.id)}
+                            className="opacity-0 group-hover:opacity-100 p-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg transition-all"
+                            title="Delete entry"
+                          >
+                            <Trash2 size={13} />
+                          </button>
                         </div>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      <div className="text-right">
-                        <span className="font-mono text-sm font-bold text-white">
-                          ฿{e.type === 'income' ? ((e.driverNet || 0) + (e.tip || 0)).toFixed(0) : e.amount.toFixed(0)}
-                        </span>
-                      </div>
-                      {/* Delete entry button */}
-                      <button
-                        onClick={() => deleteEntry(e.id)}
-                        className="opacity-0 group-hover:opacity-100 p-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg transition-all"
-                        title="Delete entry"
-                      >
-                        <Trash2 size={13} />
-                      </button>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
