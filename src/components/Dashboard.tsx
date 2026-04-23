@@ -27,7 +27,7 @@ function formatDuration(secs: number): string {
 // Bolt orders never count. Order type filter depends on intensive.countsFor.
 function countEligibleTrips(entries: Entry[], intensive: Intensive): number {
   const cf = intensive.countsFor ?? 'ride';
-  const trips = entries.filter(e => {
+  let trips = entries.filter(e => {
     if (e.type !== 'income') return false;
     if (e.note?.startsWith('Intensive:')) return false;
     if (e.platform === 'bolt') return false; // Bolt never counts
@@ -35,9 +35,19 @@ function countEligibleTrips(entries: Entry[], intensive: Intensive): number {
     if (cf === 'express') return e.orderType === 'express';
     return true; // 'all' — any Grab order
   });
+
+  // Filter by date range (campaign period) if set
+  if (intensive.dateStart || intensive.dateEnd) {
+    trips = trips.filter(e => {
+      const entryDate = (e.tripStartTime ?? e.timestamp).slice(0, 10);
+      return entryDate >= (intensive.dateStart ?? '0000-01-01') &&
+             entryDate <= (intensive.dateEnd   ?? '9999-12-31');
+    });
+  }
+
+  // Filter by daily time window if set — use trip START time
   if (!intensive.startTime && !intensive.endTime) return trips.length;
   return trips.filter(e => {
-    // Use trip START time (when job appeared) if available; fall back to entry timestamp
     const d = new Date(e.tripStartTime ?? e.timestamp);
     const hhmm = `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`;
     return hhmm >= (intensive.startTime ?? '00:00') && hhmm <= (intensive.endTime ?? '23:59');
@@ -309,7 +319,12 @@ export default function Dashboard() {
         const alreadyRecorded = todayEntries.some(e => e.note === `Intensive: ${intensive.name}`);
         const now = new Date();
         const nowHHMM = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
-        const isInWindow = !intensive.startTime || (nowHHMM >= intensive.startTime && nowHHMM <= (intensive.endTime ?? '23:59'));
+        const todayDate = now.toISOString().slice(0, 10);
+        const isInDateRange = !intensive.dateStart ||
+          (todayDate >= intensive.dateStart && todayDate <= (intensive.dateEnd ?? '9999-12-31'));
+        const isInTimeWindow = !intensive.startTime ||
+          (nowHHMM >= intensive.startTime && nowHHMM <= (intensive.endTime ?? '23:59'));
+        const isInWindow = isInDateRange && isInTimeWindow;
         return (
           <div key={intensive.id} className={`bg-card/80 backdrop-blur-xl border rounded-2xl p-5 shadow-xl space-y-3 ${!isInWindow ? 'border-white/5 opacity-70' : 'border-white/5'}`}>
             <div className="flex items-center justify-between">
@@ -324,11 +339,20 @@ export default function Dashboard() {
                 <span className="text-xs font-mono font-extrabold text-warning bg-warning/10 border border-warning/20 px-2.5 py-1 rounded-lg">+฿{earnedBonus} {t('dash_pending')}</span>
               ) : null}
             </div>
+            {/* Date range badge */}
+            {(intensive.dateStart || intensive.dateEnd) && (
+              <div className={`flex items-center gap-1.5 text-[11px] font-mono ${isInDateRange ? 'text-primary' : 'text-muted-foreground'}`}>
+                <Clock3 size={11} />
+                <span>{intensive.dateStart ?? '—'} – {intensive.dateEnd ?? '—'}</span>
+                {!isInDateRange && <span className="text-muted-foreground ml-1 text-[10px]">{t('dash_outside_window')}</span>}
+              </div>
+            )}
+            {/* Daily time window badge */}
             {(intensive.startTime || intensive.endTime) && (
               <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground font-mono">
                 <Clock3 size={11} />
                 <span>{intensive.startTime ?? '00:00'} – {intensive.endTime ?? '23:59'}</span>
-                {isInWindow && <span className="text-primary font-bold ml-1">{t('dash_active')}</span>}
+                {isInTimeWindow && isInDateRange && <span className="text-primary font-bold ml-1">{t('dash_active')}</span>}
               </div>
             )}
             <div className="space-y-1.5">

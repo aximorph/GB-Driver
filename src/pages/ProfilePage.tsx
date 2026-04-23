@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { DriverProfile, Intensive, IntensiveTier, IntensiveCountsFor } from '@/lib/types';
 import { getProfile, saveProfile, saveSessions, getSessions } from '@/lib/storage';
-import { Zap, Fuel, Cloud, CheckCircle2, LogIn, RefreshCw, LogOut, Download, Trash2, Plus, Target, Gift, X, ChevronRight, Clock3, Globe } from 'lucide-react';
+import { Zap, Fuel, Cloud, CheckCircle2, LogIn, RefreshCw, LogOut, Download, Trash2, Plus, Target, Gift, X, ChevronRight, Clock3, Globe, CalendarDays } from 'lucide-react';
 import { format } from 'date-fns';
 import { initGoogleIdentity, requestGoogleLogin, backupDataToDrive, restoreFromDrive, isGoogleConnected, disconnectGoogle } from '@/lib/googleDrive';
 import SweetAlert from '@/components/SweetAlert';
@@ -66,6 +66,12 @@ function IntensiveModal({ initial, onSave, onClose, t }: IntensiveModalProps) {
   const [startTime, setStartTime] = useState(initial?.startTime ?? '15:00');
   const [endTime, setEndTime] = useState(initial?.endTime ?? '20:00');
 
+  const todayStr = new Date().toISOString().split('T')[0];
+  const defaultDateEnd = new Date(Date.now() + 7 * 86_400_000).toISOString().split('T')[0];
+  const [hasDateRange, setHasDateRange] = useState(!!(initial?.dateStart || initial?.dateEnd));
+  const [dateStart, setDateStart] = useState(initial?.dateStart ?? todayStr);
+  const [dateEnd, setDateEnd] = useState(initial?.dateEnd ?? defaultDateEnd);
+
   const addTier = () => setTiers(t => [...t, { trips: 0, bonus: 0 }]);
   const removeTier = (i: number) => setTiers(t => t.filter((_, idx) => idx !== i));
   const updateTier = (i: number, field: keyof IntensiveTier, val: string) => {
@@ -84,6 +90,8 @@ function IntensiveModal({ initial, onSave, onClose, t }: IntensiveModalProps) {
       countsFor,
       startTime: hasTimeWindow ? startTime : undefined,
       endTime: hasTimeWindow ? endTime : undefined,
+      dateStart: hasDateRange ? dateStart : undefined,
+      dateEnd: hasDateRange ? dateEnd : undefined,
       tiers: sorted,
     });
   };
@@ -170,6 +178,50 @@ function IntensiveModal({ initial, onSave, onClose, t }: IntensiveModalProps) {
               <div className="flex flex-col items-center gap-1.5">
                 <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">{t('modal_time_end')}</label>
                 <TimePicker24 value={endTime} onChange={setEndTime} />
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Date Range (optional) */}
+        <div className="space-y-3">
+          <button
+            type="button"
+            onClick={() => setHasDateRange(v => !v)}
+            className={`w-full flex items-center justify-between px-4 py-3 rounded-2xl border transition-all ${
+              hasDateRange
+                ? 'bg-primary/10 border-primary/30 text-primary'
+                : 'bg-secondary border-white/10 text-muted-foreground'
+            }`}
+          >
+            <div className="flex items-center gap-2 text-sm font-bold">
+              <CalendarDays size={15} />
+              {t('modal_date_range')}
+            </div>
+            <div className={`w-10 h-5 rounded-full transition-all relative ${hasDateRange ? 'bg-primary' : 'bg-white/10'}`}>
+              <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-all ${hasDateRange ? 'left-5' : 'left-0.5'}`} />
+            </div>
+          </button>
+          {hasDateRange && (
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">{t('modal_date_from')}</label>
+                <input
+                  type="date"
+                  value={dateStart}
+                  onChange={e => setDateStart(e.target.value)}
+                  className="w-full bg-secondary border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white outline-none focus:border-primary/50 transition-colors font-mono"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">{t('modal_date_to')}</label>
+                <input
+                  type="date"
+                  value={dateEnd}
+                  min={dateStart}
+                  onChange={e => setDateEnd(e.target.value)}
+                  className="w-full bg-secondary border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white outline-none focus:border-primary/50 transition-colors font-mono"
+                />
               </div>
             </div>
           )}

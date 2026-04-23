@@ -10,8 +10,10 @@ export interface Intensive {
   name: string;
   enabled: boolean;
   countsFor: IntensiveCountsFor; // which Grab order types count toward this intensive
-  startTime?: string;
-  endTime?: string;
+  startTime?: string;   // HH:mm daily time window
+  endTime?: string;     // HH:mm daily time window
+  dateStart?: string;   // YYYY-MM-DD campaign start date
+  dateEnd?: string;     // YYYY-MM-DD campaign end date
   tiers: IntensiveTier[];
 }
 
