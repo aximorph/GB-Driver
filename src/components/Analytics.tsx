@@ -135,189 +135,192 @@ export default function Analytics() {
     return { all, grab, bolt };
   }, [sessions]);
 
-  return (
-    <div className={`p-4 space-y-5 relative animate-in fade-in slide-in-from-bottom-4 duration-500 ${isLandscape ? 'pb-4' : 'pb-24'}`}>
+  // ── Section variables ───────────────────────────────────────────────────────
+  const header = (
+    <>
       <div className="absolute top-0 left-0 w-64 h-64 bg-primary/5 rounded-full blur-3xl -z-10 -translate-x-16 -translate-y-16" />
       <h1 className="text-3xl font-extrabold text-white tracking-tight drop-shadow-sm">{t('analytics_title')}</h1>
+    </>
+  );
 
-      {sessions.length === 0 ? (
-        <div className="text-center py-12 text-muted-foreground text-sm">{t('analytics_no_data')}</div>
+  const barChartSection = (
+    <div className="bg-card/70 backdrop-blur-xl border border-white/5 rounded-3xl p-5 shadow-xl">
+      <h3 className="text-sm font-semibold text-muted-foreground mb-3">{t('analytics_14_days')}</h3>
+      <ResponsiveContainer width="100%" height={200}>
+        <BarChart data={barData}>
+          <XAxis dataKey="date" tick={TICK} />
+          <YAxis tick={TICK} width={40} />
+          <Tooltip contentStyle={TOOLTIP_STYLE} />
+          <Bar dataKey="net"  stackId="a" fill={GREEN}  radius={[0,0,0,0]} />
+          <Bar dataKey="tips" stackId="a" fill={YELLOW} radius={[2,2,0,0]} />
+        </BarChart>
+      </ResponsiveContainer>
+    </div>
+  );
+
+  const heatmapSection = (
+    <div className="bg-card/70 backdrop-blur-xl border border-white/5 rounded-3xl p-5 shadow-xl">
+      <h3 className="text-sm font-semibold text-muted-foreground mb-3">{t('analytics_heatmap')}</h3>
+      <div className="flex gap-1">
+        <div className="flex flex-col gap-0.5 shrink-0">
+          <div style={{ height: 20 }} />
+          {Array.from({ length: 24 }, (_, h) => (
+            <div key={h} className="text-[10px] text-muted-foreground flex items-center justify-end pr-1" style={{ height: 14 }}>
+              {h % 3 === 0 ? String(h).padStart(2, '00') : ''}
+            </div>
+          ))}
+        </div>
+        {heatmapData.days.map(d => (
+          <div key={d} className="flex flex-col gap-0.5 flex-1">
+            <div className="text-[10px] font-bold text-muted-foreground text-center" style={{ height: 20 }}>{d}</div>
+            {Array.from({ length: 24 }, (_, h) => {
+              const val = heatmapData.grid[d][h];
+              const intensity = val / heatmapData.maxVal;
+              return (
+                <div key={h} className="rounded-sm w-full" style={{ height: 14, background: intensity > 0 ? `hsla(145,100%,45%,${0.15 + intensity * 0.85})` : 'hsl(220,20%,14%)' }}
+                  title={`${d} ${String(h).padStart(2,'0')}:00 — ฿${val.toFixed(0)}`} />
+              );
+            })}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+
+  const pieTipSection = (
+    <div className="grid grid-cols-2 gap-4">
+      <div className="bg-card/70 backdrop-blur-xl border border-white/5 rounded-3xl p-5 shadow-xl">
+        <h3 className="text-sm font-semibold text-muted-foreground mb-2">{t('analytics_pie')}</h3>
+        <ResponsiveContainer width="100%" height={120}>
+          <PieChart>
+            <Pie data={pieData} dataKey="value" cx="50%" cy="50%" outerRadius={45} innerRadius={25}>
+              {pieData.map((_, i) => <Cell key={i} fill={COLORS[i]} />)}
+            </Pie>
+            <Tooltip contentStyle={{ ...TOOLTIP_STYLE, fontSize: 11 }} />
+          </PieChart>
+        </ResponsiveContainer>
+      </div>
+      <div className="bg-card/70 backdrop-blur-xl border border-white/5 rounded-3xl p-5 shadow-xl">
+        <h3 className="text-sm font-semibold text-muted-foreground mb-2">{t('analytics_tip_rate')}</h3>
+        <div className="text-center space-y-1 pt-4">
+          <p className="font-mono text-2xl font-bold text-warning">฿{tipStats.avgTip.toFixed(0)}</p>
+          <p className="text-xs text-muted-foreground">{t('analytics_avg_tip')}</p>
+          <p className="text-xs text-muted-foreground">{tipStats.totalTrips} {t('analytics_trips_total')}</p>
+        </div>
+      </div>
+    </div>
+  );
+
+  const perHourSection = (
+    <div className="bg-card/70 backdrop-blur-xl border border-white/5 rounded-3xl p-5 shadow-xl space-y-4">
+      <h3 className="text-sm font-semibold text-muted-foreground">{t('analytics_per_hour')}</h3>
+      <div className="grid grid-cols-3 gap-3">
+        <StatCard label={t('analytics_avg_per_hour')} value={`฿${perHourData.avgPerHour.toFixed(0)}`} color="text-primary" big />
+        <StatCard label={t('analytics_best_day_hr')} value={`฿${perHourData.bestDay.toFixed(0)}`} color="text-warning" />
+        <StatCard label={t('analytics_total_hours')} value={`${perHourData.totalHrs.toFixed(1)}`} color="text-muted-foreground" />
+      </div>
+      <div>
+        <p className="text-[10px] text-muted-foreground mb-2">{t('analytics_daily_hr_chart')}</p>
+        <ResponsiveContainer width="100%" height={140}>
+          <BarChart data={perHourData.dailyHr}>
+            <XAxis dataKey="date" tick={TICK} />
+            <YAxis tick={TICK} width={40} />
+            <Tooltip contentStyle={TOOLTIP_STYLE} formatter={(v: number) => [`฿${v.toFixed(0)}/hr`, '']} />
+            <Bar dataKey="perHour" fill={BLUE} radius={[3,3,0,0]} />
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
+  );
+
+  const monthlySection = monthlyData.length > 0 ? (
+    <div className="bg-card/70 backdrop-blur-xl border border-white/5 rounded-3xl p-5 shadow-xl space-y-4">
+      <h3 className="text-sm font-semibold text-muted-foreground">{t('analytics_monthly')}</h3>
+      <ResponsiveContainer width="100%" height={180}>
+        <BarChart data={monthlyData}>
+          <XAxis dataKey="month" tick={TICK} />
+          <YAxis tick={TICK} width={40} />
+          <Tooltip contentStyle={TOOLTIP_STYLE} />
+          <Bar dataKey="gross" stackId="a" fill={GREEN}  radius={[0,0,0,0]} name={t('analytics_income')} />
+          <Bar dataKey="tips"  stackId="a" fill={YELLOW} radius={[0,0,0,0]} name="Tips" />
+          <Bar dataKey="expenses" fill={RED} radius={[3,3,0,0]} name={t('analytics_expenses')} />
+        </BarChart>
+      </ResponsiveContainer>
+      {(() => {
+        const last = monthlyData[monthlyData.length - 1];
+        return (
+          <div className="grid grid-cols-4 gap-2 pt-1 border-t border-white/5">
+            <StatCard label={last.month} value={`฿${last.net.toFixed(0)}`} color="text-primary" />
+            <StatCard label={t('analytics_trips_label')} value={String(last.trips)} color="text-white" />
+            <StatCard label={t('analytics_hrs_label')} value={last.hrs.toFixed(1)} color="text-muted-foreground" />
+            <StatCard label="฿/hr" value={`฿${last.hrs > 0 ? ((last.gross + last.tips) / last.hrs).toFixed(0) : 0}`} color="text-blue-400" />
+          </div>
+        );
+      })()}
+    </div>
+  ) : null;
+
+  const deductionSection = (
+    <div className="bg-card/70 backdrop-blur-xl border border-white/5 rounded-3xl p-5 shadow-xl space-y-3">
+      <h3 className="text-sm font-semibold text-muted-foreground">{t('analytics_deduction')}</h3>
+      {!deductionData ? (
+        <p className="text-xs text-muted-foreground text-center py-4">{t('analytics_no_deduction_data')}</p>
       ) : (
         <>
-          {/* ── 14-day Earnings Bar Chart ──────────────────────────────────── */}
-          <div className="bg-card/70 backdrop-blur-xl border border-white/5 rounded-3xl p-5 shadow-xl">
-            <h3 className="text-sm font-semibold text-muted-foreground mb-3">{t('analytics_14_days')}</h3>
-            <ResponsiveContainer width="100%" height={200}>
-              <BarChart data={barData}>
-                <XAxis dataKey="date" tick={TICK} />
-                <YAxis tick={TICK} width={40} />
-                <Tooltip contentStyle={TOOLTIP_STYLE} />
-                <Bar dataKey="net"  stackId="a" fill={GREEN}  radius={[0,0,0,0]} />
-                <Bar dataKey="tips" stackId="a" fill={YELLOW} radius={[2,2,0,0]} />
-              </BarChart>
-            </ResponsiveContainer>
+          <div className="grid grid-cols-3 gap-3">
+            <StatCard label={t('analytics_total_deducted')} value={`฿${deductionData.all.deducted.toFixed(0)}`} color="text-destructive" big />
+            <StatCard label="Grab" value={`${deductionData.grab.pct.toFixed(1)}%`} color="text-primary" sub={`฿${deductionData.grab.deducted.toFixed(0)}`} />
+            <StatCard label="Bolt" value={deductionData.bolt.fare > 0 ? `${deductionData.bolt.pct.toFixed(1)}%` : '—'} color="text-yellow-400" sub={deductionData.bolt.fare > 0 ? `฿${deductionData.bolt.deducted.toFixed(0)}` : ''} />
           </div>
-
-          {/* ── Heatmap ───────────────────────────────────────────────────── */}
-          <div className="bg-card/70 backdrop-blur-xl border border-white/5 rounded-3xl p-5 shadow-xl">
-            <h3 className="text-sm font-semibold text-muted-foreground mb-3">{t('analytics_heatmap')}</h3>
-            <div className="flex gap-1">
-              <div className="flex flex-col gap-0.5 shrink-0">
-                <div style={{ height: 20 }} />
-                {Array.from({ length: 24 }, (_, h) => (
-                  <div key={h} className="text-[10px] text-muted-foreground flex items-center justify-end pr-1" style={{ height: 14 }}>
-                    {h % 3 === 0 ? String(h).padStart(2, '0') : ''}
-                  </div>
-                ))}
-              </div>
-              {heatmapData.days.map(d => (
-                <div key={d} className="flex flex-col gap-0.5 flex-1">
-                  <div className="text-[10px] font-bold text-muted-foreground text-center" style={{ height: 20 }}>{d}</div>
-                  {Array.from({ length: 24 }, (_, h) => {
-                    const val = heatmapData.grid[d][h];
-                    const intensity = val / heatmapData.maxVal;
-                    return (
-                      <div key={h} className="rounded-sm w-full" style={{ height: 14, background: intensity > 0 ? `hsla(145,100%,45%,${0.15 + intensity * 0.85})` : 'hsl(220,20%,14%)' }}
-                        title={`${d} ${String(h).padStart(2,'0')}:00 — ฿${val.toFixed(0)}`} />
-                    );
-                  })}
-                </div>
-              ))}
+          <div className="space-y-1.5">
+            <div className="flex justify-between text-[10px] text-muted-foreground">
+              <span>{t('analytics_avg_deduction_rate')}</span>
+              <span className="font-mono font-bold text-destructive">{deductionData.all.pct.toFixed(1)}%</span>
             </div>
-          </div>
-
-          {/* ── Pie + Tip Rate ────────────────────────────────────────────── */}
-          <div className="grid grid-cols-2 gap-4">
-            <div className="bg-card/70 backdrop-blur-xl border border-white/5 rounded-3xl p-5 shadow-xl">
-              <h3 className="text-sm font-semibold text-muted-foreground mb-2">{t('analytics_pie')}</h3>
-              <ResponsiveContainer width="100%" height={120}>
-                <PieChart>
-                  <Pie data={pieData} dataKey="value" cx="50%" cy="50%" outerRadius={45} innerRadius={25}>
-                    {pieData.map((_, i) => <Cell key={i} fill={COLORS[i]} />)}
-                  </Pie>
-                  <Tooltip contentStyle={{ ...TOOLTIP_STYLE, fontSize: 11 }} />
-                </PieChart>
-              </ResponsiveContainer>
+            <div className="h-2 bg-white/5 rounded-full overflow-hidden">
+              <div className="h-full rounded-full bg-destructive/70 transition-all duration-700" style={{ width: `${Math.min(deductionData.all.pct * 3, 100)}%` }} />
             </div>
-            <div className="bg-card/70 backdrop-blur-xl border border-white/5 rounded-3xl p-5 shadow-xl">
-              <h3 className="text-sm font-semibold text-muted-foreground mb-2">{t('analytics_tip_rate')}</h3>
-              <div className="text-center space-y-1 pt-4">
-                <p className="font-mono text-2xl font-bold text-warning">฿{tipStats.avgTip.toFixed(0)}</p>
-                <p className="text-xs text-muted-foreground">{t('analytics_avg_tip')}</p>
-                <p className="text-xs text-muted-foreground">{tipStats.totalTrips} {t('analytics_trips_total')}</p>
-              </div>
-            </div>
-          </div>
-
-          {/* ── ฿/hr ─────────────────────────────────────────────────────── */}
-          <div className="bg-card/70 backdrop-blur-xl border border-white/5 rounded-3xl p-5 shadow-xl space-y-4">
-            <h3 className="text-sm font-semibold text-muted-foreground">{t('analytics_per_hour')}</h3>
-            {/* Stat row */}
-            <div className="grid grid-cols-3 gap-3">
-              <StatCard
-                label={t('analytics_avg_per_hour')}
-                value={`฿${perHourData.avgPerHour.toFixed(0)}`}
-                color="text-primary"
-                big
-              />
-              <StatCard
-                label={t('analytics_best_day_hr')}
-                value={`฿${perHourData.bestDay.toFixed(0)}`}
-                color="text-warning"
-              />
-              <StatCard
-                label={t('analytics_total_hours')}
-                value={`${perHourData.totalHrs.toFixed(1)}`}
-                color="text-muted-foreground"
-              />
-            </div>
-            {/* Daily bar chart */}
-            <div>
-              <p className="text-[10px] text-muted-foreground mb-2">{t('analytics_daily_hr_chart')}</p>
-              <ResponsiveContainer width="100%" height={140}>
-                <BarChart data={perHourData.dailyHr}>
-                  <XAxis dataKey="date" tick={TICK} />
-                  <YAxis tick={TICK} width={40} />
-                  <Tooltip contentStyle={TOOLTIP_STYLE} formatter={(v: number) => [`฿${v.toFixed(0)}/hr`, '']} />
-                  <Bar dataKey="perHour" fill={BLUE} radius={[3,3,0,0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
-
-          {/* ── Monthly Summary ───────────────────────────────────────────── */}
-          {monthlyData.length > 0 && (
-            <div className="bg-card/70 backdrop-blur-xl border border-white/5 rounded-3xl p-5 shadow-xl space-y-4">
-              <h3 className="text-sm font-semibold text-muted-foreground">{t('analytics_monthly')}</h3>
-              <ResponsiveContainer width="100%" height={180}>
-                <BarChart data={monthlyData}>
-                  <XAxis dataKey="month" tick={TICK} />
-                  <YAxis tick={TICK} width={40} />
-                  <Tooltip contentStyle={TOOLTIP_STYLE} />
-                  <Bar dataKey="gross" stackId="a" fill={GREEN}  radius={[0,0,0,0]} name={t('analytics_income')} />
-                  <Bar dataKey="tips"  stackId="a" fill={YELLOW} radius={[0,0,0,0]} name="Tips" />
-                  <Bar dataKey="expenses" fill={RED} radius={[3,3,0,0]} name={t('analytics_expenses')} />
-                </BarChart>
-              </ResponsiveContainer>
-              {/* Last month detail */}
-              {monthlyData.length > 0 && (() => {
-                const last = monthlyData[monthlyData.length - 1];
-                return (
-                  <div className="grid grid-cols-4 gap-2 pt-1 border-t border-white/5">
-                    <StatCard label={last.month} value={`฿${last.net.toFixed(0)}`} color="text-primary" />
-                    <StatCard label={t('analytics_trips_label')} value={String(last.trips)} color="text-white" />
-                    <StatCard label={t('analytics_hrs_label')} value={last.hrs.toFixed(1)} color="text-muted-foreground" />
-                    <StatCard label="฿/hr" value={`฿${last.hrs > 0 ? (last.gross + last.tips) / last.hrs : 0 | 0}`} color="text-blue-400" />
-                  </div>
-                );
-              })()}
-            </div>
-          )}
-
-          {/* ── App Deduction Tracker ─────────────────────────────────────── */}
-          <div className="bg-card/70 backdrop-blur-xl border border-white/5 rounded-3xl p-5 shadow-xl space-y-3">
-            <h3 className="text-sm font-semibold text-muted-foreground">{t('analytics_deduction')}</h3>
-            {!deductionData ? (
-              <p className="text-xs text-muted-foreground text-center py-4">{t('analytics_no_deduction_data')}</p>
-            ) : (
-              <>
-                <div className="grid grid-cols-3 gap-3">
-                  <StatCard
-                    label={t('analytics_total_deducted')}
-                    value={`฿${deductionData.all.deducted.toFixed(0)}`}
-                    color="text-destructive"
-                    big
-                  />
-                  <StatCard
-                    label="Grab"
-                    value={`${deductionData.grab.pct.toFixed(1)}%`}
-                    color="text-primary"
-                    sub={`฿${deductionData.grab.deducted.toFixed(0)}`}
-                  />
-                  <StatCard
-                    label="Bolt"
-                    value={deductionData.bolt.fare > 0 ? `${deductionData.bolt.pct.toFixed(1)}%` : '—'}
-                    color="text-yellow-400"
-                    sub={deductionData.bolt.fare > 0 ? `฿${deductionData.bolt.deducted.toFixed(0)}` : ''}
-                  />
-                </div>
-                {/* Overall rate bar */}
-                <div className="space-y-1.5">
-                  <div className="flex justify-between text-[10px] text-muted-foreground">
-                    <span>{t('analytics_avg_deduction_rate')}</span>
-                    <span className="font-mono font-bold text-destructive">{deductionData.all.pct.toFixed(1)}%</span>
-                  </div>
-                  <div className="h-2 bg-white/5 rounded-full overflow-hidden">
-                    <div
-                      className="h-full rounded-full bg-destructive/70 transition-all duration-700"
-                      style={{ width: `${Math.min(deductionData.all.pct * 3, 100)}%` }}
-                    />
-                  </div>
-                </div>
-              </>
-            )}
           </div>
         </>
+      )}
+    </div>
+  );
+
+  return (
+    <div className={`p-4 space-y-5 relative animate-in fade-in slide-in-from-bottom-4 duration-500 ${isLandscape ? 'pb-4' : 'pb-24'}`}>
+      {sessions.length === 0 ? (
+        <>
+          {header}
+          <div className="text-center py-12 text-muted-foreground text-sm">{t('analytics_no_data')}</div>
+        </>
+      ) : isLandscape ? (
+        <div className="space-y-4">
+          {header}
+          <div className="grid grid-cols-2 gap-4 items-start">
+            {/* Left: charts over time */}
+            <div className="space-y-4">
+              {barChartSection}
+              {heatmapSection}
+            </div>
+            {/* Right: breakdowns */}
+            <div className="space-y-4">
+              {pieTipSection}
+              {perHourSection}
+              {monthlySection}
+              {deductionSection}
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className="space-y-5">
+          {header}
+          {barChartSection}
+          {heatmapSection}
+          {pieTipSection}
+          {perHourSection}
+          {monthlySection}
+          {deductionSection}
+        </div>
       )}
     </div>
   );

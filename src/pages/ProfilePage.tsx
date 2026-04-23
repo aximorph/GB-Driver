@@ -427,244 +427,244 @@ export default function ProfilePage() {
     setIntensives(prev => prev.map(i => i.id === id ? { ...i, enabled: !i.enabled } : i));
   };
 
-  return (
-    <div className={`p-4 space-y-5 relative animate-in fade-in slide-in-from-bottom-4 duration-500 ${isLandscape ? 'pb-4' : 'pb-24'}`}>
+  // ── Section variables ──────────────────────────────────────────────────────
+  const profileHeader = (
+    <>
       <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full blur-3xl -z-10 translate-x-16 -translate-y-16" />
       <h1 className="text-3xl font-extrabold text-white tracking-tight drop-shadow-sm">{t('profile_title')}</h1>
+    </>
+  );
 
-      {/* ── Vehicle Type ──────────────────────────────────────────────────── */}
-      <div className="bg-card/70 backdrop-blur-xl border border-white/5 rounded-3xl p-5 space-y-3 shadow-xl">
-        <h3 className="text-sm font-bold tracking-widest text-muted-foreground uppercase px-1">{t('profile_vehicle_type')}</h3>
-        <div className="grid grid-cols-2 gap-3">
-          {(['electric', 'petrol'] as const).map(type => (
-            <button
-              key={type}
-              onClick={() => setVehicleType(type)}
-              className={`p-4 rounded-2xl border-2 text-center transition-all flex flex-col items-center justify-center gap-2 ${
-                vehicleType === type
-                  ? 'border-primary bg-primary/10 text-white shadow-inner scale-[0.98]'
-                  : 'border-white/5 bg-secondary text-muted-foreground hover:border-white/10'
-              }`}
-            >
-              <div className={vehicleType === type ? 'text-primary' : ''}>
-                {type === 'electric' ? <Zap size={28} /> : <Fuel size={28} />}
-              </div>
-              <span className="font-bold text-sm">{type === 'electric' ? t('profile_electric') : t('profile_petrol')}</span>
+  const vehicleSection = (
+    <div className="bg-card/70 backdrop-blur-xl border border-white/5 rounded-3xl p-5 space-y-3 shadow-xl">
+      <h3 className="text-sm font-bold tracking-widest text-muted-foreground uppercase px-1">{t('profile_vehicle_type')}</h3>
+      <div className="grid grid-cols-2 gap-3">
+        {(['electric', 'petrol'] as const).map(type => (
+          <button
+            key={type}
+            onClick={() => setVehicleType(type)}
+            className={`p-4 rounded-2xl border-2 text-center transition-all flex flex-col items-center justify-center gap-2 ${
+              vehicleType === type
+                ? 'border-primary bg-primary/10 text-white shadow-inner scale-[0.98]'
+                : 'border-white/5 bg-secondary text-muted-foreground hover:border-white/10'
+            }`}
+          >
+            <div className={vehicleType === type ? 'text-primary' : ''}>
+              {type === 'electric' ? <Zap size={28} /> : <Fuel size={28} />}
+            </div>
+            <span className="font-bold text-sm">{type === 'electric' ? t('profile_electric') : t('profile_petrol')}</span>
+          </button>
+        ))}
+      </div>
+      <div className={`transition-all duration-300 ease-in-out ${vehicleType === 'petrol' ? 'max-h-40 opacity-100 mt-4' : 'max-h-0 opacity-0 overflow-hidden'}`}>
+        <div className="grid grid-cols-4 gap-2 pt-3 border-t border-white/5">
+          {(['diesel', '91', '95', 'e20'] as const).map(fuel => (
+            <button key={fuel} onClick={() => setFuelType(fuel)}
+              className={`py-2 rounded-xl text-xs font-bold transition-all ${fuelType === fuel ? 'bg-primary/20 text-primary border border-primary/30' : 'bg-secondary border border-white/5 text-muted-foreground hover:border-white/10'}`}>
+              {fuel.toUpperCase()}
             </button>
           ))}
         </div>
-        <div className={`transition-all duration-300 ease-in-out ${vehicleType === 'petrol' ? 'max-h-40 opacity-100 mt-4' : 'max-h-0 opacity-0 overflow-hidden'}`}>
-          <div className="grid grid-cols-4 gap-2 pt-3 border-t border-white/5">
-            {(['diesel', '91', '95', 'e20'] as const).map(fuel => (
-              <button key={fuel} onClick={() => setFuelType(fuel)}
-                className={`py-2 rounded-xl text-xs font-bold transition-all ${fuelType === fuel ? 'bg-primary/20 text-primary border border-primary/30' : 'bg-secondary border border-white/5 text-muted-foreground hover:border-white/10'}`}>
-                {fuel.toUpperCase()}
-              </button>
-            ))}
-          </div>
-        </div>
-        <div className={`transition-all duration-300 ease-in-out ${vehicleType === 'electric' ? 'max-h-40 opacity-100 mt-4' : 'max-h-0 opacity-0 overflow-hidden'}`}>
-          <div className="grid grid-cols-2 gap-2 pt-3 border-t border-white/5">
-            {([
-              { value: 'home' as const, labelKey: 'profile_home_charging' as const },
-              { value: 'public' as const, labelKey: 'profile_public_charging' as const },
-            ]).map(opt => (
-              <button key={opt.value} onClick={() => setChargingType(opt.value)}
-                className={`py-2.5 rounded-xl text-xs font-bold transition-all ${chargingType === opt.value ? 'bg-primary/20 text-primary border border-primary/30' : 'bg-secondary border border-white/5 text-muted-foreground hover:border-white/10'}`}>
-                {t(opt.labelKey)}
-              </button>
-            ))}
-          </div>
+      </div>
+      <div className={`transition-all duration-300 ease-in-out ${vehicleType === 'electric' ? 'max-h-40 opacity-100 mt-4' : 'max-h-0 opacity-0 overflow-hidden'}`}>
+        <div className="grid grid-cols-2 gap-2 pt-3 border-t border-white/5">
+          {([
+            { value: 'home' as const, labelKey: 'profile_home_charging' as const },
+            { value: 'public' as const, labelKey: 'profile_public_charging' as const },
+          ]).map(opt => (
+            <button key={opt.value} onClick={() => setChargingType(opt.value)}
+              className={`py-2.5 rounded-xl text-xs font-bold transition-all ${chargingType === opt.value ? 'bg-primary/20 text-primary border border-primary/30' : 'bg-secondary border border-white/5 text-muted-foreground hover:border-white/10'}`}>
+              {t(opt.labelKey)}
+            </button>
+          ))}
         </div>
       </div>
+    </div>
+  );
 
-      {/* ── Daily Earnings Goal ───────────────────────────────────────────── */}
-      <div className="bg-card/70 backdrop-blur-xl border border-white/5 rounded-3xl p-5 space-y-4 shadow-xl">
-        <div className="flex items-center gap-2">
-          <Target size={20} className="text-primary" />
-          <h3 className="text-sm font-bold tracking-widest text-muted-foreground uppercase">{t('profile_daily_goal_title')}</h3>
-        </div>
-        <p className="text-xs text-muted-foreground -mt-2">{t('profile_daily_goal_desc')}</p>
-        <div className="relative">
-          <span className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground font-bold text-sm">฿</span>
-          <input
-            type="number" min="0"
-            value={dailyGoal}
-            onChange={e => setDailyGoal(e.target.value)}
-            placeholder={t('profile_daily_goal_placeholder')}
-            className="w-full bg-secondary border border-white/10 rounded-2xl pl-8 pr-4 py-3.5 text-white font-mono font-bold text-base outline-none focus:border-primary/50 transition-colors"
-          />
-        </div>
+  const goalSection = (
+    <div className="bg-card/70 backdrop-blur-xl border border-white/5 rounded-3xl p-5 space-y-4 shadow-xl">
+      <div className="flex items-center gap-2">
+        <Target size={20} className="text-primary" />
+        <h3 className="text-sm font-bold tracking-widest text-muted-foreground uppercase">{t('profile_daily_goal_title')}</h3>
       </div>
+      <p className="text-xs text-muted-foreground -mt-2">{t('profile_daily_goal_desc')}</p>
+      <div className="relative">
+        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground font-bold text-sm">฿</span>
+        <input
+          type="number" min="0"
+          value={dailyGoal}
+          onChange={e => setDailyGoal(e.target.value)}
+          placeholder={t('profile_daily_goal_placeholder')}
+          className="w-full bg-secondary border border-white/10 rounded-2xl pl-8 pr-4 py-3.5 text-white font-mono font-bold text-base outline-none focus:border-primary/50 transition-colors"
+        />
+      </div>
+    </div>
+  );
 
-      {/* ── Today's Intensives ────────────────────────────────────────────── */}
-      <div className="bg-card/70 backdrop-blur-xl border border-white/5 rounded-3xl p-5 space-y-4 shadow-xl">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Gift size={20} className="text-primary" />
-            <h3 className="text-sm font-bold tracking-widest text-muted-foreground uppercase">{t('profile_intensives_title')}</h3>
-          </div>
+  const languageSection = (
+    <div className="bg-card/70 backdrop-blur-xl border border-white/5 rounded-3xl p-5 space-y-3 shadow-xl">
+      <div className="flex items-center gap-2">
+        <Globe size={20} className="text-primary" />
+        <h3 className="text-sm font-bold tracking-widest text-muted-foreground uppercase">{t('profile_language_title')}</h3>
+      </div>
+      <div className="flex bg-secondary/60 p-1 rounded-2xl border border-white/5 gap-1">
+        {([
+          { value: 'en' as const, label: 'English' },
+          { value: 'th' as const, label: 'ภาษาไทย' },
+        ]).map(opt => (
           <button
-            onClick={() => { setEditingIntensive(undefined); setShowIntensiveModal(true); }}
-            className="flex items-center gap-1.5 text-xs font-bold text-primary bg-primary/10 hover:bg-primary/20 px-3 py-2 rounded-xl transition-colors"
+            key={opt.value}
+            onClick={() => setSelectedLang(opt.value)}
+            className={`flex-1 py-3 rounded-xl text-sm font-bold transition-all ${
+              selectedLang === opt.value
+                ? 'bg-primary/20 text-primary border border-primary/30 shadow-sm scale-[0.98]'
+                : 'text-muted-foreground hover:text-white'
+            }`}
           >
-            <Plus size={14} /> {t('nav_add')}
+            {opt.label}
+          </button>
+        ))}
+      </div>
+      <p className="text-[11px] text-muted-foreground text-center px-2">
+        {selectedLang === 'en' ? 'Language will change when you save.' : 'ภาษาจะเปลี่ยนเมื่อกด Save'}
+      </p>
+    </div>
+  );
+
+  const intensivesSection = (
+    <div className="bg-card/70 backdrop-blur-xl border border-white/5 rounded-3xl p-5 space-y-4 shadow-xl">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Gift size={20} className="text-primary" />
+          <h3 className="text-sm font-bold tracking-widest text-muted-foreground uppercase">{t('profile_intensives_title')}</h3>
+        </div>
+        <button
+          onClick={() => { setEditingIntensive(undefined); setShowIntensiveModal(true); }}
+          className="flex items-center gap-1.5 text-xs font-bold text-primary bg-primary/10 hover:bg-primary/20 px-3 py-2 rounded-xl transition-colors"
+        >
+          <Plus size={14} /> {t('nav_add')}
+        </button>
+      </div>
+      {intensives.length === 0 ? (
+        <p className="text-center text-xs text-muted-foreground py-3">{t('profile_no_intensives')}</p>
+      ) : (
+        <div className="space-y-2">
+          {intensives.map(inc => {
+            const topTier = [...inc.tiers].sort((a, b) => b.trips - a.trips)[0];
+            const tierCount = inc.tiers.length;
+            return (
+              <div key={inc.id} className={`flex items-center gap-3 border rounded-2xl p-4 group transition-all ${
+                inc.enabled ? 'bg-secondary/40 border-white/5' : 'bg-white/[0.02] border-white/5 opacity-50'
+              }`}>
+                <button onClick={() => toggleIntensive(inc.id)}
+                  className={`shrink-0 w-10 h-6 rounded-full relative transition-all ${inc.enabled ? 'bg-primary' : 'bg-white/10'}`}>
+                  <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${inc.enabled ? 'left-5' : 'left-1'}`} />
+                </button>
+                <button className="flex-1 text-left min-w-0" onClick={() => { setEditingIntensive(inc); setShowIntensiveModal(true); }}>
+                  <p className={`text-sm font-bold truncate ${inc.enabled ? 'text-white' : 'text-muted-foreground'}`}>{inc.name}</p>
+                  <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                    <span className="text-[10px] font-bold bg-white/5 border border-white/10 px-1.5 py-0.5 rounded-md text-muted-foreground">
+                      {inc.countsFor === 'ride' ? t('profile_intensive_taxi') : inc.countsFor === 'express' ? t('profile_intensive_express') : t('profile_intensive_all')}
+                    </span>
+                    <span className="text-xs text-muted-foreground">
+                      {t('profile_intensive_up_to')} ฿{topTier?.bonus ?? 0} · {tierCount} {tierCount > 1 ? t('profile_intensive_tiers') : t('profile_intensive_tier')}
+                    </span>
+                    {inc.startTime && (
+                      <span className="text-[10px] font-mono text-muted-foreground">{inc.startTime}–{inc.endTime}</span>
+                    )}
+                  </div>
+                </button>
+                <div className="flex items-center gap-1 shrink-0">
+                  <button onClick={() => { setEditingIntensive(inc); setShowIntensiveModal(true); }}
+                    className="p-2 text-muted-foreground hover:text-white rounded-xl hover:bg-white/10 transition-all">
+                    <ChevronRight size={16} />
+                  </button>
+                  <button onClick={() => setDeleteIntensiveId(inc.id)}
+                    className="p-2 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-xl transition-all opacity-0 group-hover:opacity-100">
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+
+  const driveSection = (
+    <div className="bg-card/70 backdrop-blur-xl border border-white/5 rounded-3xl p-5 space-y-4 shadow-xl">
+      <div className="flex items-center gap-2">
+        <Cloud size={20} className="text-primary" />
+        <h3 className="text-sm font-bold tracking-widest text-muted-foreground uppercase">{t('profile_gdrive_title')}</h3>
+      </div>
+      {!googleConnected ? (
+        <div className="flex flex-col gap-3">
+          <p className="text-xs font-medium text-muted-foreground">{t('profile_gdrive_desc')}</p>
+          <button onClick={handleGoogleConnect}
+            className="w-full flex items-center justify-center gap-3 bg-white text-black py-3.5 rounded-2xl font-bold text-sm hover:bg-gray-200 transition-colors">
+            <LogIn size={18} /> {t('profile_gdrive_login_btn')}
           </button>
         </div>
-
-        {intensives.length === 0 ? (
-          <p className="text-center text-xs text-muted-foreground py-3">{t('profile_no_intensives')}</p>
-        ) : (
-          <div className="space-y-2">
-            {intensives.map(inc => {
-              const topTier = [...inc.tiers].sort((a, b) => b.trips - a.trips)[0];
-              const tierCount = inc.tiers.length;
-              return (
-                <div key={inc.id} className={`flex items-center gap-3 border rounded-2xl p-4 group transition-all ${
-                  inc.enabled
-                    ? 'bg-secondary/40 border-white/5'
-                    : 'bg-white/[0.02] border-white/5 opacity-50'
-                }`}>
-                  {/* Toggle */}
-                  <button
-                    onClick={() => toggleIntensive(inc.id)}
-                    className={`shrink-0 w-10 h-6 rounded-full relative transition-all ${inc.enabled ? 'bg-primary' : 'bg-white/10'}`}
-                  >
-                    <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${inc.enabled ? 'left-5' : 'left-1'}`} />
-                  </button>
-
-                  {/* Info (click to edit) */}
-                  <button className="flex-1 text-left min-w-0" onClick={() => { setEditingIntensive(inc); setShowIntensiveModal(true); }}>
-                    <p className={`text-sm font-bold truncate ${inc.enabled ? 'text-white' : 'text-muted-foreground'}`}>{inc.name}</p>
-                    <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
-                      <span className="text-[10px] font-bold bg-white/5 border border-white/10 px-1.5 py-0.5 rounded-md text-muted-foreground">
-                        {inc.countsFor === 'ride' ? t('profile_intensive_taxi') : inc.countsFor === 'express' ? t('profile_intensive_express') : t('profile_intensive_all')}
-                      </span>
-                      <span className="text-xs text-muted-foreground">
-                        {t('profile_intensive_up_to')} ฿{topTier?.bonus ?? 0} · {tierCount} {tierCount > 1 ? t('profile_intensive_tiers') : t('profile_intensive_tier')}
-                      </span>
-                      {inc.startTime && (
-                        <span className="text-[10px] font-mono text-muted-foreground">{inc.startTime}–{inc.endTime}</span>
-                      )}
-                    </div>
-                  </button>
-
-                  {/* Edit + Delete */}
-                  <div className="flex items-center gap-1 shrink-0">
-                    <button onClick={() => { setEditingIntensive(inc); setShowIntensiveModal(true); }}
-                      className="p-2 text-muted-foreground hover:text-white rounded-xl hover:bg-white/10 transition-all">
-                      <ChevronRight size={16} />
-                    </button>
-                    <button onClick={() => setDeleteIntensiveId(inc.id)}
-                      className="p-2 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-xl transition-all opacity-0 group-hover:opacity-100">
-                      <Trash2 size={14} />
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
-
-      {/* ── Google Drive Backup ───────────────────────────────────────────── */}
-      <div className="bg-card/70 backdrop-blur-xl border border-white/5 rounded-3xl p-5 space-y-4 shadow-xl">
-        <div className="flex items-center gap-2">
-          <Cloud size={20} className="text-primary" />
-          <h3 className="text-sm font-bold tracking-widest text-muted-foreground uppercase">{t('profile_gdrive_title')}</h3>
-        </div>
-        {!googleConnected ? (
-          <div className="flex flex-col gap-3">
-            <p className="text-xs font-medium text-muted-foreground">{t('profile_gdrive_desc')}</p>
-            <button onClick={handleGoogleConnect}
-              className="w-full flex items-center justify-center gap-3 bg-white text-black py-3.5 rounded-2xl font-bold text-sm hover:bg-gray-200 transition-colors">
-              <LogIn size={18} /> {t('profile_gdrive_login_btn')}
-            </button>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            <div className="flex items-center justify-between p-3 bg-primary/10 rounded-2xl border border-primary/20">
-              <div className="flex items-center gap-3">
-                <CheckCircle2 size={24} className="text-primary" />
-                <div>
-                  <p className="text-sm font-bold text-white">{t('profile_gdrive_connected')}</p>
-                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider mt-0.5">{t('profile_gdrive_auto_backup')}</p>
-                </div>
+      ) : (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between p-3 bg-primary/10 rounded-2xl border border-primary/20">
+            <div className="flex items-center gap-3">
+              <CheckCircle2 size={24} className="text-primary" />
+              <div>
+                <p className="text-sm font-bold text-white">{t('profile_gdrive_connected')}</p>
+                <p className="text-[10px] text-muted-foreground uppercase tracking-wider mt-0.5">{t('profile_gdrive_auto_backup')}</p>
               </div>
-              <button onClick={handleGoogleDisconnect} className="p-2 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-xl transition-all">
-                <LogOut size={18} />
-              </button>
             </div>
-            {isAutoRestoring && (
-              <div className="flex items-center justify-center gap-2 py-2 text-xs font-bold text-primary animate-pulse">
-                <Download size={14} className="animate-bounce" /> {t('profile_gdrive_restoring')}
-              </div>
-            )}
-            <div className="grid grid-cols-2 gap-2">
-              <button onClick={handleManualSync} disabled={isSyncing || isRestoring || isAutoRestoring}
-                className="flex items-center justify-center gap-2 bg-secondary text-white py-3 rounded-2xl font-semibold text-sm border border-white/5 hover:bg-white/10 transition-colors disabled:opacity-50">
-                <RefreshCw size={16} className={isSyncing ? 'animate-spin' : ''} />
-                {isSyncing ? t('profile_gdrive_backing_up') : t('profile_gdrive_backup_btn')}
-              </button>
-              <button onClick={handleRestore} disabled={isSyncing || isRestoring || isAutoRestoring}
-                className="flex items-center justify-center gap-2 bg-secondary text-white py-3 rounded-2xl font-semibold text-sm border border-primary/20 hover:bg-primary/10 transition-colors disabled:opacity-50">
-                <Download size={16} className={isRestoring ? 'animate-bounce' : ''} />
-                {isRestoring ? t('profile_gdrive_restoring_btn') : t('profile_gdrive_restore_btn')}
-              </button>
-            </div>
-            {lastSync && (
-              <p className="text-center text-[11px] text-muted-foreground font-mono">
-                {t('profile_gdrive_last_backup')} {format(new Date(lastSync), 'MMM d, h:mm a')}
-              </p>
-            )}
-            <button onClick={() => setShowClearConfirm(true)} disabled={isSyncing || isRestoring || isAutoRestoring}
-              className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl text-sm font-bold text-destructive border border-destructive/20 bg-destructive/5 hover:bg-destructive/10 transition-colors disabled:opacity-50">
-              <Trash2 size={15} /> {t('profile_clear_data_btn')}
+            <button onClick={handleGoogleDisconnect} className="p-2 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-xl transition-all">
+              <LogOut size={18} />
             </button>
           </div>
-        )}
-      </div>
-
-      {/* ── Language ──────────────────────────────────────────────────────── */}
-      <div className="bg-card/70 backdrop-blur-xl border border-white/5 rounded-3xl p-5 space-y-3 shadow-xl">
-        <div className="flex items-center gap-2">
-          <Globe size={20} className="text-primary" />
-          <h3 className="text-sm font-bold tracking-widest text-muted-foreground uppercase">{t('profile_language_title')}</h3>
-        </div>
-        <div className="flex bg-secondary/60 p-1 rounded-2xl border border-white/5 gap-1">
-          {([
-            { value: 'en' as const, label: 'English' },
-            { value: 'th' as const, label: 'ภาษาไทย' },
-          ]).map(opt => (
-            <button
-              key={opt.value}
-              onClick={() => setSelectedLang(opt.value)}
-              className={`flex-1 py-3 rounded-xl text-sm font-bold transition-all ${
-                selectedLang === opt.value
-                  ? 'bg-primary/20 text-primary border border-primary/30 shadow-sm scale-[0.98]'
-                  : 'text-muted-foreground hover:text-white'
-              }`}
-            >
-              {opt.label}
+          {isAutoRestoring && (
+            <div className="flex items-center justify-center gap-2 py-2 text-xs font-bold text-primary animate-pulse">
+              <Download size={14} className="animate-bounce" /> {t('profile_gdrive_restoring')}
+            </div>
+          )}
+          <div className="grid grid-cols-2 gap-2">
+            <button onClick={handleManualSync} disabled={isSyncing || isRestoring || isAutoRestoring}
+              className="flex items-center justify-center gap-2 bg-secondary text-white py-3 rounded-2xl font-semibold text-sm border border-white/5 hover:bg-white/10 transition-colors disabled:opacity-50">
+              <RefreshCw size={16} className={isSyncing ? 'animate-spin' : ''} />
+              {isSyncing ? t('profile_gdrive_backing_up') : t('profile_gdrive_backup_btn')}
             </button>
-          ))}
+            <button onClick={handleRestore} disabled={isSyncing || isRestoring || isAutoRestoring}
+              className="flex items-center justify-center gap-2 bg-secondary text-white py-3 rounded-2xl font-semibold text-sm border border-primary/20 hover:bg-primary/10 transition-colors disabled:opacity-50">
+              <Download size={16} className={isRestoring ? 'animate-bounce' : ''} />
+              {isRestoring ? t('profile_gdrive_restoring_btn') : t('profile_gdrive_restore_btn')}
+            </button>
+          </div>
+          {lastSync && (
+            <p className="text-center text-[11px] text-muted-foreground font-mono">
+              {t('profile_gdrive_last_backup')} {format(new Date(lastSync), 'MMM d, h:mm a')}
+            </p>
+          )}
+          <button onClick={() => setShowClearConfirm(true)} disabled={isSyncing || isRestoring || isAutoRestoring}
+            className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl text-sm font-bold text-destructive border border-destructive/20 bg-destructive/5 hover:bg-destructive/10 transition-colors disabled:opacity-50">
+            <Trash2 size={15} /> {t('profile_clear_data_btn')}
+          </button>
         </div>
-        <p className="text-[11px] text-muted-foreground text-center px-2">
-          {selectedLang === 'en' ? 'Language will change when you save.' : 'ภาษาจะเปลี่ยนเมื่อกด Save'}
-        </p>
-      </div>
+      )}
+    </div>
+  );
 
-      {/* ── Save ──────────────────────────────────────────────────────────── */}
-      <button
-        onClick={handleSave}
-        className={`w-full py-4 rounded-2xl font-extrabold text-base transition-all shadow-lg hover:scale-[1.02] ${
-          saved ? 'bg-primary/20 text-primary border border-primary/20 shadow-none' : 'bg-gradient-to-r from-primary to-[#00b050] text-white shadow-primary/20'
-        }`}
-      >
-        {saved ? t('profile_saved_btn') : t('profile_save_btn')}
-      </button>
+  const saveButton = (
+    <button
+      onClick={handleSave}
+      className={`w-full py-4 rounded-2xl font-extrabold text-base transition-all shadow-lg hover:scale-[1.02] ${
+        saved ? 'bg-primary/20 text-primary border border-primary/20 shadow-none' : 'bg-gradient-to-r from-primary to-[#00b050] text-white shadow-primary/20'
+      }`}
+    >
+      {saved ? t('profile_saved_btn') : t('profile_save_btn')}
+    </button>
+  );
 
-      {/* ── Modals / Alerts ───────────────────────────────────────────────── */}
+  const modals = (
+    <>
       {showIntensiveModal && (
         <IntensiveModal
           initial={editingIntensive}
@@ -673,7 +673,6 @@ export default function ProfilePage() {
           t={t}
         />
       )}
-
       <SweetAlert
         show={!!deleteIntensiveId}
         icon="warning"
@@ -684,7 +683,6 @@ export default function ProfilePage() {
         onConfirm={() => deleteIntensiveId && handleDeleteIntensive(deleteIntensiveId)}
         onCancel={() => setDeleteIntensiveId(null)}
       />
-
       <SweetAlert
         show={showClearConfirm}
         icon="error"
@@ -695,6 +693,41 @@ export default function ProfilePage() {
         onConfirm={handleClearData}
         onCancel={() => setShowClearConfirm(false)}
       />
+    </>
+  );
+
+  return (
+    <div className={`p-4 space-y-5 relative animate-in fade-in slide-in-from-bottom-4 duration-500 ${isLandscape ? 'pb-4' : 'pb-24'}`}>
+      {isLandscape ? (
+        <div className="space-y-4">
+          {profileHeader}
+          <div className="grid grid-cols-2 gap-4 items-start">
+            {/* Left: vehicle + goal + language */}
+            <div className="space-y-4">
+              {vehicleSection}
+              {goalSection}
+              {languageSection}
+            </div>
+            {/* Right: intensives + drive */}
+            <div className="space-y-4">
+              {intensivesSection}
+              {driveSection}
+            </div>
+          </div>
+          {saveButton}
+        </div>
+      ) : (
+        <div className="space-y-5">
+          {profileHeader}
+          {vehicleSection}
+          {goalSection}
+          {intensivesSection}
+          {driveSection}
+          {languageSection}
+          {saveButton}
+        </div>
+      )}
+      {modals}
     </div>
   );
 }
