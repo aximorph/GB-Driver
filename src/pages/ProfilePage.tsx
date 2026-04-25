@@ -606,6 +606,12 @@ export default function ProfilePage() {
             className="w-full flex items-center justify-center gap-3 bg-white text-black py-3.5 rounded-2xl font-bold text-sm hover:bg-gray-200 transition-colors">
             <LogIn size={18} /> {t('profile_gdrive_login_btn')}
           </button>
+          <p className="text-[11px] text-muted-foreground text-center leading-relaxed">
+            {t('profile_gdrive_legal_prefix')}{' '}
+            <a href="/privacy" target="_blank" rel="noopener noreferrer" className="underline hover:text-white transition-colors">{t('profile_gdrive_privacy')}</a>
+            {' '}{t('profile_gdrive_legal_and')}{' '}
+            <a href="/terms" target="_blank" rel="noopener noreferrer" className="underline hover:text-white transition-colors">{t('profile_gdrive_terms')}</a>
+          </p>
         </div>
       ) : (
         <div className="space-y-4">
