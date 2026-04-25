@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Privacy Policy — GB-Driver</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:       #0d1117;
+      --surface:  #161b22;
+      --border:   rgba(255,255,255,0.07);
+      --text:     #e6edf3;
+      --muted:    #8b949e;
+      --primary:  #00e676;
+      --radius:   14px;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+      font-size: 15px;
+      line-height: 1.7;
+      padding: 0 16px 64px;
+    }
+
+    header {
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 48px 0 32px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .logo {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      text-decoration: none;
+      margin-bottom: 24px;
+    }
+
+    .logo-icon {
+      width: 36px;
+      height: 36px;
+      background: linear-gradient(135deg, #00e676, #00b050);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 900;
+      font-size: 16px;
+      color: #000;
+      letter-spacing: -0.5px;
+    }
+
+    .logo-text {
+      font-size: 18px;
+      font-weight: 800;
+      color: var(--text);
+    }
+
+    h1 {
+      font-size: 28px;
+      font-weight: 800;
+      color: var(--text);
+      margin-bottom: 8px;
+    }
+
+    .meta {
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    main {
+      max-width: 720px;
+      margin: 0 auto;
+      padding-top: 40px;
+    }
+
+    section {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 28px 28px 24px;
+      margin-bottom: 20px;
+    }
+
+    h2 {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--primary);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 14px;
+    }
+
+    p { color: #c9d1d9; margin-bottom: 12px; }
+    p:last-child { margin-bottom: 0; }
+
+    ul {
+      list-style: none;
+      padding: 0;
+      margin-bottom: 12px;
+    }
+
+    ul li {
+      padding: 6px 0 6px 20px;
+      position: relative;
+      color: #c9d1d9;
+      border-bottom: 1px solid rgba(255,255,255,0.04);
+    }
+
+    ul li:last-child { border-bottom: none; }
+
+    ul li::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--primary);
+      opacity: 0.6;
+    }
+
+    .highlight {
+      background: rgba(0, 230, 118, 0.06);
+      border: 1px solid rgba(0, 230, 118, 0.18);
+      border-radius: 10px;
+      padding: 16px 18px;
+      margin-top: 4px;
+    }
+
+    .highlight p {
+      color: #c9d1d9;
+      font-size: 14px;
+      margin: 0;
+    }
+
+    .highlight strong { color: var(--primary); }
+
+    a { color: var(--primary); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    .back-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      color: var(--muted);
+      font-size: 13px;
+      margin-top: 32px;
+      text-decoration: none;
+      transition: color 0.15s;
+    }
+    .back-link:hover { color: var(--text); text-decoration: none; }
+  </style>
+</head>
+<body>
+
+<header>
+  <a class="logo" href="/">
+    <div class="logo-icon">GB</div>
+    <span class="logo-text">GB-Driver</span>
+  </a>
+  <h1>Privacy Policy</h1>
+  <p class="meta">Effective date: April 25, 2026 &nbsp;·&nbsp; Last updated: April 25, 2026</p>
+</header>
+
+<main>
+
+  <section>
+    <h2>Overview</h2>
+    <div class="highlight">
+      <p><strong>Your data never leaves your device.</strong> GB-Driver stores all shift, earnings, and expense data locally in your browser (localStorage). No data is sent to any server operated by GB-Driver.</p>
+    </div>
+  </section>
+
+  <section>
+    <h2>Information We Collect</h2>
+    <p>GB-Driver collects only the information you enter directly into the app:</p>
+    <ul>
+      <li>Shift sessions — start time, end time, payout amount</li>
+      <li>Income entries — fare, platform (Grab / Bolt), order type, tip, driver net</li>
+      <li>Expense entries — category, amount, optional note</li>
+      <li>Trip duration — recorded by the in-app Trip Timer (optional)</li>
+      <li>Driver profile — vehicle type, fuel type, commission rate, daily goal, intensive campaigns, language preference</li>
+    </ul>
+    <p>All of the above is stored exclusively in your browser's <strong>localStorage</strong> and never transmitted to GB-Driver's servers.</p>
+  </section>
+
+  <section>
+    <h2>Google Drive Backup (Optional)</h2>
+    <p>If you choose to connect Google Drive, GB-Driver requests the <strong>drive.file</strong> permission scope. This scope allows the app to:</p>
+    <ul>
+      <li>Create a single backup file (<code>gb-driver-backup.json</code>) in your Google Drive</li>
+      <li>Read that file to restore your data on a new device</li>
+      <li>Update the file when you manually trigger a backup</li>
+    </ul>
+    <p>GB-Driver can <strong>only access files it creates</strong>. It cannot read, modify, or delete any other files in your Google Drive.</p>
+    <p>Your Google credentials are managed entirely by Google's own OAuth 2.0 flow. GB-Driver does not store your Google account credentials or access tokens on any server.</p>
+  </section>
+
+  <section>
+    <h2>Data Sharing</h2>
+    <p>GB-Driver does <strong>not</strong>:</p>
+    <ul>
+      <li>Sell or share your data with third parties</li>
+      <li>Send your earnings or shift data to any external server</li>
+      <li>Use your data for advertising or analytics purposes</li>
+      <li>Track your usage behavior</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Data Retention &amp; Deletion</h2>
+    <p>Your data is retained in your browser's localStorage until you explicitly delete it. You can remove all data at any time from the <strong>Profile → Clear Data</strong> option inside the app.</p>
+    <p>If you connected Google Drive, your backup file can be deleted manually from your Google Drive at any time. Disconnecting Google from the app revokes the app's access token.</p>
+  </section>
+
+  <section>
+    <h2>Cookies &amp; Tracking</h2>
+    <p>GB-Driver does not use cookies, analytics trackers, or any third-party tracking scripts. The app uses localStorage solely to persist your data between sessions.</p>
+  </section>
+
+  <section>
+    <h2>Children's Privacy</h2>
+    <p>GB-Driver is intended for adult rideshare drivers. The app does not knowingly collect data from anyone under 18 years of age.</p>
+  </section>
+
+  <section>
+    <h2>Changes to This Policy</h2>
+    <p>If this Privacy Policy is updated, the "Last updated" date at the top of this page will reflect the change. Continued use of the app after any update constitutes acceptance of the revised policy.</p>
+  </section>
+
+  <section>
+    <h2>Contact</h2>
+    <p>If you have any questions about this Privacy Policy, you can reach the developer at:</p>
+    <p><a href="mailto:kotamaka@gmail.com">kotamaka@gmail.com</a></p>
+  </section>
+
+  <a class="back-link" href="/">&#8592; Back to GB-Driver</a>
+
+</main>
+
+</body>
+</html>
