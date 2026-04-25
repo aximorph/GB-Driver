@@ -44,15 +44,15 @@
     .logo-icon {
       width: 36px;
       height: 36px;
-      background: linear-gradient(135deg, #00e676, #00b050);
       border-radius: 10px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-weight: 900;
-      font-size: 16px;
-      color: #000;
-      letter-spacing: -0.5px;
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+
+    .logo-icon img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
     }
 
     .logo-text {
@@ -163,7 +163,7 @@
 
 <header>
   <a class="logo" href="/">
-    <div class="logo-icon">GB</div>
+    <div class="logo-icon"><img src="/logo.jpg" alt="GB-Driver" /></div>
     <span class="logo-text">GB-Driver</span>
   </a>
   <h1>Privacy Policy</h1>
