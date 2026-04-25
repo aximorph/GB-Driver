@@ -1,7 +1,7 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { getSessions } from '@/lib/storage';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
-import { format, subDays, parseISO, startOfMonth } from 'date-fns';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, ReferenceLine } from 'recharts';
+import { format, subDays } from 'date-fns';
 import { useT } from '@/context/LangContext';
 import { useIsLandscape } from '@/hooks/useIsLandscape';
 
@@ -19,10 +19,13 @@ const TOOLTIP_STYLE = {
 };
 const TICK = { fontSize: 10, fill: 'hsl(215, 16%, 52%)' };
 
+type DurationFilter = 'all' | 'month' | 'week';
+
 export default function Analytics() {
   const isLandscape = useIsLandscape();
   const t = useT();
   const sessions = getSessions().filter(s => s.endTime);
+  const [durationFilter, setDurationFilter] = useState<DurationFilter>('all');
 
   // ── 14-day earnings bar chart ───────────────────────────────────────────────
   const barData = useMemo(() => {
@@ -91,31 +94,39 @@ export default function Analytics() {
     return { dailyHr, avgPerHour, bestDay, totalHrs };
   }, [sessions]);
 
-  // ── Monthly summary ─────────────────────────────────────────────────────────
-  const monthlyData = useMemo(() => {
-    const months: Record<string, { gross: number; tips: number; expenses: number; trips: number; hrs: number }> = {};
-    sessions.forEach(s => {
-      const key = s.date.slice(0, 7);
-      if (!months[key]) months[key] = { gross: 0, tips: 0, expenses: 0, trips: 0, hrs: 0 };
-      s.entries.forEach(e => {
-        if (e.type === 'income') { months[key].gross += e.driverNet || 0; months[key].tips += e.tip || 0; months[key].trips++; }
-        else months[key].expenses += e.amount;
-      });
-      if (s.endTime) months[key].hrs += (new Date(s.endTime).getTime() - new Date(s.startTime).getTime()) / 3_600_000;
-    });
-    return Object.entries(months)
-      .sort((a, b) => a[0].localeCompare(b[0]))
-      .slice(-6)
-      .map(([key, d]) => ({
-        month: format(startOfMonth(parseISO(key + '-01')), 'MMM yy'),
-        net: d.gross + d.tips - d.expenses,
-        gross: d.gross,
-        tips: d.tips,
-        expenses: d.expenses,
-        trips: d.trips,
-        hrs: d.hrs,
-      }));
-  }, [sessions]);
+  // ── Trip duration chart ─────────────────────────────────────────────────────
+  const tripDurationData = useMemo(() => {
+    const now = new Date();
+    let entries = sessions
+      .flatMap(s => s.entries)
+      .filter(e => e.type === 'income' && e.tripDuration && e.tripDuration > 0);
+
+    if (durationFilter === 'week') {
+      const cutoff = subDays(now, 7).getTime();
+      entries = entries.filter(e => new Date(e.tripStartTime ?? e.timestamp).getTime() >= cutoff);
+    } else if (durationFilter === 'month') {
+      const cutoff = subDays(now, 30).getTime();
+      entries = entries.filter(e => new Date(e.tripStartTime ?? e.timestamp).getTime() >= cutoff);
+    }
+
+    entries.sort((a, b) =>
+      new Date(a.tripStartTime ?? a.timestamp).getTime() -
+      new Date(b.tripStartTime ?? b.timestamp).getTime()
+    );
+
+    const data = entries.map((e, i) => ({
+      index: i + 1,
+      minutes: Math.round((e.tripDuration! / 60) * 10) / 10,
+      label: format(new Date(e.tripStartTime ?? e.timestamp), 'MM/dd HH:mm'),
+      net: e.driverNet ?? 0,
+    }));
+
+    const avg = data.length > 0
+      ? Math.round((data.reduce((s, d) => s + d.minutes, 0) / data.length) * 10) / 10
+      : 0;
+
+    return { data, avg };
+  }, [sessions, durationFilter]);
 
   // ── App deduction tracker ───────────────────────────────────────────────────
   const deductionData = useMemo(() => {
@@ -233,32 +244,77 @@ export default function Analytics() {
     </div>
   );
 
-  const monthlySection = monthlyData.length > 0 ? (
+  const FILTER_OPTS: { value: DurationFilter; label: string }[] = [
+    { value: 'all',   label: t('analytics_duration_all') },
+    { value: 'month', label: t('analytics_duration_month') },
+    { value: 'week',  label: t('analytics_duration_week') },
+  ];
+
+  const tripDurationSection = (
     <div className="bg-card/70 backdrop-blur-xl border border-white/5 rounded-3xl p-5 shadow-xl space-y-4">
-      <h3 className="text-sm font-semibold text-muted-foreground">{t('analytics_monthly')}</h3>
-      <ResponsiveContainer width="100%" height={180}>
-        <BarChart data={monthlyData}>
-          <XAxis dataKey="month" tick={TICK} />
-          <YAxis tick={TICK} width={40} />
-          <Tooltip contentStyle={TOOLTIP_STYLE} />
-          <Bar dataKey="gross" stackId="a" fill={GREEN}  radius={[0,0,0,0]} name={t('analytics_income')} />
-          <Bar dataKey="tips"  stackId="a" fill={YELLOW} radius={[0,0,0,0]} name="Tips" />
-          <Bar dataKey="expenses" fill={RED} radius={[3,3,0,0]} name={t('analytics_expenses')} />
-        </BarChart>
-      </ResponsiveContainer>
-      {(() => {
-        const last = monthlyData[monthlyData.length - 1];
-        return (
-          <div className="grid grid-cols-4 gap-2 pt-1 border-t border-white/5">
-            <StatCard label={last.month} value={`฿${last.net.toFixed(0)}`} color="text-primary" />
-            <StatCard label={t('analytics_trips_label')} value={String(last.trips)} color="text-white" />
-            <StatCard label={t('analytics_hrs_label')} value={last.hrs.toFixed(1)} color="text-muted-foreground" />
-            <StatCard label="฿/hr" value={`฿${last.hrs > 0 ? ((last.gross + last.tips) / last.hrs).toFixed(0) : 0}`} color="text-blue-400" />
+      {/* Header + filter toggle */}
+      <div className="flex items-center justify-between gap-2 flex-wrap">
+        <h3 className="text-sm font-semibold text-muted-foreground">{t('analytics_trip_duration')}</h3>
+        <div className="flex bg-secondary/60 p-0.5 rounded-xl border border-white/5 gap-0.5">
+          {FILTER_OPTS.map(opt => (
+            <button
+              key={opt.value}
+              onClick={() => setDurationFilter(opt.value)}
+              className={`px-3 py-1 rounded-lg text-[11px] font-bold transition-all ${
+                durationFilter === opt.value
+                  ? 'bg-primary/20 text-primary border border-primary/30'
+                  : 'text-muted-foreground hover:text-white'
+              }`}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {tripDurationData.data.length === 0 ? (
+        <p className="text-xs text-muted-foreground text-center py-6">{t('analytics_duration_no_data')}</p>
+      ) : (
+        <>
+          {/* Avg stat */}
+          <div className="flex items-center gap-3">
+            <div className="h-0.5 flex-1 bg-white/5 rounded-full" />
+            <span className="text-[11px] text-muted-foreground font-mono">
+              {t('analytics_duration_avg')} <span className="text-primary font-bold">{tripDurationData.avg} {t('analytics_duration_min')}</span>
+            </span>
+            <div className="h-0.5 flex-1 bg-white/5 rounded-full" />
           </div>
-        );
-      })()}
+
+          {/* Chart */}
+          <ResponsiveContainer width="100%" height={180}>
+            <BarChart data={tripDurationData.data} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
+              <XAxis
+                dataKey="index"
+                tick={TICK}
+                tickFormatter={v => (tripDurationData.data.length <= 20 || v % Math.ceil(tripDurationData.data.length / 10) === 0 ? String(v) : '')}
+                label={{ value: t('analytics_duration_trip_no'), position: 'insideBottom', offset: -2, style: { fontSize: 9, fill: 'hsl(215,16%,40%)' } }}
+              />
+              <YAxis tick={TICK} width={36} unit=" m" />
+              <Tooltip
+                contentStyle={TOOLTIP_STYLE}
+                formatter={(v: number) => [`${v} min`, t('analytics_duration_label')]}
+                labelFormatter={(_, payload) => payload?.[0]?.payload?.label ?? ''}
+              />
+              <ReferenceLine
+                y={tripDurationData.avg}
+                stroke={BLUE}
+                strokeDasharray="4 3"
+                strokeWidth={1.5}
+                label={{ value: `avg ${tripDurationData.avg}m`, position: 'insideTopRight', style: { fontSize: 9, fill: BLUE } }}
+              />
+              <Bar dataKey="minutes" fill={GREEN} radius={[3,3,0,0]} maxBarSize={24} />
+            </BarChart>
+          </ResponsiveContainer>
+          <p className="text-[10px] text-muted-foreground text-center">{tripDurationData.data.length} {t('analytics_duration_trips_shown')}</p>
+        </>
+      )}
     </div>
-  ) : null;
+  );
 
   const deductionSection = (
     <div className="bg-card/70 backdrop-blur-xl border border-white/5 rounded-3xl p-5 shadow-xl space-y-3">
@@ -306,7 +362,7 @@ export default function Analytics() {
             <div className="space-y-4">
               {pieTipSection}
               {perHourSection}
-              {monthlySection}
+              {tripDurationSection}
               {deductionSection}
             </div>
           </div>
@@ -318,7 +374,7 @@ export default function Analytics() {
           {heatmapSection}
           {pieTipSection}
           {perHourSection}
-          {monthlySection}
+          {tripDurationSection}
           {deductionSection}
         </div>
       )}
