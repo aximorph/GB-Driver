@@ -119,7 +119,7 @@ export default function AddEntryModal({
   const saveBtn = (
     <button
       onClick={handleSave}
-      className="shrink-0 self-end h-[50px] px-5 rounded-xl bg-gradient-to-r from-primary to-[#00b050] text-white font-extrabold text-sm shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-[0.97] transition-transform"
+      className="shrink-0 self-end h-[44px] px-4 rounded-xl bg-gradient-to-r from-primary to-[#00b050] text-white font-extrabold text-sm shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-[0.97] transition-transform"
     >
       {t('add_save')}
     </button>
@@ -132,9 +132,9 @@ export default function AddEntryModal({
         onClick={e => e.stopPropagation()}
       >
         {/* ── Header ───────────────────────────────────────────────────── */}
-        <div className="flex justify-between items-center px-5 pt-5 pb-3 shrink-0">
+        <div className="flex justify-between items-center px-4 pt-4 pb-2 shrink-0">
           <div className="flex items-center gap-2">
-            <h2 className="text-xl font-extrabold text-white">{t('add_title')}</h2>
+            <h2 className="text-base font-extrabold text-white">{t('add_title')}</h2>
             {initialTripDuration !== undefined && initialTripDuration > 0 && (
               <span className="flex items-center gap-1 text-[11px] font-bold text-primary bg-primary/10 border border-primary/20 px-2 py-0.5 rounded-lg">
                 <Timer size={11} />
@@ -142,11 +142,11 @@ export default function AddEntryModal({
               </span>
             )}
           </div>
-          <button onClick={onClose} className="text-muted-foreground hover:text-white transition-colors bg-white/5 rounded-full w-8 h-8 flex items-center justify-center">✕</button>
+          <button onClick={onClose} className="text-muted-foreground hover:text-white transition-colors bg-white/5 rounded-full w-7 h-7 flex items-center justify-center text-sm">✕</button>
         </div>
 
         {/* ── Scrollable content ───────────────────────────────────────── */}
-        <div className="flex-1 overflow-y-auto px-5 space-y-3 pb-5">
+        <div className="flex-1 overflow-y-auto px-4 space-y-2.5 pb-4">
 
           {/* Type Toggle */}
           <div className="flex bg-secondary/50 p-1.5 rounded-2xl border border-white/5">
@@ -158,7 +158,7 @@ export default function AddEntryModal({
                   key={tp}
                   onClick={() => !isDisabled && setType(tp)}
                   disabled={isDisabled}
-                  className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition-all duration-300 ${
+                  className={`flex-1 py-2 rounded-xl text-sm font-bold transition-all duration-300 ${
                     isActive
                       ? tp === 'income' ? 'bg-primary text-white shadow-md scale-[0.98]' : 'bg-destructive text-white shadow-md scale-[0.98]'
                       : isDisabled
@@ -173,7 +173,7 @@ export default function AddEntryModal({
           </div>
 
           {type === 'income' ? (
-            <div className="space-y-3">
+            <div className="space-y-2.5">
               {/* Platform + Order Type */}
               <div className="flex gap-2">
                 <div className="flex bg-secondary/60 p-1 rounded-xl border border-white/5 gap-1 flex-1">
@@ -249,7 +249,7 @@ export default function AddEntryModal({
               )}
             </div>
           ) : (
-            <div className="space-y-3">
+            <div className="space-y-2.5">
               <div>
                 <label className="text-xs text-muted-foreground mb-1 block">{t('add_category')}</label>
                 <select
@@ -339,14 +339,14 @@ function InputField({
     <div>
       <label className="text-xs font-medium text-muted-foreground mb-1.5 block px-1">{label}</label>
       <div className="relative">
-        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground text-base font-medium">{prefix}</span>
+        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm font-medium">{prefix}</span>
         <input
           type="number"
           value={value}
           onChange={e => onChange(e.target.value)}
           readOnly={readOnly}
           placeholder={placeholder ?? '0'}
-          className={`w-full bg-input/40 text-white rounded-xl p-3.5 pl-10 text-base font-mono border border-white/5 transition-all placeholder:text-muted-foreground/50 outline-none ${
+          className={`w-full bg-input/40 text-white rounded-xl p-2.5 pl-8 text-sm font-mono border border-white/5 transition-all placeholder:text-muted-foreground/50 outline-none ${
             readOnly ? 'opacity-70 cursor-default' : 'focus:bg-input/80 focus:border-primary/50'
           }`}
         />
