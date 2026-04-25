@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Entry } from '@/lib/types';
 import { getProfile } from '@/lib/storage';
 import { getFuelPrice } from '@/lib/fuelApi';
-import { Loader2, Timer } from 'lucide-react';
+import { Loader2, Timer, ChevronDown } from 'lucide-react';
 import { useT } from '@/context/LangContext';
 import type { TranslationKey } from '@/lib/i18n';
 
@@ -50,6 +50,7 @@ export default function AddEntryModal({
   const [expenseCategory, setExpenseCategory] = useState(EXPENSE_CATEGORIES[0].value);
   const [amount, setAmount] = useState('');
   const [note, setNote] = useState('');
+  const [showNote, setShowNote] = useState(false);
 
   // Fuel-specific state
   const [fuelPrice, setFuelPrice] = useState<number | null>(null);
@@ -116,11 +117,14 @@ export default function AddEntryModal({
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-end justify-center" onClick={onClose}>
-      <div className="w-full max-w-[430px] bg-card/95 backdrop-blur-3xl border-t border-white/10 rounded-t-[2rem] p-6 space-y-5 shadow-[0_-20px_60px_-15px_rgba(0,0,0,0.7)] animate-in slide-in-from-bottom max-h-[88vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-        <div className="flex justify-between items-center px-1">
+      <div
+        className="w-full max-w-[430px] bg-card/95 backdrop-blur-3xl border-t border-white/10 rounded-t-[2rem] shadow-[0_-20px_60px_-15px_rgba(0,0,0,0.7)] animate-in slide-in-from-bottom max-h-[88vh] flex flex-col"
+        onClick={e => e.stopPropagation()}
+      >
+        {/* ── Header (not scrollable) ──────────────────────────────────── */}
+        <div className="flex justify-between items-center px-5 pt-5 pb-3 shrink-0">
           <div className="flex items-center gap-2">
             <h2 className="text-xl font-extrabold text-white">{t('add_title')}</h2>
-            {/* Trip duration badge */}
             {initialTripDuration !== undefined && initialTripDuration > 0 && (
               <span className="flex items-center gap-1 text-[11px] font-bold text-primary bg-primary/10 border border-primary/20 px-2 py-0.5 rounded-lg">
                 <Timer size={11} />
@@ -131,152 +135,179 @@ export default function AddEntryModal({
           <button onClick={onClose} className="text-muted-foreground hover:text-white transition-colors bg-white/5 rounded-full w-8 h-8 flex items-center justify-center">✕</button>
         </div>
 
-        {/* Type Toggle */}
-        <div className="flex bg-secondary/50 p-1.5 rounded-2xl border border-white/5">
-          {(['income', 'expense'] as const).map(tp => {
-            const isActive = type === tp;
-            const isDisabled = lockType && !isActive;
-            return (
-              <button
-                key={tp}
-                onClick={() => !isDisabled && setType(tp)}
-                disabled={isDisabled}
-                className={`flex-1 py-3 rounded-xl text-sm font-bold transition-all duration-300 ${
-                  isActive
-                    ? tp === 'income' ? 'bg-primary text-white shadow-md scale-[0.98]' : 'bg-destructive text-white shadow-md scale-[0.98]'
-                    : isDisabled
-                    ? 'text-muted-foreground/30 cursor-not-allowed'
-                    : 'text-muted-foreground hover:text-white'
-                }`}
-              >
-                {tp === 'income' ? t('add_income') : t('add_expense')}
-              </button>
-            );
-          })}
-        </div>
+        {/* ── Scrollable content ───────────────────────────────────────── */}
+        <div className="flex-1 overflow-y-auto px-5 space-y-3 pb-2">
 
-        {type === 'income' ? (
-          <div className="space-y-4">
-            {/* Platform + Order Type */}
-            <div className="flex gap-2">
-              <div className="flex bg-secondary/60 p-1 rounded-xl border border-white/5 gap-1 flex-1">
-                {(['grab', 'bolt'] as const).map(p => (
-                  <button key={p} onClick={() => setPlatform(p)}
-                    className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                      platform === p ? 'bg-primary/20 text-primary border border-primary/30' : 'text-muted-foreground hover:text-white'
-                    }`}>
-                    {p === 'grab' ? t('add_grab') : t('add_bolt')}
-                  </button>
-                ))}
-              </div>
-              <div className="flex bg-secondary/60 p-1 rounded-xl border border-white/5 gap-1 flex-1">
-                {([
-                  { value: 'ride' as const, labelKey: 'add_taxi' as const },
-                  { value: 'express' as const, labelKey: 'add_express' as const },
-                ]).map(o => (
-                  <button key={o.value} onClick={() => setOrderType(o.value)}
-                    className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                      orderType === o.value ? 'bg-primary/20 text-primary border border-primary/30' : 'text-muted-foreground hover:text-white'
-                    }`}>
-                    {t(o.labelKey)}
-                  </button>
-                ))}
-              </div>
-            </div>
+          {/* Type Toggle */}
+          <div className="flex bg-secondary/50 p-1.5 rounded-2xl border border-white/5">
+            {(['income', 'expense'] as const).map(tp => {
+              const isActive = type === tp;
+              const isDisabled = lockType && !isActive;
+              return (
+                <button
+                  key={tp}
+                  onClick={() => !isDisabled && setType(tp)}
+                  disabled={isDisabled}
+                  className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition-all duration-300 ${
+                    isActive
+                      ? tp === 'income' ? 'bg-primary text-white shadow-md scale-[0.98]' : 'bg-destructive text-white shadow-md scale-[0.98]'
+                      : isDisabled
+                      ? 'text-muted-foreground/30 cursor-not-allowed'
+                      : 'text-muted-foreground hover:text-white'
+                  }`}
+                >
+                  {tp === 'income' ? t('add_income') : t('add_expense')}
+                </button>
+              );
+            })}
+          </div>
 
-            {/* Express / Bolt notice */}
-            {(orderType === 'express' || platform === 'bolt') && (
-              <div className="flex items-center gap-2 bg-warning/5 border border-warning/15 rounded-xl px-3 py-2">
-                <span className="text-warning text-xs">⚠</span>
-                <p className="text-[11px] text-muted-foreground">
-                  {orderType === 'express' && platform === 'bolt'
+          {type === 'income' ? (
+            <div className="space-y-3">
+              {/* Platform + Order Type */}
+              <div className="flex gap-2">
+                <div className="flex bg-secondary/60 p-1 rounded-xl border border-white/5 gap-1 flex-1">
+                  {(['grab', 'bolt'] as const).map(p => (
+                    <button key={p} onClick={() => setPlatform(p)}
+                      className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                        platform === p ? 'bg-primary/20 text-primary border border-primary/30' : 'text-muted-foreground hover:text-white'
+                      }`}>
+                      {p === 'grab' ? t('add_grab') : t('add_bolt')}
+                    </button>
+                  ))}
+                </div>
+                <div className="flex bg-secondary/60 p-1 rounded-xl border border-white/5 gap-1 flex-1">
+                  {([
+                    { value: 'ride' as const, labelKey: 'add_taxi' as const },
+                    { value: 'express' as const, labelKey: 'add_express' as const },
+                  ]).map(o => (
+                    <button key={o.value} onClick={() => setOrderType(o.value)}
+                      className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                        orderType === o.value ? 'bg-primary/20 text-primary border border-primary/30' : 'text-muted-foreground hover:text-white'
+                      }`}>
+                      {t(o.labelKey)}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Express / Bolt notice — compact single line */}
+              {(orderType === 'express' || platform === 'bolt') && (
+                <p className="text-[11px] text-warning/80 px-1">
+                  ⚠ {orderType === 'express' && platform === 'bolt'
                     ? t('add_bolt_express_warn')
                     : orderType === 'express'
                     ? t('add_express_only_warn')
                     : t('add_bolt_only_warn')} {t('add_no_intensive')}
                 </p>
+              )}
+
+              {/* App Fare + Customer Paid */}
+              <div className="grid grid-cols-2 gap-2">
+                <InputField label={t('add_app_fare')} prefix="฿" value={appFare} onChange={setAppFare} />
+                <InputField
+                  label={t('add_customer_paid')}
+                  prefix="฿"
+                  value={customerPaid}
+                  onChange={setCustomerPaid}
+                  placeholder={fareNum > 0 ? fareNum.toFixed(0) : '0'}
+                />
               </div>
-            )}
 
-            {/* App Fare + Customer Paid — same row */}
-            <div className="grid grid-cols-2 gap-2">
-              <InputField label={t('add_app_fare')} prefix="฿" value={appFare} onChange={setAppFare} />
-              <InputField
-                label={t('add_customer_paid')}
-                prefix="฿"
-                value={customerPaid}
-                onChange={setCustomerPaid}
-                placeholder={fareNum > 0 ? fareNum.toFixed(0) : '0'}
-              />
-            </div>
+              <InputField label={t('add_driver_received')} prefix="฿" value={driverReceived} onChange={setDriverReceived} />
 
-            <InputField label={t('add_driver_received')} prefix="฿" value={driverReceived} onChange={setDriverReceived} />
-
-            {tip > 0 && (
-              <div className="bg-warning/10 border border-warning/20 rounded-xl p-3 text-center">
-                <span className="text-warning font-mono font-bold">{t('add_tip_label')} ฿{tip.toFixed(0)}</span>
-              </div>
-            )}
-            {(fareNum > 0 && driverNet > 0) && (
-              <div className="bg-destructive/10 border border-destructive/20 rounded-xl p-3 text-center">
-                <span className="text-destructive font-mono font-bold">{t('add_app_deducted')} ฿{appDeducted.toFixed(0)} ({appDeductedPct.toFixed(1)}%)</span>
-              </div>
-            )}
-          </div>
-        ) : (
-          <div className="space-y-3">
-            <div>
-              <label className="text-xs text-muted-foreground mb-1 block">{t('add_category')}</label>
-              <select
-                value={expenseCategory}
-                onChange={e => { setExpenseCategory(e.target.value); setAmount(''); }}
-                className="w-full bg-secondary text-foreground rounded-lg p-2.5 text-sm border border-border"
-              >
-                {EXPENSE_CATEGORIES.map(c => <option key={c.value} value={c.value}>{t(c.labelKey)}</option>)}
-              </select>
-            </div>
-
-            {isFuelSelected && (
-              <div className="bg-primary/5 border border-primary/15 rounded-2xl p-4 space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">{t('add_fuel_price_label')}</span>
-                  {fuelLoading ? (
-                    <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                      <Loader2 size={12} className="animate-spin" /> {t('add_fuel_fetching')}
+              {/* Tip + App deduction — compact inline row instead of two banners */}
+              {(tip > 0 || (fareNum > 0 && driverNet > 0 && appDeducted > 0)) && (
+                <div className="flex items-center gap-3 px-1">
+                  {tip > 0 && (
+                    <span className="text-xs font-mono font-bold text-warning">
+                      {t('add_tip_label')} +฿{tip.toFixed(0)}
                     </span>
-                  ) : fuelPrice !== null ? (
-                    <span className="font-mono font-bold text-primary text-sm">
-                      ฿{fuelPrice.toFixed(2)}/L
-                      {profile?.fuelType && <span className="text-muted-foreground font-normal ml-1">({profile.fuelType.toUpperCase()})</span>}
+                  )}
+                  {fareNum > 0 && driverNet > 0 && appDeducted > 0 && (
+                    <span className="text-xs font-mono text-destructive/80">
+                      {t('add_app_deducted')} ฿{appDeducted.toFixed(0)} ({appDeductedPct.toFixed(1)}%)
                     </span>
-                  ) : (
-                    <span className="text-xs text-muted-foreground">{t('add_fuel_set_profile')}</span>
                   )}
                 </div>
-                {fuelLiters !== null && (
-                  <div className="bg-black/20 rounded-xl p-3 flex justify-between items-center border border-white/5">
-                    <span className="text-xs text-muted-foreground">฿{amount} ÷ ฿{fuelPrice?.toFixed(2)}/L</span>
-                    <span className="font-mono font-bold text-primary text-sm">≈ {fuelLiters} L</span>
-                  </div>
-                )}
+              )}
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">{t('add_category')}</label>
+                <select
+                  value={expenseCategory}
+                  onChange={e => { setExpenseCategory(e.target.value); setAmount(''); }}
+                  className="w-full bg-secondary text-foreground rounded-lg p-2.5 text-sm border border-border"
+                >
+                  {EXPENSE_CATEGORIES.map(c => <option key={c.value} value={c.value}>{t(c.labelKey)}</option>)}
+                </select>
               </div>
+
+              {isFuelSelected && (
+                <div className="bg-primary/5 border border-primary/15 rounded-2xl p-3 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">{t('add_fuel_price_label')}</span>
+                    {fuelLoading ? (
+                      <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                        <Loader2 size={12} className="animate-spin" /> {t('add_fuel_fetching')}
+                      </span>
+                    ) : fuelPrice !== null ? (
+                      <span className="font-mono font-bold text-primary text-sm">
+                        ฿{fuelPrice.toFixed(2)}/L
+                        {profile?.fuelType && <span className="text-muted-foreground font-normal ml-1">({profile.fuelType.toUpperCase()})</span>}
+                      </span>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">{t('add_fuel_set_profile')}</span>
+                    )}
+                  </div>
+                  {fuelLiters !== null && (
+                    <div className="bg-black/20 rounded-xl p-2.5 flex justify-between items-center border border-white/5">
+                      <span className="text-xs text-muted-foreground">฿{amount} ÷ ฿{fuelPrice?.toFixed(2)}/L</span>
+                      <span className="font-mono font-bold text-primary text-sm">≈ {fuelLiters} L</span>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <InputField label={isFuelSelected ? t('add_amount_paid') : t('add_amount')} prefix="฿" value={amount} onChange={setAmount} />
+            </div>
+          )}
+
+          {/* Note — collapsed by default */}
+          <div>
+            <button
+              type="button"
+              onClick={() => setShowNote(v => !v)}
+              className="flex items-center gap-1 text-xs text-muted-foreground hover:text-white transition-colors py-1"
+            >
+              <ChevronDown size={13} className={`transition-transform duration-200 ${showNote ? 'rotate-180' : ''}`} />
+              {t('add_note_label')}
+              {note && !showNote && <span className="ml-1 text-primary font-mono">"{note.slice(0, 20)}{note.length > 20 ? '…' : ''}"</span>}
+            </button>
+            {showNote && (
+              <input
+                value={note}
+                onChange={e => setNote(e.target.value)}
+                className="w-full bg-secondary text-foreground rounded-lg p-2.5 text-sm border border-border mt-1"
+                placeholder={t('add_note_placeholder')}
+                autoFocus
+              />
             )}
-
-            <InputField label={isFuelSelected ? t('add_amount_paid') : t('add_amount')} prefix="฿" value={amount} onChange={setAmount} />
           </div>
-        )}
 
-        <div>
-          <label className="text-xs text-muted-foreground mb-1 block">{t('add_note_label')}</label>
-          <input value={note} onChange={e => setNote(e.target.value)}
-            className="w-full bg-secondary text-foreground rounded-lg p-2.5 text-sm border border-border"
-            placeholder={t('add_note_placeholder')} />
+        </div>{/* end scrollable */}
+
+        {/* ── Save button — always visible at bottom ───────────────────── */}
+        <div className="px-5 pb-6 pt-3 shrink-0 border-t border-white/5">
+          <button
+            onClick={handleSave}
+            className="w-full py-4 rounded-2xl bg-gradient-to-r from-primary to-[#00b050] text-white font-extrabold text-base shadow-lg shadow-primary/20 hover:scale-[1.02] transition-transform"
+          >
+            {t('add_save')}
+          </button>
         </div>
-
-        <button onClick={handleSave}
-          className="w-full py-4 rounded-2xl bg-gradient-to-r from-primary to-[#00b050] text-white font-extrabold text-base shadow-lg shadow-primary/20 hover:scale-[1.02] transition-transform">
-          {t('add_save')}
-        </button>
       </div>
     </div>
   );
