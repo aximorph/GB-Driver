@@ -97,10 +97,14 @@ export default function Analytics() {
   // ── Trip duration chart ─────────────────────────────────────────────────────
   const tripDurationData = useMemo(() => {
     const now = new Date();
-    let entries = sessions
+    // All income entries that have timer data (any period)
+    const allWithTimer = sessions
       .flatMap(s => s.entries)
       .filter(e => e.type === 'income' && e.tripDuration && e.tripDuration > 0);
 
+    const hasAnyTimerData = allWithTimer.length > 0;
+
+    let entries = allWithTimer;
     if (durationFilter === 'week') {
       const cutoff = subDays(now, 7).getTime();
       entries = entries.filter(e => new Date(e.tripStartTime ?? e.timestamp).getTime() >= cutoff);
@@ -125,7 +129,7 @@ export default function Analytics() {
       ? Math.round((data.reduce((s, d) => s + d.minutes, 0) / data.length) * 10) / 10
       : 0;
 
-    return { data, avg };
+    return { data, avg, hasAnyTimerData };
   }, [sessions, durationFilter]);
 
   // ── App deduction tracker ───────────────────────────────────────────────────
@@ -273,7 +277,11 @@ export default function Analytics() {
       </div>
 
       {tripDurationData.data.length === 0 ? (
-        <p className="text-xs text-muted-foreground text-center py-6">{t('analytics_duration_no_data')}</p>
+        <p className="text-xs text-muted-foreground text-center py-6">
+          {tripDurationData.hasAnyTimerData
+            ? t('analytics_duration_no_data')
+            : t('analytics_duration_no_timer_data')}
+        </p>
       ) : (
         <>
           {/* Avg stat */}
