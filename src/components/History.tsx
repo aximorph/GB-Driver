@@ -5,6 +5,7 @@ import { format, startOfWeek, parseISO } from 'date-fns';
 import { Trash2, Star, Clock, Activity, Coffee } from 'lucide-react';
 import { useT } from '@/context/LangContext';
 import { useIsLandscape } from '@/hooks/useIsLandscape';
+import SweetAlert from './SweetAlert';
 
 function formatDuration(secs: number): string {
   const h = Math.floor(secs / 3600);
@@ -21,6 +22,8 @@ export default function History() {
   const [sessions, setSessions] = useState<ShiftSession[]>(() =>
     getSessions().filter(s => s.endTime)
   );
+  const [deletePeriodPending, setDeletePeriodPending] = useState<{ key: string; ss: ShiftSession[] } | null>(null);
+  const [deleteEntryPending, setDeleteEntryPending] = useState<string | null>(null);
 
   const dailyData = useMemo(() => {
     const grouped: Record<string, ShiftSession[]> = {};
@@ -72,26 +75,30 @@ export default function History() {
     return { trips, gross, tips, expenses, net: gross + tips - expenses, onlineTime, onlineTimeFmt, workingTime, waitingTime };
   };
 
-  // Delete all sessions for a given date key
-  const deleteGroup = (key: string, groupSessions: ShiftSession[]) => {
-    if (!confirm(t('hist_delete_confirm'))) return;
-    const groupIds = new Set(groupSessions.map(s => s.id));
-    const allSessions = getSessions(); // includes active sessions
+  // Delete all sessions for a given date key (called after confirm)
+  const confirmDeleteGroup = () => {
+    if (!deletePeriodPending) return;
+    const { key, ss } = deletePeriodPending;
+    const groupIds = new Set(ss.map(s => s.id));
+    const allSessions = getSessions();
     const updated = allSessions.filter(s => !groupIds.has(s.id));
     saveSessions(updated);
     setSessions(updated.filter(s => s.endTime));
     if (expandedDate === key) setExpandedDate(null);
+    setDeletePeriodPending(null);
   };
 
-  // Delete a single entry from a session
-  const deleteEntry = (entryId: string) => {
+  // Delete a single entry (called after confirm)
+  const confirmDeleteEntry = () => {
+    if (!deleteEntryPending) return;
     const allSessions = getSessions();
     const updated = allSessions.map(s => ({
       ...s,
-      entries: s.entries.filter(e => e.id !== entryId),
+      entries: s.entries.filter(e => e.id !== deleteEntryPending),
     }));
     saveSessions(updated);
     setSessions(updated.filter(s => s.endTime));
+    setDeleteEntryPending(null);
   };
 
   const exportCSV = () => {
@@ -163,7 +170,7 @@ export default function History() {
               </button>
               {/* Delete group button */}
               <button
-                onClick={e => { e.stopPropagation(); deleteGroup(key, ss); }}
+                onClick={e => { e.stopPropagation(); setDeletePeriodPending({ key, ss }); }}
                 className="p-4 text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-all"
                 title="Delete this period"
               >
@@ -290,7 +297,7 @@ export default function History() {
                             ฿{isIncome ? ((e.driverNet || 0) + (e.tip || 0)).toFixed(0) : e.amount.toFixed(0)}
                           </span>
                           <button
-                            onClick={() => deleteEntry(e.id)}
+                            onClick={() => setDeleteEntryPending(e.id)}
                             className="opacity-0 group-hover:opacity-100 p-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg transition-all"
                             title="Delete entry"
                           >
@@ -310,6 +317,30 @@ export default function History() {
       {data.length === 0 && (
         <div className="text-center py-12 text-muted-foreground text-sm">{t('hist_no_history')}</div>
       )}
+
+      {/* ── Confirm delete period ─────────────────────────────────────────── */}
+      <SweetAlert
+        show={!!deletePeriodPending}
+        icon="warning"
+        title={t('alert_delete_period_title')}
+        description={t('alert_delete_period_desc')}
+        confirmText={t('alert_delete_period_confirm')}
+        cancelText={t('alert_cancel')}
+        onConfirm={confirmDeleteGroup}
+        onCancel={() => setDeletePeriodPending(null)}
+      />
+
+      {/* ── Confirm delete entry ──────────────────────────────────────────── */}
+      <SweetAlert
+        show={!!deleteEntryPending}
+        icon="warning"
+        title={t('alert_delete_entry_title')}
+        description={t('alert_delete_entry_desc')}
+        confirmText={t('alert_delete_entry_confirm')}
+        cancelText={t('alert_cancel')}
+        onConfirm={confirmDeleteEntry}
+        onCancel={() => setDeleteEntryPending(null)}
+      />
     </div>
   );
 }

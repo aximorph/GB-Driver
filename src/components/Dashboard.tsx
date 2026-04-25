@@ -77,6 +77,7 @@ export default function Dashboard() {
   const [showEndShift, setShowEndShift] = useState(false);
   const [showLoginAlert, setShowLoginAlert] = useState(false);
   const [isBackingUp, setIsBackingUp] = useState(false);
+  const [deleteEntryPending, setDeleteEntryPending] = useState<string | null>(null);
 
   const status: ShiftStatus = activeSession ? 'on_shift' : 'offline';
   const profile = getProfile();
@@ -428,7 +429,7 @@ export default function Dashboard() {
                 ฿{entry.type === 'income' ? ((entry.driverNet || 0) + (entry.tip || 0)).toFixed(0) : entry.amount.toFixed(0)}
               </p>
               {entry.tip && entry.tip > 0 && <p className="text-[10px] text-warning font-bold uppercase mt-0.5">+ ฿{entry.tip.toFixed(0)} {t('dash_tip_label')}</p>}
-              <button onClick={() => deleteEntry(entry.id)} className="mt-2 text-muted-foreground hover:text-destructive transition-colors bg-white/5 hover:bg-white/10 p-1.5 rounded-lg flex items-center justify-center ml-auto">
+              <button onClick={() => setDeleteEntryPending(entry.id)} className="mt-2 text-muted-foreground hover:text-destructive transition-colors bg-white/5 hover:bg-white/10 p-1.5 rounded-lg flex items-center justify-center ml-auto">
                 <Trash2 size={14} />
               </button>
             </div>
@@ -503,6 +504,16 @@ export default function Dashboard() {
         cancelText={t('dash_cancel')}
         onConfirm={() => { setShowLoginAlert(false); navigate('/profile'); }}
         onCancel={() => setShowLoginAlert(false)}
+      />
+      <SweetAlert
+        show={!!deleteEntryPending}
+        icon="warning"
+        title={t('alert_delete_entry_title')}
+        description={t('alert_delete_entry_desc')}
+        confirmText={t('alert_delete_entry_confirm')}
+        cancelText={t('alert_cancel')}
+        onConfirm={() => { if (deleteEntryPending) { deleteEntry(deleteEntryPending); setDeleteEntryPending(null); } }}
+        onCancel={() => setDeleteEntryPending(null)}
       />
       {isBackingUp && (
         <div className="fixed bottom-28 left-1/2 -translate-x-1/2 bg-card/90 backdrop-blur-xl border border-white/10 rounded-full px-4 py-2 shadow-xl flex items-center gap-2 z-50 animate-in fade-in slide-in-from-bottom-2 duration-300">
