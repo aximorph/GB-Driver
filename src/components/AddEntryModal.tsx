@@ -115,13 +115,23 @@ export default function AddEntryModal({
     }
   };
 
+  // Shared save button — compact, sits next to the last input field
+  const saveBtn = (
+    <button
+      onClick={handleSave}
+      className="shrink-0 self-end h-[50px] px-5 rounded-xl bg-gradient-to-r from-primary to-[#00b050] text-white font-extrabold text-sm shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-[0.97] transition-transform"
+    >
+      {t('add_save')}
+    </button>
+  );
+
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-end justify-center" onClick={onClose}>
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-start justify-center" onClick={onClose}>
       <div
-        className="w-full max-w-[430px] bg-card/95 backdrop-blur-3xl border-t border-white/10 rounded-t-[2rem] shadow-[0_-20px_60px_-15px_rgba(0,0,0,0.7)] animate-in slide-in-from-bottom max-h-[88vh] flex flex-col"
+        className="w-full max-w-[430px] bg-card/95 backdrop-blur-3xl border-b border-white/10 rounded-b-[2rem] shadow-[0_20px_60px_-15px_rgba(0,0,0,0.7)] animate-in slide-in-from-top max-h-[88vh] flex flex-col"
         onClick={e => e.stopPropagation()}
       >
-        {/* ── Header (not scrollable) ──────────────────────────────────── */}
+        {/* ── Header ───────────────────────────────────────────────────── */}
         <div className="flex justify-between items-center px-5 pt-5 pb-3 shrink-0">
           <div className="flex items-center gap-2">
             <h2 className="text-xl font-extrabold text-white">{t('add_title')}</h2>
@@ -136,7 +146,7 @@ export default function AddEntryModal({
         </div>
 
         {/* ── Scrollable content ───────────────────────────────────────── */}
-        <div className="flex-1 overflow-y-auto px-5 space-y-3 pb-2">
+        <div className="flex-1 overflow-y-auto px-5 space-y-3 pb-5">
 
           {/* Type Toggle */}
           <div className="flex bg-secondary/50 p-1.5 rounded-2xl border border-white/5">
@@ -214,9 +224,15 @@ export default function AddEntryModal({
                 />
               </div>
 
-              <InputField label={t('add_driver_received')} prefix="฿" value={driverReceived} onChange={setDriverReceived} />
+              {/* Driver Received + Save inline */}
+              <div className="flex gap-2 items-end">
+                <div className="flex-1">
+                  <InputField label={t('add_driver_received')} prefix="฿" value={driverReceived} onChange={setDriverReceived} />
+                </div>
+                {saveBtn}
+              </div>
 
-              {/* Tip + App deduction — compact inline row instead of two banners */}
+              {/* Tip + App deduction — compact inline row */}
               {(tip > 0 || (fareNum > 0 && driverNet > 0 && appDeducted > 0)) && (
                 <div className="flex items-center gap-3 px-1">
                   {tip > 0 && (
@@ -271,7 +287,13 @@ export default function AddEntryModal({
                 </div>
               )}
 
-              <InputField label={isFuelSelected ? t('add_amount_paid') : t('add_amount')} prefix="฿" value={amount} onChange={setAmount} />
+              {/* Amount + Save inline */}
+              <div className="flex gap-2 items-end">
+                <div className="flex-1">
+                  <InputField label={isFuelSelected ? t('add_amount_paid') : t('add_amount')} prefix="฿" value={amount} onChange={setAmount} />
+                </div>
+                {saveBtn}
+              </div>
             </div>
           )}
 
@@ -298,16 +320,6 @@ export default function AddEntryModal({
           </div>
 
         </div>{/* end scrollable */}
-
-        {/* ── Save button — always visible at bottom ───────────────────── */}
-        <div className="px-5 pb-6 pt-3 shrink-0 border-t border-white/5">
-          <button
-            onClick={handleSave}
-            className="w-full py-4 rounded-2xl bg-gradient-to-r from-primary to-[#00b050] text-white font-extrabold text-base shadow-lg shadow-primary/20 hover:scale-[1.02] transition-transform"
-          >
-            {t('add_save')}
-          </button>
-        </div>
       </div>
     </div>
   );
