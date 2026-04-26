@@ -1,21 +1,37 @@
 import { db } from './firebase';
-import { ref, set, remove, onDisconnect, onValue, type DatabaseReference } from 'firebase/database';
+import { ref, set, remove, onDisconnect, onValue, type DatabaseReference, type Unsubscribe } from 'firebase/database';
 
 // Unique ID for this browser tab session
 const SESSION_ID = Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 
 let presenceRef: DatabaseReference | null = null;
+let connectedUnsub: Unsubscribe | null = null;
 
-/** Call when driver starts a shift. Province is the province.id slug. */
+/**
+ * Call when driver starts a shift.
+ * Uses .info/connected to wait for a confirmed connection before writing,
+ * which prevents the "1 → 0" flicker caused by onDisconnect firing before
+ * the initial connection is stable.
+ */
 export function goOnline(provinceId: string): void {
+  // Cancel any previous connection listener first
+  if (connectedUnsub) { connectedUnsub(); connectedUnsub = null; }
+
   presenceRef = ref(db, `presence/${provinceId}/${SESSION_ID}`);
-  set(presenceRef, { ts: Date.now() });
-  // Firebase server will auto-remove this node if the client disconnects
-  onDisconnect(presenceRef).remove();
+  const connectedRef = ref(db, '.info/connected');
+
+  connectedUnsub = onValue(connectedRef, snap => {
+    if (snap.val() !== true || !presenceRef) return;
+    // Register server-side cleanup BEFORE writing (critical order)
+    onDisconnect(presenceRef).remove().then(() => {
+      set(presenceRef!, { ts: Date.now() });
+    });
+  });
 }
 
 /** Call when driver ends a shift (manual clean-up). */
 export function goOffline(): void {
+  if (connectedUnsub) { connectedUnsub(); connectedUnsub = null; }
   if (presenceRef) {
     remove(presenceRef);
     presenceRef = null;
@@ -37,10 +53,7 @@ export function subscribeToOnlineCounts(
   const rootRef = ref(db, 'presence');
   const unsub = onValue(rootRef, snapshot => {
     const data = snapshot.val() as Record<string, Record<string, unknown>> | null;
-    if (!data) {
-      callback(0, []);
-      return;
-    }
+    if (!data) { callback(0, []); return; }
     const counts: ProvinceCount[] = Object.entries(data).map(([provinceId, sessions]) => ({
       provinceId,
       count: Object.keys(sessions).length,

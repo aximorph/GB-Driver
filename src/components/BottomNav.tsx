@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { getActiveSession } from '@/lib/storage';
-import { Home, Clock, BarChart2, User, Plus } from 'lucide-react';
+import { Home, Clock, BarChart2, Settings, Plus } from 'lucide-react';
 import SweetAlert from './SweetAlert';
 import { useT } from '@/context/LangContext';
 import { useIsLandscape } from '@/hooks/useIsLandscape';
@@ -82,7 +82,7 @@ export default function BottomNav() {
           </NavLink>
 
           <NavLink to="/profile" className={sideLink}>
-            <User size={22} strokeWidth={2.5} />
+            <Settings size={22} strokeWidth={2.5} />
             <span className="text-[9px] font-bold">{t('nav_profile')}</span>
           </NavLink>
         </nav>
@@ -143,7 +143,7 @@ export default function BottomNav() {
             <span>{t('nav_analytics')}</span>
           </NavLink>
           <NavLink to="/profile" className={linkClass}>
-            <User size={22} strokeWidth={2.5} className="mb-0.5" />
+            <Settings size={22} strokeWidth={2.5} className="mb-0.5" />
             <span>{t('nav_profile')}</span>
           </NavLink>
         </div>

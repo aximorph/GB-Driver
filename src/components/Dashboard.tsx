@@ -78,6 +78,7 @@ export default function Dashboard() {
   const [pendingTripStartTime, setPendingTripStartTime] = useState<string | undefined>(undefined);
   const [showEndShift, setShowEndShift] = useState(false);
   const [showLoginAlert, setShowLoginAlert] = useState(false);
+  const [showSessionExpiredAlert, setShowSessionExpiredAlert] = useState(false);
   const [isBackingUp, setIsBackingUp] = useState(false);
   const [deleteEntryPending, setDeleteEntryPending] = useState<string | null>(null);
   const [editEntryPending, setEditEntryPending] = useState<Entry | null>(null);
@@ -317,7 +318,10 @@ export default function Dashboard() {
           {t('dash_start_shift')}
         </button>
       ) : (
-        <button onClick={() => setShowEndShift(true)} className="w-full py-4 mt-2 rounded-xl bg-destructive text-white font-bold text-sm shadow-lg shadow-destructive/20 hover:scale-[1.02] transition-transform">
+        <button onClick={() => {
+          if (!isGoogleConnected()) { setShowSessionExpiredAlert(true); return; }
+          setShowEndShift(true);
+        }} className="w-full py-4 mt-2 rounded-xl bg-destructive text-white font-bold text-sm shadow-lg shadow-destructive/20 hover:scale-[1.02] transition-transform">
           {t('dash_end_shift')}
         </button>
       )}
@@ -582,6 +586,16 @@ export default function Dashboard() {
         cancelText={t('dash_cancel')}
         onConfirm={() => { setShowLoginAlert(false); navigate('/profile'); }}
         onCancel={() => setShowLoginAlert(false)}
+      />
+      <SweetAlert
+        show={showSessionExpiredAlert}
+        icon="warning"
+        title={t('dash_session_expired_title')}
+        description={t('dash_session_expired_desc')}
+        confirmText={t('dash_session_go_settings')}
+        cancelText={t('dash_session_end_anyway')}
+        onConfirm={() => { setShowSessionExpiredAlert(false); navigate('/profile'); }}
+        onCancel={() => { setShowSessionExpiredAlert(false); setShowEndShift(true); }}
       />
       <SweetAlert
         show={!!deleteEntryPending}

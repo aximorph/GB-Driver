@@ -7,7 +7,7 @@ export const translations = {
     nav_history: 'History',
     nav_add: 'Add',
     nav_analytics: 'Analytics',
-    nav_profile: 'Profile',
+    nav_profile: 'Settings',
     nav_no_shift_title: 'No Active Shift',
     nav_no_shift_desc: 'Please start a shift before adding an entry.',
     nav_got_it: 'Got it',
@@ -41,8 +41,12 @@ export const translations = {
     dash_backing_up: 'Backing up to Drive…',
     dash_login_required_title: 'Login Required',
     dash_login_required_desc: 'Please connect your Google account before starting a shift. Your data will be backed up automatically.',
-    dash_go_to_profile: 'Go to Profile',
+    dash_go_to_profile: 'Go to Settings',
     dash_cancel: 'Cancel',
+    dash_session_expired_title: 'Google Session Expired',
+    dash_session_expired_desc: 'Your Google session has expired. Please reconnect in Settings to ensure your data is backed up when you end the shift.',
+    dash_session_go_settings: 'Go to Settings',
+    dash_session_end_anyway: 'End Shift Anyway',
     // Online presence
     dash_online_total: 'online now',
     dash_online_top5: 'Top provinces online',
@@ -167,7 +171,7 @@ export const translations = {
     add_edit_title: 'Edit Entry',
 
     // ── ProfilePage ────────────────────────────────────────────────────────────
-    profile_title: 'Profile',
+    profile_title: 'Settings',
     profile_vehicle_type: 'Vehicle Type',
     profile_electric: 'Electric',
     profile_petrol: 'Petrol/Gas',
@@ -255,7 +259,7 @@ export const translations = {
     nav_history: 'ประวัติ',
     nav_add: 'เพิ่ม',
     nav_analytics: 'วิเคราะห์',
-    nav_profile: 'โปรไฟล์',
+    nav_profile: 'ตั้งค่า',
     nav_no_shift_title: 'ไม่มีกะที่ทำงาน',
     nav_no_shift_desc: 'กรุณาเริ่มกะก่อนเพิ่มรายการ',
     nav_got_it: 'เข้าใจแล้ว',
@@ -289,8 +293,12 @@ export const translations = {
     dash_backing_up: 'กำลังสำรองข้อมูลไปยัง Drive…',
     dash_login_required_title: 'ต้องเข้าสู่ระบบ',
     dash_login_required_desc: 'กรุณาเชื่อมต่อบัญชี Google ก่อนเริ่มกะงาน ข้อมูลจะถูกสำรองโดยอัตโนมัติ',
-    dash_go_to_profile: 'ไปที่โปรไฟล์',
+    dash_go_to_profile: 'ไปที่ตั้งค่า',
     dash_cancel: 'ยกเลิก',
+    dash_session_expired_title: 'Google Session หมดอายุ',
+    dash_session_expired_desc: 'Google session ของคุณหมดอายุแล้ว กรุณาเชื่อมต่อใหม่ในหน้าตั้งค่าเพื่อให้ข้อมูลถูกสำรองเมื่อจบกะงาน',
+    dash_session_go_settings: 'ไปที่ตั้งค่า',
+    dash_session_end_anyway: 'จบกะโดยไม่สำรอง',
     // Online presence
     dash_online_total: 'ออนไลน์อยู่',
     dash_online_top5: 'จังหวัดที่มีผู้ขับออนไลน์',
@@ -413,7 +421,7 @@ export const translations = {
     add_edit_title: 'แก้ไขรายการ',
 
     // ── ProfilePage ────────────────────────────────────────────────────────────
-    profile_title: 'โปรไฟล์',
+    profile_title: 'ตั้งค่า',
     profile_vehicle_type: 'ประเภทยานพาหนะ',
     profile_electric: 'ไฟฟ้า',
     profile_petrol: 'น้ำมัน',
