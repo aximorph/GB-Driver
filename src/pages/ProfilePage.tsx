@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { DriverProfile, Intensive, IntensiveTier, IntensiveCountsFor } from '@/lib/types';
 import { THAI_PROVINCES } from '@/lib/provinces';
 import { getProfile, saveProfile, saveSessions, getSessions } from '@/lib/storage';
-import { Zap, Fuel, Cloud, CheckCircle2, LogIn, RefreshCw, LogOut, Download, Trash2, Plus, Target, Gift, X, ChevronRight, Clock3, Globe, CalendarDays } from 'lucide-react';
+import { Zap, Fuel, Cloud, CheckCircle2, LogIn, RefreshCw, LogOut, Download, Trash2, Plus, Target, Gift, X, ChevronRight, Clock3, Globe, CalendarDays, Timer } from 'lucide-react';
 import { format } from 'date-fns';
 import { initGoogleIdentity, requestGoogleLogin, backupDataToDrive, restoreFromDrive, isGoogleConnected, disconnectGoogle } from '@/lib/googleDrive';
 import SweetAlert from '@/components/SweetAlert';
@@ -296,6 +296,7 @@ export default function ProfilePage() {
   const [dailyGoal, setDailyGoal] = useState<string>(profile?.dailyGoal ? String(profile.dailyGoal) : '');
   const [selectedLang, setSelectedLang] = useState<Lang>(profile?.language ?? lang);
   const [province, setProvince] = useState<string>(profile?.province ?? '');
+  const [moveTimerMinutes, setMoveTimerMinutes] = useState<number>(profile?.moveTimerMinutes ?? 15);
 
   const [intensives, setIntensives] = useState<Intensive[]>(
     (profile?.intensives ?? []).map(i => ({
@@ -328,6 +329,7 @@ export default function ProfilePage() {
       intensives,
       language: selectedLang,
       province: province || undefined,
+      moveTimerMinutes,
     };
     saveProfile(updated);
     setProfile(updated);
@@ -504,6 +506,46 @@ export default function ProfilePage() {
           </option>
         ))}
       </select>
+    </div>
+  );
+
+  const timerSection = (
+    <div className="bg-card/70 backdrop-blur-xl border border-white/5 rounded-3xl p-5 space-y-3 shadow-xl">
+      <div className="flex items-center gap-2">
+        <Timer size={18} className="text-primary" />
+        <h3 className="text-sm font-bold tracking-widest text-muted-foreground uppercase">{t('profile_move_timer_title')}</h3>
+      </div>
+      <p className="text-xs text-muted-foreground -mt-1">{t('profile_move_timer_desc')}</p>
+      <div className="flex items-center gap-3">
+        <button
+          onClick={() => setMoveTimerMinutes(m => Math.max(1, m - 1))}
+          className="w-11 h-11 rounded-2xl bg-secondary border border-white/10 text-white text-xl font-bold hover:bg-white/10 transition-colors flex items-center justify-center shrink-0"
+        >−</button>
+        <div className="flex-1 flex items-center justify-center gap-2 bg-secondary border border-white/10 rounded-2xl py-2.5">
+          <span className="text-2xl font-mono font-extrabold text-white tabular-nums">{moveTimerMinutes}</span>
+          <span className="text-sm font-bold text-muted-foreground">{t('profile_move_timer_unit')}</span>
+        </div>
+        <button
+          onClick={() => setMoveTimerMinutes(m => Math.min(60, m + 1))}
+          className="w-11 h-11 rounded-2xl bg-secondary border border-white/10 text-white text-xl font-bold hover:bg-white/10 transition-colors flex items-center justify-center shrink-0"
+        >+</button>
+      </div>
+      {/* Quick presets */}
+      <div className="flex gap-2 pt-1">
+        {[5, 10, 15, 20, 30].map(min => (
+          <button
+            key={min}
+            onClick={() => setMoveTimerMinutes(min)}
+            className={`flex-1 py-1.5 rounded-xl text-xs font-bold transition-all ${
+              moveTimerMinutes === min
+                ? 'bg-primary/20 text-primary border border-primary/30'
+                : 'bg-secondary border border-white/5 text-muted-foreground hover:border-white/10'
+            }`}
+          >
+            {min}
+          </button>
+        ))}
+      </div>
     </div>
   );
 
@@ -733,10 +775,11 @@ export default function ProfilePage() {
         <div className="space-y-4">
           {profileHeader}
           <div className="grid grid-cols-2 gap-4 items-start">
-            {/* Left: vehicle + province + goal + language */}
+            {/* Left: vehicle + province + timer + goal + language */}
             <div className="space-y-4">
               {vehicleSection}
               {provinceSection}
+              {timerSection}
               {goalSection}
               {languageSection}
             </div>
@@ -753,6 +796,7 @@ export default function ProfilePage() {
           {profileHeader}
           {vehicleSection}
           {provinceSection}
+          {timerSection}
           {goalSection}
           {intensivesSection}
           {driveSection}

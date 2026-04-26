@@ -6,10 +6,11 @@ import { isGoogleConnected, backupDataToDrive, scheduleMidnightExpiry } from '@/
 import { goOnline, goOffline, subscribeToOnlineCounts, type ProvinceCount } from '@/lib/presence';
 import { getProvinceLabel } from '@/lib/provinces';
 import { format } from 'date-fns';
-import { Trash2, Pencil, DollarSign, Receipt, Gift, Clock3, Users, ChevronDown } from 'lucide-react';
+import { Trash2, Pencil, DollarSign, Receipt, Gift, Clock3, Users, ChevronDown, Timer } from 'lucide-react';
 import AddEntryModal from './AddEntryModal';
 import TripTimerDialog from './TripTimerDialog';
 import EndShiftModal from './EndShiftModal';
+import MoveTimerModal from './MoveTimerModal';
 import SweetAlert from './SweetAlert';
 import { useT } from '@/context/LangContext';
 import { useIsLandscape } from '@/hooks/useIsLandscape';
@@ -92,6 +93,95 @@ export default function Dashboard() {
   const [onlineTop5, setOnlineTop5] = useState<ProvinceCount[]>([]);
   const [showOnlineDropdown, setShowOnlineDropdown] = useState(false);
   const onlineDropdownRef = useRef<HTMLDivElement>(null);
+
+  // ── Move Timer ───────────────────────────────────────────────────────────────
+  const getMoveTimerDuration = () => (getProfile()?.moveTimerMinutes ?? 15) * 60;
+  const [timerSecondsLeft, setTimerSecondsLeft] = useState(getMoveTimerDuration);
+  const [timerRunning, setTimerRunning] = useState(false);
+  const [timerPaused, setTimerPaused] = useState(false);
+  const [timerDone, setTimerDone] = useState(false);
+  const [showTimerModal, setShowTimerModal] = useState(false);
+  const timerIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const playBeep = () => {
+    try {
+      const ctx = new AudioContext();
+      for (let i = 0; i < 3; i++) {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.frequency.value = 880;
+        osc.type = 'sine';
+        gain.gain.setValueAtTime(0, ctx.currentTime + i * 0.5);
+        gain.gain.linearRampToValueAtTime(0.35, ctx.currentTime + i * 0.5 + 0.05);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + i * 0.5 + 0.4);
+        osc.start(ctx.currentTime + i * 0.5);
+        osc.stop(ctx.currentTime + i * 0.5 + 0.4);
+      }
+    } catch { /* AudioContext not available */ }
+  };
+
+  const startMoveTimer = () => {
+    if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
+    const duration = getMoveTimerDuration();
+    setTimerSecondsLeft(duration);
+    setTimerRunning(true);
+    setTimerPaused(false);
+    setTimerDone(false);
+    setShowTimerModal(true);
+    timerIntervalRef.current = setInterval(() => {
+      setTimerSecondsLeft(prev => {
+        if (prev <= 1) {
+          clearInterval(timerIntervalRef.current!);
+          timerIntervalRef.current = null;
+          setTimerDone(true);
+          setShowTimerModal(true); // re-open if closed
+          playBeep();
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  };
+
+  const pauseMoveTimer = () => {
+    if (timerIntervalRef.current) { clearInterval(timerIntervalRef.current); timerIntervalRef.current = null; }
+    setTimerPaused(true);
+  };
+
+  const resumeMoveTimer = () => {
+    if (timerPaused && !timerDone) {
+      setTimerPaused(false);
+      timerIntervalRef.current = setInterval(() => {
+        setTimerSecondsLeft(prev => {
+          if (prev <= 1) {
+            clearInterval(timerIntervalRef.current!);
+            timerIntervalRef.current = null;
+            setTimerDone(true);
+            setShowTimerModal(true);
+            playBeep();
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    }
+  };
+
+  const resetMoveTimer = () => {
+    if (timerIntervalRef.current) { clearInterval(timerIntervalRef.current); timerIntervalRef.current = null; }
+    const duration = getMoveTimerDuration();
+    setTimerSecondsLeft(duration);
+    setTimerRunning(false);
+    setTimerPaused(false);
+    setTimerDone(false);
+  };
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => { if (timerIntervalRef.current) clearInterval(timerIntervalRef.current); };
+  }, []);
 
   const status: ShiftStatus = activeSession ? 'on_shift' : 'offline';
   const profile = getProfile();
@@ -218,6 +308,9 @@ export default function Dashboard() {
     setActiveSession(null);
     goOffline(); // Presence: remove from online list
     window.dispatchEvent(new CustomEvent('gbdriver:session-changed'));
+    // Clear move timer
+    if (timerIntervalRef.current) { clearInterval(timerIntervalRef.current); timerIntervalRef.current = null; }
+    setTimerRunning(false); setTimerPaused(false); setTimerDone(false);
 
     // ── Auto backup OUTSIDE setSessions (side-effects must not live in updaters)
     if (isGoogleConnected()) {
@@ -318,12 +411,37 @@ export default function Dashboard() {
           {t('dash_start_shift')}
         </button>
       ) : (
-        <button onClick={() => {
-          if (!isGoogleConnected()) { setShowSessionExpiredAlert(true); return; }
-          setShowEndShift(true);
-        }} className="w-full py-4 mt-2 rounded-xl bg-destructive text-white font-bold text-sm shadow-lg shadow-destructive/20 hover:scale-[1.02] transition-transform">
-          {t('dash_end_shift')}
-        </button>
+        <div className="flex gap-2 mt-2">
+          <button onClick={() => {
+            if (!isGoogleConnected()) { setShowSessionExpiredAlert(true); return; }
+            setShowEndShift(true);
+          }} className="flex-1 py-4 rounded-xl bg-destructive text-white font-bold text-sm shadow-lg shadow-destructive/20 hover:scale-[1.02] transition-transform">
+            {t('dash_end_shift')}
+          </button>
+          {/* Move Timer button */}
+          <button
+            onClick={() => timerRunning ? setShowTimerModal(true) : startMoveTimer()}
+            className={`relative flex flex-col items-center justify-center gap-0.5 px-3 rounded-xl text-sm font-bold transition-all shadow-lg min-w-[68px] ${
+              timerDone
+                ? 'bg-destructive/20 border border-destructive/40 text-destructive animate-pulse'
+                : timerRunning
+                ? 'bg-primary/15 border border-primary/30 text-primary'
+                : 'bg-secondary border border-white/10 text-muted-foreground hover:text-white hover:bg-white/10'
+            }`}
+          >
+            <Timer size={20} strokeWidth={2.5} />
+            {timerRunning && !timerDone ? (
+              <span className="text-[10px] font-mono font-extrabold tabular-nums leading-none">
+                {Math.floor(timerSecondsLeft / 60).toString().padStart(2, '0')}:{(timerSecondsLeft % 60).toString().padStart(2, '0')}
+              </span>
+            ) : (
+              <span className="text-[9px] font-bold leading-none">{t('move_timer_btn')}</span>
+            )}
+            {timerPaused && !timerDone && (
+              <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-warning border border-card" />
+            )}
+          </button>
+        </div>
       )}
     </div>
   );
@@ -607,6 +725,18 @@ export default function Dashboard() {
         onConfirm={() => { if (deleteEntryPending) { deleteEntry(deleteEntryPending); setDeleteEntryPending(null); } }}
         onCancel={() => setDeleteEntryPending(null)}
       />
+      {showTimerModal && (
+        <MoveTimerModal
+          secondsLeft={timerSecondsLeft}
+          totalSeconds={getMoveTimerDuration()}
+          isPaused={timerPaused}
+          isDone={timerDone}
+          onPause={pauseMoveTimer}
+          onResume={resumeMoveTimer}
+          onReset={() => { resetMoveTimer(); setShowTimerModal(false); }}
+          onClose={() => setShowTimerModal(false)}
+        />
+      )}
       {isBackingUp && (
         <div className="fixed bottom-28 left-1/2 -translate-x-1/2 bg-card/90 backdrop-blur-xl border border-white/10 rounded-full px-4 py-2 shadow-xl flex items-center gap-2 z-50 animate-in fade-in slide-in-from-bottom-2 duration-300">
           <span className="w-2 h-2 rounded-full bg-primary animate-pulse"></span>

@@ -53,6 +53,15 @@ export const translations = {
     dash_online_no_data: 'No drivers online',
     dash_online_set_province: 'Set province in Profile to appear here',
 
+    // Move Timer
+    move_timer_btn: 'Timer',
+    move_timer_title: 'Move Timer',
+    move_timer_pause: 'Pause',
+    move_timer_resume: 'Resume',
+    move_timer_reset: 'Reset',
+    move_timer_done_title: "Time's Up!",
+    move_timer_done_desc: 'Time to move to a new spot.',
+
     // entry labels
     dash_taxi: 'Taxi',
     dash_express: 'Express',
@@ -191,6 +200,9 @@ export const translations = {
     profile_province_title: 'Province',
     profile_province_desc: 'Used to show your city on the online drivers map.',
     profile_province_placeholder: 'Select your province',
+    profile_move_timer_title: 'Move Timer',
+    profile_move_timer_desc: 'How long to wait at a spot before moving.',
+    profile_move_timer_unit: 'min',
 
     profile_gdrive_title: 'Google Drive Backup',
     profile_gdrive_desc: 'Log in with your Google account to automatically backup your shift history and profile to Google Drive.',
@@ -304,6 +316,15 @@ export const translations = {
     dash_online_top5: 'จังหวัดที่มีผู้ขับออนไลน์',
     dash_online_no_data: 'ยังไม่มีผู้ขับออนไลน์',
     dash_online_set_province: 'ตั้งจังหวัดในโปรไฟล์เพื่อแสดงที่นี่',
+
+    // Move Timer
+    move_timer_btn: 'จับเวลา',
+    move_timer_title: 'จับเวลา',
+    move_timer_pause: 'หยุด',
+    move_timer_resume: 'ต่อ',
+    move_timer_reset: 'เริ่มใหม่',
+    move_timer_done_title: 'หมดเวลา!',
+    move_timer_done_desc: 'ถึงเวลาย้ายจุดแล้ว',
     dash_taxi: 'แท็กซี่',
     dash_express: 'ส่งของ',
     dash_grab: 'Grab',
@@ -441,6 +462,9 @@ export const translations = {
     profile_province_title: 'จังหวัด',
     profile_province_desc: 'ใช้แสดงตำแหน่งของคุณในหน้าแผนที่ผู้ขับออนไลน์',
     profile_province_placeholder: 'เลือกจังหวัด',
+    profile_move_timer_title: 'เวลาย้ายจุด',
+    profile_move_timer_desc: 'เวลารอก่อนย้ายจุดจอดถัดไป',
+    profile_move_timer_unit: 'นาที',
 
     profile_gdrive_title: 'สำรองข้อมูล Google Drive',
     profile_gdrive_desc: 'เข้าสู่ระบบด้วยบัญชี Google เพื่อสำรองข้อมูลกะและโปรไฟล์ไปยัง Google Drive โดยอัตโนมัติ',

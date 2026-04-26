@@ -26,6 +26,7 @@ export interface DriverProfile {
   intensives?: Intensive[];
   language?: 'en' | 'th';
   province?: string;        // province.id slug, used for presence feature
+  moveTimerMinutes?: number; // minutes to wait before moving spot (default 15)
 }
 
 export interface ShiftSession {
