@@ -140,7 +140,7 @@ export default function Analytics() {
     const calc = (entries: typeof inc) => {
       const fare = entries.reduce((s, e) => s + (e.appFare || 0), 0);
       const deducted = entries.reduce((s, e) => s + Math.max(0, (e.appFare || 0) - (e.driverNet || 0)), 0);
-      return { fare, deducted, pct: fare > 0 ? (deducted / fare) * 100 : 0 };
+      return { fare, deducted, pct: fare > 0 ? (deducted / fare) * 100 : 0, trips: entries.length };
     };
 
     const all  = calc(inc);
@@ -324,31 +324,112 @@ export default function Analytics() {
     </div>
   );
 
-  const deductionSection = (
-    <div className="bg-card/70 backdrop-blur-xl border border-white/5 rounded-3xl p-5 shadow-xl space-y-3">
-      <h3 className="text-sm font-semibold text-muted-foreground">{t('analytics_deduction')}</h3>
-      {!deductionData ? (
-        <p className="text-xs text-muted-foreground text-center py-4">{t('analytics_no_deduction_data')}</p>
-      ) : (
-        <>
-          <div className="grid grid-cols-3 gap-3">
-            <StatCard label={t('analytics_total_deducted')} value={`฿${deductionData.all.deducted.toFixed(0)}`} color="text-destructive" big />
-            <StatCard label="Grab" value={`${deductionData.grab.pct.toFixed(1)}%`} color="text-primary" sub={`฿${deductionData.grab.deducted.toFixed(0)}`} />
-            <StatCard label="Bolt" value={deductionData.bolt.fare > 0 ? `${deductionData.bolt.pct.toFixed(1)}%` : '—'} color="text-yellow-400" sub={deductionData.bolt.fare > 0 ? `฿${deductionData.bolt.deducted.toFixed(0)}` : ''} />
-          </div>
-          <div className="space-y-1.5">
-            <div className="flex justify-between text-[10px] text-muted-foreground">
-              <span>{t('analytics_avg_deduction_rate')}</span>
-              <span className="font-mono font-bold text-destructive">{deductionData.all.pct.toFixed(1)}%</span>
+  const deductionSection = (() => {
+    // Grab vs Bolt comparison logic (computed outside JSX for clarity)
+    const hasBolt  = (deductionData?.bolt.trips ?? 0) > 0;
+    const hasGrab  = (deductionData?.grab.trips ?? 0) > 0;
+    const canCompare = hasBolt && hasGrab;
+    const enoughBolt = (deductionData?.bolt.trips ?? 0) >= 3;
+
+    // For bar widths: scale relative to the higher of the two
+    const maxPct = deductionData
+      ? Math.max(deductionData.grab.pct, deductionData.bolt.pct, 0.1)
+      : 1;
+    const grabBarW = deductionData ? (deductionData.grab.pct / maxPct) * 100 : 0;
+    const boltBarW = deductionData ? (deductionData.bolt.pct / maxPct) * 100 : 0;
+
+    const diff = deductionData ? Math.abs(deductionData.grab.pct - deductionData.bolt.pct) : 0;
+    const grabHigher = deductionData ? deductionData.grab.pct > deductionData.bolt.pct : false;
+
+    return (
+      <div className="bg-card/70 backdrop-blur-xl border border-white/5 rounded-3xl p-5 shadow-xl space-y-4">
+        <h3 className="text-sm font-semibold text-muted-foreground">{t('analytics_deduction')}</h3>
+
+        {!deductionData ? (
+          <p className="text-xs text-muted-foreground text-center py-4">{t('analytics_no_deduction_data')}</p>
+        ) : (
+          <>
+            {/* ── 3 summary sub-cards ── */}
+            <div className="grid grid-cols-3 gap-3">
+              <StatCard label={t('analytics_total_deducted')} value={`฿${deductionData.all.deducted.toFixed(0)}`} color="text-destructive" big />
+              <StatCard label="Grab" value={`${deductionData.grab.pct.toFixed(1)}%`} color="text-primary" sub={`฿${deductionData.grab.deducted.toFixed(0)}`} />
+              <StatCard label="Bolt" value={hasBolt ? `${deductionData.bolt.pct.toFixed(1)}%` : '—'} color="text-violet-400" sub={hasBolt ? `฿${deductionData.bolt.deducted.toFixed(0)}` : ''} />
             </div>
-            <div className="h-2 bg-white/5 rounded-full overflow-hidden">
-              <div className="h-full rounded-full bg-destructive/70 transition-all duration-700" style={{ width: `${Math.min(deductionData.all.pct * 3, 100)}%` }} />
+
+            {/* ── Grab vs Bolt visual comparison ── */}
+            <div className="space-y-2 pt-1 border-t border-white/5">
+              <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">
+                {t('analytics_platform_compare')}
+              </p>
+
+              {/* Grab bar */}
+              <div className="space-y-1">
+                <div className="flex items-center justify-between text-[11px]">
+                  <span className="font-bold text-primary flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-primary inline-block" />
+                    Grab
+                    {canCompare && grabHigher && (
+                      <span className="text-[9px] font-black bg-primary/15 border border-primary/30 text-primary px-1.5 py-0.5 rounded-md">
+                        {t('analytics_higher_platform')}
+                      </span>
+                    )}
+                  </span>
+                  <span className="font-mono font-bold text-primary">
+                    {deductionData.grab.pct.toFixed(1)}%
+                    <span className="text-muted-foreground font-normal ml-1.5">· {deductionData.grab.trips} {t('analytics_trips_label')}</span>
+                  </span>
+                </div>
+                <div className="h-2.5 bg-white/5 rounded-full overflow-hidden">
+                  <div
+                    className="h-full rounded-full bg-primary transition-all duration-700"
+                    style={{ width: `${grabBarW}%` }}
+                  />
+                </div>
+              </div>
+
+              {/* Bolt bar */}
+              <div className="space-y-1">
+                <div className="flex items-center justify-between text-[11px]">
+                  <span className="font-bold text-violet-400 flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-violet-400 inline-block" />
+                    Bolt
+                    {canCompare && !grabHigher && (
+                      <span className="text-[9px] font-black bg-violet-500/15 border border-violet-500/30 text-violet-400 px-1.5 py-0.5 rounded-md">
+                        {t('analytics_higher_platform')}
+                      </span>
+                    )}
+                  </span>
+                  <span className="font-mono font-bold text-violet-400">
+                    {hasBolt ? `${deductionData.bolt.pct.toFixed(1)}%` : '—'}
+                    {hasBolt && <span className="text-muted-foreground font-normal ml-1.5">· {deductionData.bolt.trips} {t('analytics_trips_label')}</span>}
+                  </span>
+                </div>
+                <div className="h-2.5 bg-white/5 rounded-full overflow-hidden">
+                  {hasBolt && (
+                    <div
+                      className="h-full rounded-full bg-violet-500 transition-all duration-700"
+                      style={{ width: `${boltBarW}%` }}
+                    />
+                  )}
+                </div>
+              </div>
+
+              {/* Verdict */}
+              {canCompare && enoughBolt ? (
+                <p className="text-[11px] text-center pt-1 font-bold" style={{ color: grabHigher ? 'hsl(145,100%,45%)' : 'hsl(265,80%,75%)' }}>
+                  {grabHigher ? 'Grab' : 'Bolt'} {t('analytics_deducts_more_than')} {grabHigher ? 'Bolt' : 'Grab'} {diff.toFixed(1)}%
+                </p>
+              ) : hasBolt && !enoughBolt ? (
+                <p className="text-[10px] text-muted-foreground text-center pt-1">{t('analytics_bolt_low_data')}</p>
+              ) : !hasBolt ? (
+                <p className="text-[10px] text-muted-foreground text-center pt-1">{t('analytics_no_bolt_data')}</p>
+              ) : null}
             </div>
-          </div>
-        </>
-      )}
-    </div>
-  );
+          </>
+        )}
+      </div>
+    );
+  })();
 
   return (
     <div className={`p-4 space-y-5 relative animate-in fade-in slide-in-from-bottom-4 duration-500 ${isLandscape ? 'pb-4' : 'pb-24'}`}>

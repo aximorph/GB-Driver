@@ -123,6 +123,11 @@ export const translations = {
     analytics_no_deduction_data: 'No fare data recorded yet',
     analytics_trips_label: 'trips',
     analytics_hrs_label: 'hrs',
+    analytics_platform_compare: 'Grab vs Bolt',
+    analytics_higher_platform: 'Higher',
+    analytics_deducts_more_than: 'deducts',
+    analytics_bolt_low_data: 'Need ≥ 3 Bolt trips for a reliable comparison',
+    analytics_no_bolt_data: 'No Bolt trips recorded — add some Bolt trips to compare',
 
     // ── EndShiftModal ──────────────────────────────────────────────────────────
     end_title: 'End Shift',
@@ -388,6 +393,11 @@ export const translations = {
     analytics_no_deduction_data: 'ยังไม่มีข้อมูลค่าโดยสาร',
     analytics_trips_label: 'รอบ',
     analytics_hrs_label: 'ชม.',
+    analytics_platform_compare: 'Grab vs Bolt',
+    analytics_higher_platform: 'หักมากกว่า',
+    analytics_deducts_more_than: 'หักมากกว่า',
+    analytics_bolt_low_data: 'ต้องการข้อมูล Bolt อย่างน้อย 3 รอบเพื่อเปรียบเทียบ',
+    analytics_no_bolt_data: 'ยังไม่มีรอบ Bolt — เพิ่มรอบ Bolt เพื่อดูการเปรียบเทียบ',
 
     // ── EndShiftModal ──────────────────────────────────────────────────────────
     end_title: 'จบกะ',
