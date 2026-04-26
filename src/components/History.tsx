@@ -261,7 +261,7 @@ export default function History() {
                               {isIncome && !isBonus && (
                                 <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-md uppercase ${
                                   e.platform === 'bolt'
-                                    ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/20'
+                                    ? 'bg-violet-500/20 text-violet-400 border border-violet-500/20'
                                     : 'bg-primary/15 text-primary border border-primary/20'
                                 }`}>
                                   {e.platform === 'bolt' ? t('add_bolt') : t('add_grab')}

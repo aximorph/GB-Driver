@@ -81,6 +81,12 @@ export default function Dashboard() {
   const [isBackingUp, setIsBackingUp] = useState(false);
   const [deleteEntryPending, setDeleteEntryPending] = useState<string | null>(null);
   const [editEntryPending, setEditEntryPending] = useState<Entry | null>(null);
+  const [collapsedIntensives, setCollapsedIntensives] = useState<Set<string>>(new Set());
+  const toggleIntensive = (id: string) => setCollapsedIntensives(prev => {
+    const next = new Set(prev);
+    next.has(id) ? next.delete(id) : next.add(id);
+    return next;
+  });
   const [onlineTotal, setOnlineTotal] = useState(0);
   const [onlineTop5, setOnlineTop5] = useState<ProvinceCount[]>([]);
   const [showOnlineDropdown, setShowOnlineDropdown] = useState(false);
@@ -297,49 +303,9 @@ export default function Dashboard() {
       <div className="absolute top-0 right-0 w-32 h-32 bg-primary/10 rounded-full blur-3xl -z-10 translate-x-12 -translate-y-12"></div>
       <div className="flex items-center justify-between z-10">
         <span className="text-sm font-medium text-muted-foreground">{t('dash_shift_status')}</span>
-        <div className="flex items-center gap-2">
-          {/* Online drivers badge */}
-          <div className="relative" ref={onlineDropdownRef}>
-            <button
-              onClick={() => setShowOnlineDropdown(v => !v)}
-              className="flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1 rounded-full bg-primary/10 border border-primary/20 text-primary hover:bg-primary/20 transition-colors"
-            >
-              <Users size={11} />
-              {onlineTotal}
-              <span className="text-primary/70 font-normal">{t('dash_online_total')}</span>
-              <ChevronDown size={10} className={`transition-transform duration-200 ${showOnlineDropdown ? 'rotate-180' : ''}`} />
-            </button>
-            {showOnlineDropdown && (
-              <div className="absolute right-0 top-full mt-1.5 w-52 bg-card/95 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl z-50 overflow-hidden animate-in slide-in-from-top-1 duration-150">
-                <div className="px-3 pt-3 pb-1">
-                  <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">{t('dash_online_top5')}</p>
-                </div>
-                {onlineTop5.length === 0 ? (
-                  <p className="text-xs text-muted-foreground px-3 pb-3 pt-1">{t('dash_online_no_data')}</p>
-                ) : (
-                  <ul className="pb-2">
-                    {onlineTop5.map((item, i) => (
-                      <li key={item.provinceId} className="flex items-center justify-between px-3 py-1.5 hover:bg-white/5 transition-colors">
-                        <span className="flex items-center gap-2 text-xs text-foreground">
-                          <span className="text-muted-foreground font-mono w-4">{i + 1}.</span>
-                          {getProvinceLabel(item.provinceId, lang)}
-                        </span>
-                        <span className="text-xs font-mono font-bold text-primary">{item.count}</span>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-                {!profile?.province && (
-                  <p className="text-[10px] text-muted-foreground/70 px-3 pb-2.5 border-t border-white/5 pt-2">{t('dash_online_set_province')}</p>
-                )}
-              </div>
-            )}
-          </div>
-          {/* Shift status badge */}
-          <span className={`text-xs font-mono font-bold px-2.5 py-1 rounded-full shadow-inner ${status === 'on_shift' ? 'bg-primary border border-primary/50 text-white' : 'bg-secondary text-muted-foreground'}`}>
-            {status === 'on_shift' ? t('dash_on_shift') : t('dash_offline')}
-          </span>
-        </div>
+        <span className={`text-xs font-mono font-bold px-2.5 py-1 rounded-full shadow-inner ${status === 'on_shift' ? 'bg-primary border border-primary/50 text-white' : 'bg-secondary text-muted-foreground'}`}>
+          {status === 'on_shift' ? t('dash_on_shift') : t('dash_offline')}
+        </span>
       </div>
       {status === 'on_shift' && (
         <div className="text-center py-4">
@@ -415,20 +381,30 @@ export default function Dashboard() {
         const isInTimeWindow = !intensive.startTime ||
           (nowHHMM >= intensive.startTime && nowHHMM <= (intensive.endTime ?? '23:59'));
         const isInWindow = isInDateRange && isInTimeWindow;
+        const isCollapsed = collapsedIntensives.has(intensive.id);
         return (
-          <div key={intensive.id} className={`bg-card/80 backdrop-blur-xl border rounded-2xl p-5 shadow-xl space-y-3 ${!isInWindow ? 'border-white/5 opacity-70' : 'border-white/5'}`}>
-            <div className="flex items-center justify-between">
+          <div key={intensive.id} className={`bg-card/80 backdrop-blur-xl border rounded-2xl shadow-xl ${!isInWindow ? 'border-white/5 opacity-70' : 'border-white/5'}`}>
+            {/* ── Header row — always visible, click to toggle ── */}
+            <button
+              onClick={() => toggleIntensive(intensive.id)}
+              className="w-full flex items-center justify-between p-4 text-left"
+            >
               <div className="flex items-center gap-2">
                 <Gift size={16} className={isInWindow ? 'text-primary' : 'text-muted-foreground'} />
                 <span className="text-sm font-bold text-white">{intensive.name}</span>
                 {!isInWindow && <span className="text-[10px] text-muted-foreground bg-white/5 px-2 py-0.5 rounded-md font-mono">{t('dash_outside_window')}</span>}
               </div>
-              {alreadyRecorded ? (
-                <span className="text-[10px] font-bold text-primary bg-primary/10 border border-primary/20 px-2 py-1 rounded-lg">{t('dash_recorded')}</span>
-              ) : earnedBonus > 0 ? (
-                <span className="text-xs font-mono font-extrabold text-warning bg-warning/10 border border-warning/20 px-2.5 py-1 rounded-lg">+฿{earnedBonus} {t('dash_pending')}</span>
-              ) : null}
-            </div>
+              <div className="flex items-center gap-2">
+                {alreadyRecorded ? (
+                  <span className="text-[10px] font-bold text-primary bg-primary/10 border border-primary/20 px-2 py-1 rounded-lg">{t('dash_recorded')}</span>
+                ) : earnedBonus > 0 ? (
+                  <span className="text-xs font-mono font-extrabold text-warning bg-warning/10 border border-warning/20 px-2.5 py-1 rounded-lg">+฿{earnedBonus} {t('dash_pending')}</span>
+                ) : null}
+                <ChevronDown size={14} className={`text-muted-foreground transition-transform duration-200 ${isCollapsed ? '' : 'rotate-180'}`} />
+              </div>
+            </button>
+            {/* ── Collapsible body ── */}
+            {!isCollapsed && <div className="px-4 pb-4 space-y-3 border-t border-white/5 pt-3">
             {/* Date range badge */}
             {(intensive.dateStart || intensive.dateEnd) && (
               <div className={`flex items-center gap-1.5 text-[11px] font-mono ${isInDateRange ? 'text-primary' : 'text-muted-foreground'}`}>
@@ -473,6 +449,7 @@ export default function Dashboard() {
             {earnedBonus > 0 && !alreadyRecorded && (
               <p className="text-[10px] text-muted-foreground text-center pt-1 border-t border-white/5">฿{earnedBonus} {t('dash_bonus_pending_note')}</p>
             )}
+            </div>}{/* end collapsible body */}
           </div>
         );
       })}
@@ -497,7 +474,7 @@ export default function Dashboard() {
                       : (entry.expenseCategory || t('dash_expenses'))}
                   </h4>
                   {entry.type === 'income' && !entry.note?.startsWith('Intensive:') && (
-                    <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-md uppercase ${entry.platform === 'bolt' ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/20' : 'bg-primary/15 text-primary border border-primary/20'}`}>
+                    <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-md uppercase ${entry.platform === 'bolt' ? 'bg-violet-500/20 text-violet-400 border border-violet-500/20' : 'bg-primary/15 text-primary border border-primary/20'}`}>
                       {entry.platform === 'bolt' ? t('dash_bolt') : t('dash_grab')}
                     </span>
                   )}
@@ -630,6 +607,43 @@ export default function Dashboard() {
       <div>
         <h1 className="text-3xl font-extrabold bg-gradient-to-r from-[#00f260] to-primary bg-clip-text text-transparent drop-shadow-sm">GB-Driver</h1>
         <p className="text-sm text-muted-foreground mt-1">{format(new Date(), 'EEEE, MMM d, yyyy')}</p>
+      </div>
+      {/* Online drivers badge — top right of header */}
+      <div className="relative" ref={onlineDropdownRef}>
+        <button
+          onClick={() => setShowOnlineDropdown(v => !v)}
+          className="flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1.5 rounded-full bg-primary/10 border border-primary/20 text-primary hover:bg-primary/20 transition-colors"
+        >
+          <Users size={11} />
+          {onlineTotal}
+          <span className="text-primary/70 font-normal">{t('dash_online_total')}</span>
+          <ChevronDown size={10} className={`transition-transform duration-200 ${showOnlineDropdown ? 'rotate-180' : ''}`} />
+        </button>
+        {showOnlineDropdown && (
+          <div className="absolute right-0 top-full mt-1.5 w-52 bg-card/95 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl z-50 overflow-hidden animate-in slide-in-from-top-1 duration-150">
+            <div className="px-3 pt-3 pb-1">
+              <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">{t('dash_online_top5')}</p>
+            </div>
+            {onlineTop5.length === 0 ? (
+              <p className="text-xs text-muted-foreground px-3 pb-3 pt-1">{t('dash_online_no_data')}</p>
+            ) : (
+              <ul className="pb-2">
+                {onlineTop5.map((item, i) => (
+                  <li key={item.provinceId} className="flex items-center justify-between px-3 py-1.5 hover:bg-white/5 transition-colors">
+                    <span className="flex items-center gap-2 text-xs text-foreground">
+                      <span className="text-muted-foreground font-mono w-4">{i + 1}.</span>
+                      {getProvinceLabel(item.provinceId, lang)}
+                    </span>
+                    <span className="text-xs font-mono font-bold text-primary">{item.count}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+            {!profile?.province && (
+              <p className="text-[10px] text-muted-foreground/70 px-3 pb-2.5 border-t border-white/5 pt-2">{t('dash_online_set_province')}</p>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
