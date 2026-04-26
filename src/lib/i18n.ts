@@ -163,6 +163,8 @@ export const translations = {
     add_note_label: 'Note (optional)',
     add_note_placeholder: 'Add a note...',
     add_save: 'Save Entry',
+    add_update: 'Update',
+    add_edit_title: 'Edit Entry',
 
     // ── ProfilePage ────────────────────────────────────────────────────────────
     profile_title: 'Profile',
@@ -407,6 +409,8 @@ export const translations = {
     add_note_label: 'หมายเหตุ (ไม่บังคับ)',
     add_note_placeholder: 'เพิ่มหมายเหตุ...',
     add_save: 'บันทึก',
+    add_update: 'อัปเดต',
+    add_edit_title: 'แก้ไขรายการ',
 
     // ── ProfilePage ────────────────────────────────────────────────────────────
     profile_title: 'โปรไฟล์',

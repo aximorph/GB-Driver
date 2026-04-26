@@ -6,7 +6,7 @@ import { isGoogleConnected, backupDataToDrive, scheduleMidnightExpiry } from '@/
 import { goOnline, goOffline, subscribeToOnlineCounts, type ProvinceCount } from '@/lib/presence';
 import { getProvinceLabel } from '@/lib/provinces';
 import { format } from 'date-fns';
-import { Trash2, DollarSign, Receipt, Gift, Clock3, Users, ChevronDown } from 'lucide-react';
+import { Trash2, Pencil, DollarSign, Receipt, Gift, Clock3, Users, ChevronDown } from 'lucide-react';
 import AddEntryModal from './AddEntryModal';
 import TripTimerDialog from './TripTimerDialog';
 import EndShiftModal from './EndShiftModal';
@@ -80,6 +80,7 @@ export default function Dashboard() {
   const [showLoginAlert, setShowLoginAlert] = useState(false);
   const [isBackingUp, setIsBackingUp] = useState(false);
   const [deleteEntryPending, setDeleteEntryPending] = useState<string | null>(null);
+  const [editEntryPending, setEditEntryPending] = useState<Entry | null>(null);
   const [onlineTotal, setOnlineTotal] = useState(0);
   const [onlineTop5, setOnlineTop5] = useState<ProvinceCount[]>([]);
   const [showOnlineDropdown, setShowOnlineDropdown] = useState(false);
@@ -234,6 +235,22 @@ export default function Dashboard() {
       return updated;
     });
     setActiveSession(prev => prev ? { ...prev, entries: prev.entries.filter(e => e.id !== entryId) } : null);
+  }, []);
+
+  const updateEntry = useCallback((entryId: string, updates: Omit<Entry, 'id' | 'sessionId' | 'timestamp'>) => {
+    setSessions(prev => {
+      const updated = prev.map(s => ({
+        ...s,
+        entries: s.entries.map(e => e.id === entryId ? { ...e, ...updates } : e),
+      }));
+      saveSessions(updated);
+      return updated;
+    });
+    setActiveSession(prev => prev
+      ? { ...prev, entries: prev.entries.map(e => e.id === entryId ? { ...e, ...updates } : e) }
+      : null
+    );
+    setEditEntryPending(null);
   }, []);
 
   // Subscribe to online presence counts (always, not just during shift)
@@ -501,9 +518,14 @@ export default function Dashboard() {
                 ฿{entry.type === 'income' ? ((entry.driverNet || 0) + (entry.tip || 0)).toFixed(0) : entry.amount.toFixed(0)}
               </p>
               {entry.tip && entry.tip > 0 && <p className="text-[10px] text-warning font-bold uppercase mt-0.5">+ ฿{entry.tip.toFixed(0)} {t('dash_tip_label')}</p>}
-              <button onClick={() => setDeleteEntryPending(entry.id)} className="mt-2 text-muted-foreground hover:text-destructive transition-colors bg-white/5 hover:bg-white/10 p-1.5 rounded-lg flex items-center justify-center ml-auto">
-                <Trash2 size={14} />
-              </button>
+              <div className="flex items-center gap-1 mt-2 ml-auto">
+                <button onClick={() => setEditEntryPending(entry)} className="text-muted-foreground hover:text-primary transition-colors bg-white/5 hover:bg-white/10 p-1.5 rounded-lg flex items-center justify-center">
+                  <Pencil size={13} />
+                </button>
+                <button onClick={() => setDeleteEntryPending(entry.id)} className="text-muted-foreground hover:text-destructive transition-colors bg-white/5 hover:bg-white/10 p-1.5 rounded-lg flex items-center justify-center">
+                  <Trash2 size={13} />
+                </button>
+              </div>
             </div>
           </div>
           {entry.type === 'income' && entry.appFare && entry.driverNet && (
@@ -557,6 +579,14 @@ export default function Dashboard() {
             setPendingTripDuration(undefined);
             setPendingTripStartTime(undefined);
           }}
+        />
+      )}
+      {editEntryPending && (
+        <AddEntryModal
+          editEntry={editEntryPending}
+          onSave={() => {}}
+          onUpdate={updateEntry}
+          onClose={() => setEditEntryPending(null)}
         />
       )}
       {showEndShift && activeSession && (

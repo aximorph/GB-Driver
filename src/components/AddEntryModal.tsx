@@ -27,7 +27,9 @@ interface Props {
   initialType?: 'income' | 'expense';
   initialTripDuration?: number;   // seconds from TripTimerDialog
   initialTripStartTime?: string;  // ISO timestamp
+  editEntry?: Entry;              // if provided → edit mode (pre-fills all fields)
   onSave: (entry: Omit<Entry, 'id' | 'sessionId' | 'timestamp'>) => void;
+  onUpdate?: (id: string, entry: Omit<Entry, 'id' | 'sessionId' | 'timestamp'>) => void;
   onClose: () => void;
 }
 
@@ -35,20 +37,32 @@ export default function AddEntryModal({
   initialType = 'income',
   initialTripDuration,
   initialTripStartTime,
+  editEntry,
   onSave,
+  onUpdate,
   onClose,
 }: Props) {
   const t = useT();
-  const [type, setType] = useState<'income' | 'expense'>(initialType);
-  const [platform, setPlatform] = useState<'grab' | 'bolt'>('grab');
-  const [orderType, setOrderType] = useState<'ride' | 'express'>('ride');
-  const [appFare, setAppFare] = useState('');
-  const [customerPaid, setCustomerPaid] = useState('');
-  const [driverReceived, setDriverReceived] = useState('');
-  const [expenseCategory, setExpenseCategory] = useState(EXPENSE_CATEGORIES[0].value);
-  const [amount, setAmount] = useState('');
-  const [note, setNote] = useState('');
-  const [showNote, setShowNote] = useState(false);
+  const isEditMode = !!editEntry;
+
+  // In edit mode seed state from the existing entry
+  const [type, setType] = useState<'income' | 'expense'>(editEntry?.type ?? initialType);
+  const [platform, setPlatform] = useState<'grab' | 'bolt'>(editEntry?.platform ?? 'grab');
+  const [orderType, setOrderType] = useState<'ride' | 'express'>(editEntry?.orderType ?? 'ride');
+  const [appFare, setAppFare] = useState(editEntry?.appFare?.toString() ?? '');
+  // customerPaid: only pre-fill if it differs from appFare (tip scenario)
+  const [customerPaid, setCustomerPaid] = useState(
+    editEntry && editEntry.customerPaid !== undefined && editEntry.customerPaid !== editEntry.appFare
+      ? editEntry.customerPaid.toString()
+      : ''
+  );
+  const [driverReceived, setDriverReceived] = useState(editEntry?.driverNet?.toString() ?? '');
+  const [expenseCategory, setExpenseCategory] = useState(editEntry?.expenseCategory ?? EXPENSE_CATEGORIES[0].value);
+  const [amount, setAmount] = useState(
+    editEntry?.type === 'expense' ? (editEntry.amount?.toString() ?? '') : ''
+  );
+  const [note, setNote] = useState(editEntry?.note ?? '');
+  const [showNote, setShowNote] = useState(!!(editEntry?.note));
 
   // Fuel-specific state
   const [fuelPrice, setFuelPrice] = useState<number | null>(null);
@@ -59,7 +73,6 @@ export default function AddEntryModal({
 
   useEffect(() => {
     if (!isFuelSelected) {
-      // Reset so next time Fuel is selected it always re-fetches
       setFuelPrice(null);
       return;
     }
@@ -76,17 +89,20 @@ export default function AddEntryModal({
       : null;
 
   const fareNum = parseFloat(appFare) || 0;
-  // Customer Paid: if empty → treat as same as App Fare (no tip, no shortfall)
   const paidNum = customerPaid !== '' ? (parseFloat(customerPaid) || 0) : fareNum;
   const driverNet = parseFloat(driverReceived) || 0;
   const tip = Math.max(0, paidNum - fareNum);
   const appDeducted = Math.max(0, fareNum - driverNet);
   const appDeductedPct = fareNum > 0 ? (appDeducted / fareNum) * 100 : 0;
 
+  // Trip duration to display in header (read-only in edit mode)
+  const displayTripDuration = isEditMode ? editEntry?.tripDuration : initialTripDuration;
+  const displayTripStartTime = isEditMode ? editEntry?.tripStartTime : initialTripStartTime;
+
   const handleSave = () => {
     if (type === 'income') {
       if (!fareNum) return;
-      onSave({
+      const payload: Omit<Entry, 'id' | 'sessionId' | 'timestamp'> = {
         type,
         platform,
         orderType,
@@ -96,11 +112,17 @@ export default function AddEntryModal({
         driverNet,
         amount: fareNum,
         note,
-        ...(initialTripDuration !== undefined && {
-          tripDuration: initialTripDuration,
-          tripStartTime: initialTripStartTime,
+        // Preserve trip timer — never overwritten in edit mode
+        ...(displayTripDuration !== undefined && {
+          tripDuration: displayTripDuration,
+          tripStartTime: displayTripStartTime,
         }),
-      });
+      };
+      if (isEditMode && onUpdate) {
+        onUpdate(editEntry!.id, payload);
+      } else {
+        onSave(payload);
+      }
     } else {
       const expAmount = parseFloat(amount) || 0;
       if (!expAmount) return;
@@ -109,17 +131,24 @@ export default function AddEntryModal({
         extra.fuelPrice = fuelPrice;
         extra.fuelLiters = parseFloat(fuelLiters);
       }
-      onSave({ type, expenseCategory, amount: expAmount, note, ...extra });
+      const payload: Omit<Entry, 'id' | 'sessionId' | 'timestamp'> = {
+        type, expenseCategory, amount: expAmount, note, ...extra,
+      };
+      if (isEditMode && onUpdate) {
+        onUpdate(editEntry!.id, payload);
+      } else {
+        onSave(payload);
+      }
     }
   };
 
-  // Shared save button — compact, sits next to the last input field
+  // Shared save/update button
   const saveBtn = (
     <button
       onClick={handleSave}
       className="shrink-0 self-end h-[44px] px-4 rounded-xl bg-gradient-to-r from-primary to-[#00b050] text-white font-extrabold text-sm shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-[0.97] transition-transform"
     >
-      {t('add_save')}
+      {isEditMode ? t('add_update') : t('add_save')}
     </button>
   );
 
@@ -132,8 +161,10 @@ export default function AddEntryModal({
         {/* ── Header ───────────────────────────────────────────────────── */}
         <div className="flex justify-between items-center px-4 pt-4 pb-2 shrink-0">
           <div className="flex items-center gap-2">
-            <h2 className="text-base font-extrabold text-white">{t('add_title')}</h2>
-            {/* Type badge replaces the toggle */}
+            <h2 className="text-base font-extrabold text-white">
+              {isEditMode ? t('add_edit_title') : t('add_title')}
+            </h2>
+            {/* Type badge */}
             <span className={`text-[11px] font-bold px-2 py-0.5 rounded-lg ${
               type === 'income'
                 ? 'bg-primary/15 text-primary border border-primary/25'
@@ -141,10 +172,11 @@ export default function AddEntryModal({
             }`}>
               {type === 'income' ? t('add_income') : t('add_expense')}
             </span>
-            {initialTripDuration !== undefined && initialTripDuration > 0 && (
+            {/* Trip duration badge (read-only) */}
+            {displayTripDuration !== undefined && displayTripDuration > 0 && (
               <span className="flex items-center gap-1 text-[11px] font-bold text-primary/70 bg-primary/10 border border-primary/15 px-2 py-0.5 rounded-lg">
                 <Timer size={11} />
-                {formatDuration(initialTripDuration)}
+                {formatDuration(displayTripDuration)}
               </span>
             )}
           </div>
@@ -183,7 +215,7 @@ export default function AddEntryModal({
                 </div>
               </div>
 
-              {/* Express / Bolt notice — compact single line */}
+              {/* Express / Bolt notice */}
               {(orderType === 'express' || platform === 'bolt') && (
                 <p className="text-[11px] text-warning/80 px-1">
                   ⚠ {orderType === 'express' && platform === 'bolt'
@@ -214,7 +246,7 @@ export default function AddEntryModal({
                 {saveBtn}
               </div>
 
-              {/* Tip + App deduction — compact inline row */}
+              {/* Tip + App deduction */}
               {(tip > 0 || (fareNum > 0 && driverNet > 0 && appDeducted > 0)) && (
                 <div className="flex items-center gap-3 px-1">
                   {tip > 0 && (
@@ -279,7 +311,7 @@ export default function AddEntryModal({
             </div>
           )}
 
-          {/* Note — collapsed by default */}
+          {/* Note — collapsed by default, open if has value */}
           <div>
             <button
               type="button"

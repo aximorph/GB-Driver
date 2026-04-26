@@ -1,11 +1,12 @@
 import { useState, useMemo } from 'react';
 import { getSessions, saveSessions } from '@/lib/storage';
-import { ShiftSession } from '@/lib/types';
+import { ShiftSession, Entry } from '@/lib/types';
 import { format, startOfWeek, parseISO } from 'date-fns';
-import { Trash2, Star, Clock, Activity, Coffee } from 'lucide-react';
+import { Trash2, Pencil, Star, Clock, Activity, Coffee } from 'lucide-react';
 import { useT } from '@/context/LangContext';
 import { useIsLandscape } from '@/hooks/useIsLandscape';
 import SweetAlert from './SweetAlert';
+import AddEntryModal from './AddEntryModal';
 
 function formatDuration(secs: number): string {
   const h = Math.floor(secs / 3600);
@@ -24,6 +25,7 @@ export default function History() {
   );
   const [deletePeriodPending, setDeletePeriodPending] = useState<{ key: string; ss: ShiftSession[] } | null>(null);
   const [deleteEntryPending, setDeleteEntryPending] = useState<string | null>(null);
+  const [editEntryPending, setEditEntryPending] = useState<Entry | null>(null);
 
   const dailyData = useMemo(() => {
     const grouped: Record<string, ShiftSession[]> = {};
@@ -99,6 +101,17 @@ export default function History() {
     saveSessions(updated);
     setSessions(updated.filter(s => s.endTime));
     setDeleteEntryPending(null);
+  };
+
+  const updateEntry = (entryId: string, updates: Omit<Entry, 'id' | 'sessionId' | 'timestamp'>) => {
+    const allSessions = getSessions();
+    const updated = allSessions.map(s => ({
+      ...s,
+      entries: s.entries.map(e => e.id === entryId ? { ...e, ...updates } : e),
+    }));
+    saveSessions(updated);
+    setSessions(updated.filter(s => s.endTime));
+    setEditEntryPending(null);
   };
 
   const exportCSV = () => {
@@ -291,11 +304,18 @@ export default function History() {
                           </div>
                         </div>
 
-                        {/* Right: amount + delete */}
-                        <div className="flex items-center gap-1.5 shrink-0">
-                          <span className="font-mono text-sm font-bold text-white">
+                        {/* Right: amount + edit + delete */}
+                        <div className="flex items-center gap-1 shrink-0">
+                          <span className="font-mono text-sm font-bold text-white mr-1">
                             ฿{isIncome ? ((e.driverNet || 0) + (e.tip || 0)).toFixed(0) : e.amount.toFixed(0)}
                           </span>
+                          <button
+                            onClick={() => setEditEntryPending(e)}
+                            className="opacity-0 group-hover:opacity-100 p-1.5 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-lg transition-all"
+                            title="Edit entry"
+                          >
+                            <Pencil size={13} />
+                          </button>
                           <button
                             onClick={() => setDeleteEntryPending(e.id)}
                             className="opacity-0 group-hover:opacity-100 p-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg transition-all"
@@ -316,6 +336,16 @@ export default function History() {
 
       {data.length === 0 && (
         <div className="text-center py-12 text-muted-foreground text-sm">{t('hist_no_history')}</div>
+      )}
+
+      {/* ── Edit entry modal ─────────────────────────────────────────────── */}
+      {editEntryPending && (
+        <AddEntryModal
+          editEntry={editEntryPending}
+          onSave={() => {}}
+          onUpdate={updateEntry}
+          onClose={() => setEditEntryPending(null)}
+        />
       )}
 
       {/* ── Confirm delete period ─────────────────────────────────────────── */}
