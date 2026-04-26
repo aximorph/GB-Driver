@@ -25,6 +25,7 @@ export interface DriverProfile {
   dailyGoal?: number;
   intensives?: Intensive[];
   language?: 'en' | 'th';
+  province?: string;        // province.id slug, used for presence feature
 }
 
 export interface ShiftSession {

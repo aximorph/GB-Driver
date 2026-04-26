@@ -25,7 +25,6 @@ function formatDuration(secs: number): string {
 
 interface Props {
   initialType?: 'income' | 'expense';
-  lockType?: boolean;              // when true, disables switching to the other tab
   initialTripDuration?: number;   // seconds from TripTimerDialog
   initialTripStartTime?: string;  // ISO timestamp
   onSave: (entry: Omit<Entry, 'id' | 'sessionId' | 'timestamp'>) => void;
@@ -34,7 +33,6 @@ interface Props {
 
 export default function AddEntryModal({
   initialType = 'income',
-  lockType = false,
   initialTripDuration,
   initialTripStartTime,
   onSave,
@@ -135,8 +133,16 @@ export default function AddEntryModal({
         <div className="flex justify-between items-center px-4 pt-4 pb-2 shrink-0">
           <div className="flex items-center gap-2">
             <h2 className="text-base font-extrabold text-white">{t('add_title')}</h2>
+            {/* Type badge replaces the toggle */}
+            <span className={`text-[11px] font-bold px-2 py-0.5 rounded-lg ${
+              type === 'income'
+                ? 'bg-primary/15 text-primary border border-primary/25'
+                : 'bg-destructive/15 text-destructive border border-destructive/25'
+            }`}>
+              {type === 'income' ? t('add_income') : t('add_expense')}
+            </span>
             {initialTripDuration !== undefined && initialTripDuration > 0 && (
-              <span className="flex items-center gap-1 text-[11px] font-bold text-primary bg-primary/10 border border-primary/20 px-2 py-0.5 rounded-lg">
+              <span className="flex items-center gap-1 text-[11px] font-bold text-primary/70 bg-primary/10 border border-primary/15 px-2 py-0.5 rounded-lg">
                 <Timer size={11} />
                 {formatDuration(initialTripDuration)}
               </span>
@@ -147,30 +153,6 @@ export default function AddEntryModal({
 
         {/* ── Scrollable content ───────────────────────────────────────── */}
         <div className="flex-1 overflow-y-auto px-4 space-y-2.5 pb-4">
-
-          {/* Type Toggle */}
-          <div className="flex bg-secondary/50 p-1.5 rounded-2xl border border-white/5">
-            {(['income', 'expense'] as const).map(tp => {
-              const isActive = type === tp;
-              const isDisabled = lockType && !isActive;
-              return (
-                <button
-                  key={tp}
-                  onClick={() => !isDisabled && setType(tp)}
-                  disabled={isDisabled}
-                  className={`flex-1 py-2 rounded-xl text-sm font-bold transition-all duration-300 ${
-                    isActive
-                      ? tp === 'income' ? 'bg-primary text-white shadow-md scale-[0.98]' : 'bg-destructive text-white shadow-md scale-[0.98]'
-                      : isDisabled
-                      ? 'text-muted-foreground/30 cursor-not-allowed'
-                      : 'text-muted-foreground hover:text-white'
-                  }`}
-                >
-                  {tp === 'income' ? t('add_income') : t('add_expense')}
-                </button>
-              );
-            })}
-          </div>
 
           {type === 'income' ? (
             <div className="space-y-2.5">

@@ -43,6 +43,12 @@ export const translations = {
     dash_login_required_desc: 'Please connect your Google account before starting a shift. Your data will be backed up automatically.',
     dash_go_to_profile: 'Go to Profile',
     dash_cancel: 'Cancel',
+    // Online presence
+    dash_online_total: 'online now',
+    dash_online_top5: 'Top provinces online',
+    dash_online_no_data: 'No drivers online',
+    dash_online_set_province: 'Set province in Profile to appear here',
+
     // entry labels
     dash_taxi: 'Taxi',
     dash_express: 'Express',
@@ -176,6 +182,10 @@ export const translations = {
     profile_intensive_up_to: 'up to',
     profile_intensive_tier: 'tier',
     profile_intensive_tiers: 'tiers',
+    profile_province_title: 'Province',
+    profile_province_desc: 'Used to show your city on the online drivers map.',
+    profile_province_placeholder: 'Select your province',
+
     profile_gdrive_title: 'Google Drive Backup',
     profile_gdrive_desc: 'Log in with your Google account to automatically backup your shift history and profile to Google Drive.',
     profile_gdrive_login_btn: 'Login with Google',
@@ -279,6 +289,11 @@ export const translations = {
     dash_login_required_desc: 'กรุณาเชื่อมต่อบัญชี Google ก่อนเริ่มกะงาน ข้อมูลจะถูกสำรองโดยอัตโนมัติ',
     dash_go_to_profile: 'ไปที่โปรไฟล์',
     dash_cancel: 'ยกเลิก',
+    // Online presence
+    dash_online_total: 'ออนไลน์อยู่',
+    dash_online_top5: 'จังหวัดที่มีผู้ขับออนไลน์',
+    dash_online_no_data: 'ยังไม่มีผู้ขับออนไลน์',
+    dash_online_set_province: 'ตั้งจังหวัดในโปรไฟล์เพื่อแสดงที่นี่',
     dash_taxi: 'แท็กซี่',
     dash_express: 'ส่งของ',
     dash_grab: 'Grab',
@@ -411,6 +426,10 @@ export const translations = {
     profile_intensive_up_to: 'สูงสุด',
     profile_intensive_tier: 'ระดับ',
     profile_intensive_tiers: 'ระดับ',
+    profile_province_title: 'จังหวัด',
+    profile_province_desc: 'ใช้แสดงตำแหน่งของคุณในหน้าแผนที่ผู้ขับออนไลน์',
+    profile_province_placeholder: 'เลือกจังหวัด',
+
     profile_gdrive_title: 'สำรองข้อมูล Google Drive',
     profile_gdrive_desc: 'เข้าสู่ระบบด้วยบัญชี Google เพื่อสำรองข้อมูลกะและโปรไฟล์ไปยัง Google Drive โดยอัตโนมัติ',
     profile_gdrive_login_btn: 'เข้าสู่ระบบด้วย Google',

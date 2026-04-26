@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { DriverProfile, Intensive, IntensiveTier, IntensiveCountsFor } from '@/lib/types';
+import { THAI_PROVINCES } from '@/lib/provinces';
 import { getProfile, saveProfile, saveSessions, getSessions } from '@/lib/storage';
 import { Zap, Fuel, Cloud, CheckCircle2, LogIn, RefreshCw, LogOut, Download, Trash2, Plus, Target, Gift, X, ChevronRight, Clock3, Globe, CalendarDays } from 'lucide-react';
 import { format } from 'date-fns';
@@ -294,6 +295,7 @@ export default function ProfilePage() {
   const [chargingType, setChargingType] = useState<'home' | 'public'>(profile?.chargingType || 'home');
   const [dailyGoal, setDailyGoal] = useState<string>(profile?.dailyGoal ? String(profile.dailyGoal) : '');
   const [selectedLang, setSelectedLang] = useState<Lang>(profile?.language ?? lang);
+  const [province, setProvince] = useState<string>(profile?.province ?? '');
 
   const [intensives, setIntensives] = useState<Intensive[]>(
     (profile?.intensives ?? []).map(i => ({
@@ -325,6 +327,7 @@ export default function ProfilePage() {
       dailyGoal: dailyGoal ? parseFloat(dailyGoal) : undefined,
       intensives,
       language: selectedLang,
+      province: province || undefined,
     };
     saveProfile(updated);
     setProfile(updated);
@@ -479,6 +482,28 @@ export default function ProfilePage() {
           ))}
         </div>
       </div>
+    </div>
+  );
+
+  const provinceSection = (
+    <div className="bg-card/70 backdrop-blur-xl border border-white/5 rounded-3xl p-5 space-y-3 shadow-xl">
+      <div className="flex items-center gap-2">
+        <Globe size={18} className="text-primary" />
+        <h3 className="text-sm font-bold tracking-widest text-muted-foreground uppercase">{t('profile_province_title')}</h3>
+      </div>
+      <p className="text-xs text-muted-foreground -mt-1">{t('profile_province_desc')}</p>
+      <select
+        value={province}
+        onChange={e => setProvince(e.target.value)}
+        className="w-full bg-secondary border border-white/10 rounded-2xl px-4 py-3 text-sm text-white outline-none focus:border-primary/50 transition-colors"
+      >
+        <option value="">{t('profile_province_placeholder')}</option>
+        {THAI_PROVINCES.map(p => (
+          <option key={p.id} value={p.id}>
+            {selectedLang === 'th' ? `${p.th} · ${p.en}` : `${p.en} · ${p.th}`}
+          </option>
+        ))}
+      </select>
     </div>
   );
 
@@ -708,9 +733,10 @@ export default function ProfilePage() {
         <div className="space-y-4">
           {profileHeader}
           <div className="grid grid-cols-2 gap-4 items-start">
-            {/* Left: vehicle + goal + language */}
+            {/* Left: vehicle + province + goal + language */}
             <div className="space-y-4">
               {vehicleSection}
+              {provinceSection}
               {goalSection}
               {languageSection}
             </div>
@@ -726,6 +752,7 @@ export default function ProfilePage() {
         <div className="space-y-5">
           {profileHeader}
           {vehicleSection}
+          {provinceSection}
           {goalSection}
           {intensivesSection}
           {driveSection}

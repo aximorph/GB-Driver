@@ -1,10 +1,12 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ShiftSession, Entry, ShiftStatus, Intensive } from '@/lib/types';
 import { getSessions, saveSessions, getActiveSession, getProfile } from '@/lib/storage';
 import { isGoogleConnected, backupDataToDrive, scheduleMidnightExpiry } from '@/lib/googleDrive';
+import { goOnline, goOffline, subscribeToOnlineCounts, type ProvinceCount } from '@/lib/presence';
+import { getProvinceLabel } from '@/lib/provinces';
 import { format } from 'date-fns';
-import { Trash2, DollarSign, Receipt, Gift, Clock3 } from 'lucide-react';
+import { Trash2, DollarSign, Receipt, Gift, Clock3, Users, ChevronDown } from 'lucide-react';
 import AddEntryModal from './AddEntryModal';
 import TripTimerDialog from './TripTimerDialog';
 import EndShiftModal from './EndShiftModal';
@@ -78,6 +80,10 @@ export default function Dashboard() {
   const [showLoginAlert, setShowLoginAlert] = useState(false);
   const [isBackingUp, setIsBackingUp] = useState(false);
   const [deleteEntryPending, setDeleteEntryPending] = useState<string | null>(null);
+  const [onlineTotal, setOnlineTotal] = useState(0);
+  const [onlineTop5, setOnlineTop5] = useState<ProvinceCount[]>([]);
+  const [showOnlineDropdown, setShowOnlineDropdown] = useState(false);
+  const onlineDropdownRef = useRef<HTMLDivElement>(null);
 
   const status: ShiftStatus = activeSession ? 'on_shift' : 'offline';
   const profile = getProfile();
@@ -133,6 +139,8 @@ export default function Dashboard() {
     saveSessions(updated);
     setActiveSession(session);
     window.dispatchEvent(new CustomEvent('gbdriver:session-changed'));
+    // Presence: go online if province is set
+    if (profile?.province) goOnline(profile.province);
   };
 
   const addEntry = useCallback((entry: Omit<Entry, 'id' | 'sessionId' | 'timestamp'>) => {
@@ -200,6 +208,7 @@ export default function Dashboard() {
     });
 
     setActiveSession(null);
+    goOffline(); // Presence: remove from online list
     window.dispatchEvent(new CustomEvent('gbdriver:session-changed'));
 
     // ── Auto backup OUTSIDE setSessions (side-effects must not live in updaters)
@@ -227,6 +236,27 @@ export default function Dashboard() {
     setActiveSession(prev => prev ? { ...prev, entries: prev.entries.filter(e => e.id !== entryId) } : null);
   }, []);
 
+  // Subscribe to online presence counts (always, not just during shift)
+  useEffect(() => {
+    const unsub = subscribeToOnlineCounts((total, top5) => {
+      setOnlineTotal(total);
+      setOnlineTop5(top5);
+    });
+    return unsub;
+  }, []);
+
+  // Close online dropdown when clicking outside
+  useEffect(() => {
+    if (!showOnlineDropdown) return;
+    const handler = (e: MouseEvent) => {
+      if (onlineDropdownRef.current && !onlineDropdownRef.current.contains(e.target as Node)) {
+        setShowOnlineDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [showOnlineDropdown]);
+
   // Listen for add entry event from BottomNav → open TripTimerDialog
   useEffect(() => {
     const handler = () => setShowTripTimer(true);
@@ -243,14 +273,56 @@ export default function Dashboard() {
   }, []);
 
   // ── Reusable sections ────────────────────────────────────────────────
+  const lang = profile?.language ?? 'th';
+
   const shiftStatusSection = (
     <div className="bg-card/80 backdrop-blur-xl border border-white/5 rounded-2xl p-5 shadow-2xl relative overflow-hidden">
       <div className="absolute top-0 right-0 w-32 h-32 bg-primary/10 rounded-full blur-3xl -z-10 translate-x-12 -translate-y-12"></div>
       <div className="flex items-center justify-between z-10">
         <span className="text-sm font-medium text-muted-foreground">{t('dash_shift_status')}</span>
-        <span className={`text-xs font-mono font-bold px-2.5 py-1 rounded-full shadow-inner ${status === 'on_shift' ? 'bg-primary border border-primary/50 text-white' : 'bg-secondary text-muted-foreground'}`}>
-          {status === 'on_shift' ? t('dash_on_shift') : t('dash_offline')}
-        </span>
+        <div className="flex items-center gap-2">
+          {/* Online drivers badge */}
+          <div className="relative" ref={onlineDropdownRef}>
+            <button
+              onClick={() => setShowOnlineDropdown(v => !v)}
+              className="flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1 rounded-full bg-primary/10 border border-primary/20 text-primary hover:bg-primary/20 transition-colors"
+            >
+              <Users size={11} />
+              {onlineTotal}
+              <span className="text-primary/70 font-normal">{t('dash_online_total')}</span>
+              <ChevronDown size={10} className={`transition-transform duration-200 ${showOnlineDropdown ? 'rotate-180' : ''}`} />
+            </button>
+            {showOnlineDropdown && (
+              <div className="absolute right-0 top-full mt-1.5 w-52 bg-card/95 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl z-50 overflow-hidden animate-in slide-in-from-top-1 duration-150">
+                <div className="px-3 pt-3 pb-1">
+                  <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">{t('dash_online_top5')}</p>
+                </div>
+                {onlineTop5.length === 0 ? (
+                  <p className="text-xs text-muted-foreground px-3 pb-3 pt-1">{t('dash_online_no_data')}</p>
+                ) : (
+                  <ul className="pb-2">
+                    {onlineTop5.map((item, i) => (
+                      <li key={item.provinceId} className="flex items-center justify-between px-3 py-1.5 hover:bg-white/5 transition-colors">
+                        <span className="flex items-center gap-2 text-xs text-foreground">
+                          <span className="text-muted-foreground font-mono w-4">{i + 1}.</span>
+                          {getProvinceLabel(item.provinceId, lang)}
+                        </span>
+                        <span className="text-xs font-mono font-bold text-primary">{item.count}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                {!profile?.province && (
+                  <p className="text-[10px] text-muted-foreground/70 px-3 pb-2.5 border-t border-white/5 pt-2">{t('dash_online_set_province')}</p>
+                )}
+              </div>
+            )}
+          </div>
+          {/* Shift status badge */}
+          <span className={`text-xs font-mono font-bold px-2.5 py-1 rounded-full shadow-inner ${status === 'on_shift' ? 'bg-primary border border-primary/50 text-white' : 'bg-secondary text-muted-foreground'}`}>
+            {status === 'on_shift' ? t('dash_on_shift') : t('dash_offline')}
+          </span>
+        </div>
       </div>
       {status === 'on_shift' && (
         <div className="text-center py-4">
@@ -472,7 +544,6 @@ export default function Dashboard() {
       {showAddEntry && (
         <AddEntryModal
           initialType={addEntryType}
-          lockType={true}
           initialTripDuration={pendingTripDuration}
           initialTripStartTime={pendingTripStartTime}
           onSave={(entry) => {
