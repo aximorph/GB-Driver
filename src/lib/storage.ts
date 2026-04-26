@@ -1,4 +1,4 @@
-import { DriverProfile, ShiftSession } from './types';
+import { DriverProfile, ShiftSession, PendingIntensive } from './types';
 
 const PROFILE_KEY = 'driver_profile';
 const SESSIONS_KEY = 'shift_sessions';
@@ -29,4 +29,19 @@ export function getActiveSession(): ShiftSession | null {
 export function getTodaySessions(): ShiftSession[] {
   const today = new Date().toISOString().split('T')[0];
   return getSessions().filter(s => s.date === today);
+}
+
+const PENDING_INTENSIVES_KEY = 'gbdriver_pending_intensives';
+
+export function getPendingIntensives(): PendingIntensive[] {
+  const data = localStorage.getItem(PENDING_INTENSIVES_KEY);
+  return data ? JSON.parse(data) : [];
+}
+
+export function savePendingIntensives(items: PendingIntensive[]) {
+  localStorage.setItem(PENDING_INTENSIVES_KEY, JSON.stringify(items));
+}
+
+export function clearPendingIntensives() {
+  localStorage.removeItem(PENDING_INTENSIVES_KEY);
 }

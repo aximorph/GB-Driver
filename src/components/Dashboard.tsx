@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ShiftSession, Entry, ShiftStatus, Intensive } from '@/lib/types';
-import { getSessions, saveSessions, getActiveSession, getProfile } from '@/lib/storage';
+import { getSessions, saveSessions, getActiveSession, getProfile, getPendingIntensives, savePendingIntensives, clearPendingIntensives } from '@/lib/storage';
 import { isGoogleConnected, backupDataToDrive, scheduleMidnightExpiry } from '@/lib/googleDrive';
 import { goOnline, goOffline, subscribeToOnlineCounts, type ProvinceCount } from '@/lib/presence';
 import { getProvinceLabel } from '@/lib/provinces';
@@ -84,6 +84,7 @@ export default function Dashboard() {
   const [deleteEntryPending, setDeleteEntryPending] = useState<string | null>(null);
   const [editEntryPending, setEditEntryPending] = useState<Entry | null>(null);
   const [collapsedIntensives, setCollapsedIntensives] = useState<Set<string>>(new Set());
+  const [intensiveToast, setIntensiveToast] = useState<{ count: number; total: number } | null>(null);
   const toggleIntensive = (id: string) => setCollapsedIntensives(prev => {
     const next = new Set(prev);
     next.has(id) ? next.delete(id) : next.add(id);
@@ -226,17 +227,41 @@ export default function Dashboard() {
       setShowLoginAlert(true);
       return;
     }
-    const session: ShiftSession = {
+
+    // ── Collect any pending intensive bonuses from previous days ─────────────
+    const pending = getPendingIntensives();
+    const bonusEntries: Entry[] = pending.map(p => ({
       id: generateId(),
+      sessionId: '', // will be filled in below
+      timestamp: new Date().toISOString(),
+      type: 'income' as const,
+      amount: p.amount,
+      driverNet: p.amount,
+      note: `Intensive: ${p.name} (${p.earnedDate})`,
+    }));
+
+    const sessionId = generateId();
+    const session: ShiftSession = {
+      id: sessionId,
       date: today,
       startTime: new Date().toISOString(),
-      entries: [],
+      entries: bonusEntries.map(e => ({ ...e, sessionId })),
     };
+
     const updated = [...sessions, session];
     setSessions(updated);
     saveSessions(updated);
     setActiveSession(session);
+    clearPendingIntensives();
     window.dispatchEvent(new CustomEvent('gbdriver:session-changed'));
+
+    // Show toast if bonuses were added
+    if (bonusEntries.length > 0) {
+      const total = pending.reduce((s, p) => s + p.amount, 0);
+      setIntensiveToast({ count: pending.length, total });
+      setTimeout(() => setIntensiveToast(null), 4000);
+    }
+
     // Presence: go online if province is set
     if (profile?.province) goOnline(profile.province);
   };
@@ -264,41 +289,32 @@ export default function Dashboard() {
     if (!activeSession) return;
 
     setSessions(prev => {
-      // ── Build intensive bonus entries ──────────────────────────────────────
-      // NOTE: prev already contains the active session with all its entries.
-      // Do NOT concat activeSession.entries — that would double-count them.
+      // ── Queue intensive bonuses as PENDING (Grab pays them next day) ───────
       const allTodayEntries = prev
         .filter(s => s.date === today)
         .flatMap(s => s.entries);
 
-      const bonusEntries: Entry[] = [];
       const todayIntensivesNow = (getProfile()?.intensives ?? []).filter(i => i.enabled !== false);
+      const existingPending = getPendingIntensives();
 
       for (const intensive of todayIntensivesNow) {
         const eligible = countEligibleTrips(allTodayEntries, intensive);
         const bonus = getEarnedBonus(intensive, eligible);
         if (bonus <= 0) continue;
 
-        // Skip if bonus already recorded in a previous session today
-        const alreadyRecorded = allTodayEntries.some(
-          e => e.note === `Intensive: ${intensive.name}`
-        );
-        if (alreadyRecorded) continue;
+        // Skip if already pending or already recorded as an entry
+        const alreadyPending = existingPending.some(p => p.name === intensive.name && p.earnedDate === today);
+        const alreadyEntry = allTodayEntries.some(e => e.note?.startsWith(`Intensive: ${intensive.name}`));
+        if (alreadyPending || alreadyEntry) continue;
 
-        bonusEntries.push({
-          id: generateId(),
-          sessionId: activeSession.id,
-          timestamp: new Date().toISOString(),
-          type: 'income',
-          amount: bonus,
-          driverNet: bonus,
-          note: `Intensive: ${intensive.name}`,
-        });
+        existingPending.push({ name: intensive.name, amount: bonus, earnedDate: today });
       }
+      savePendingIntensives(existingPending);
 
+      // ── Close out the session (no bonus entries added here) ────────────────
       const updated = prev.map(s =>
         s.id === activeSession.id
-          ? { ...s, endTime: new Date().toISOString(), grabPayoutAmount: grabPayout, entries: [...s.entries, ...bonusEntries] }
+          ? { ...s, endTime: new Date().toISOString(), grabPayoutAmount: grabPayout }
           : s
       );
       saveSessions(updated);
@@ -494,7 +510,9 @@ export default function Dashboard() {
         const nextTier = sortedTiers.find(t => eligibleTrips < t.trips) ?? null;
         const progressFrom = currentTier?.trips ?? 0;
         const pct = nextTier ? ((eligibleTrips - progressFrom) / (nextTier.trips - progressFrom)) * 100 : 100;
-        const alreadyRecorded = todayEntries.some(e => e.note === `Intensive: ${intensive.name}`);
+        const alreadyRecorded =
+          todayEntries.some(e => e.note?.startsWith(`Intensive: ${intensive.name}`)) ||
+          getPendingIntensives().some(p => p.name === intensive.name && p.earnedDate === today);
         const now = new Date();
         const nowHHMM = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
         const todayDate = now.toISOString().slice(0, 10);
@@ -741,6 +759,17 @@ export default function Dashboard() {
         <div className="fixed bottom-28 left-1/2 -translate-x-1/2 bg-card/90 backdrop-blur-xl border border-white/10 rounded-full px-4 py-2 shadow-xl flex items-center gap-2 z-50 animate-in fade-in slide-in-from-bottom-2 duration-300">
           <span className="w-2 h-2 rounded-full bg-primary animate-pulse"></span>
           <span className="text-xs font-bold text-muted-foreground">{t('dash_backing_up')}</span>
+        </div>
+      )}
+      {intensiveToast && (
+        <div className="fixed bottom-28 left-1/2 -translate-x-1/2 w-max max-w-[320px] bg-card/95 backdrop-blur-xl border border-primary/20 rounded-2xl px-4 py-3 shadow-2xl flex items-center gap-3 z-50 animate-in fade-in slide-in-from-bottom-2 duration-300">
+          <Gift size={18} className="text-primary shrink-0" />
+          <div>
+            <p className="text-xs font-extrabold text-white">{t('dash_intensive_added_toast')}</p>
+            <p className="text-[11px] text-primary font-mono font-bold mt-0.5">
+              {intensiveToast.count} {intensiveToast.count > 1 ? 'รายการ' : 'รายการ'} · +฿{intensiveToast.total.toFixed(0)}
+            </p>
+          </div>
         </div>
       )}
     </>

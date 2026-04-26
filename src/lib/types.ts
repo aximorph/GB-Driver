@@ -59,3 +59,9 @@ export interface Entry {
 }
 
 export type ShiftStatus = 'offline' | 'on_shift' | 'shift_ended';
+
+export interface PendingIntensive {
+  name: string;
+  amount: number;
+  earnedDate: string; // YYYY-MM-DD — the day the trips were completed
+}

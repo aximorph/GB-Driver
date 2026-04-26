@@ -34,7 +34,7 @@ export const translations = {
     dash_eligible_trips: 'eligible trips',
     dash_more_for: 'more →',
     dash_max_tier: 'Max tier reached ✓',
-    dash_bonus_pending_note: 'will be recorded to history when you end your shift',
+    dash_bonus_pending_note: 'will be added automatically at the start of your next shift',
     dash_recent_shifts: 'Recent Shifts',
     dash_app_deduction: 'App Deduction',
     dash_tip_label: 'tip',
@@ -52,6 +52,9 @@ export const translations = {
     dash_online_top5: 'Top provinces online',
     dash_online_no_data: 'No drivers online',
     dash_online_set_province: 'Set province in Profile to appear here',
+
+    // Intensive pending toast (shown at Start Shift when previous-day bonuses are added)
+    dash_intensive_added_toast: 'Grab intensive bonus added',
 
     // Move Timer
     move_timer_btn: 'Timer',
@@ -298,7 +301,7 @@ export const translations = {
     dash_eligible_trips: 'รอบที่นับได้',
     dash_more_for: 'อีก →',
     dash_max_tier: 'ถึงระดับสูงสุดแล้ว ✓',
-    dash_bonus_pending_note: 'จะบันทึกในประวัติเมื่อคุณจบกะ',
+    dash_bonus_pending_note: 'จะถูกเพิ่มอัตโนมัติเมื่อเริ่มกะถัดไป',
     dash_recent_shifts: 'รายการล่าสุด',
     dash_app_deduction: 'ค่าธรรมเนียมแอป',
     dash_tip_label: 'ทิป',
@@ -316,6 +319,9 @@ export const translations = {
     dash_online_top5: 'จังหวัดที่มีผู้ขับออนไลน์',
     dash_online_no_data: 'ยังไม่มีผู้ขับออนไลน์',
     dash_online_set_province: 'ตั้งจังหวัดในโปรไฟล์เพื่อแสดงที่นี่',
+
+    // Intensive pending toast
+    dash_intensive_added_toast: 'เพิ่ม intensive bonus จาก Grab แล้ว',
 
     // Move Timer
     move_timer_btn: 'จับเวลา',
