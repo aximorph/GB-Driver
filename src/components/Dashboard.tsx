@@ -73,6 +73,7 @@ export default function Dashboard() {
   const [activeSession, setActiveSession] = useState<ShiftSession | null>(getActiveSession());
   const [elapsed, setElapsed] = useState(0);
   const [showTripTimer, setShowTripTimer] = useState(false);
+  const [tripTimerAutoStart, setTripTimerAutoStart] = useState(false);
   const [showAddEntry, setShowAddEntry] = useState(false);
   const [addEntryType, setAddEntryType] = useState<'income' | 'expense'>('income');
   const [pendingTripDuration, setPendingTripDuration] = useState<number | undefined>(undefined);
@@ -671,8 +672,10 @@ export default function Dashboard() {
     <>
       {showTripTimer && (
         <TripTimerDialog
+          autoStart={tripTimerAutoStart}
           onEndTrip={(duration, startTime) => {
             setShowTripTimer(false);
+            setTripTimerAutoStart(false);
             setPendingTripDuration(duration);
             setPendingTripStartTime(startTime);
             setAddEntryType('income');
@@ -680,12 +683,13 @@ export default function Dashboard() {
           }}
           onExpense={() => {
             setShowTripTimer(false);
+            setTripTimerAutoStart(false);
             setPendingTripDuration(undefined);
             setPendingTripStartTime(undefined);
             setAddEntryType('expense');
             setShowAddEntry(true);
           }}
-          onClose={() => setShowTripTimer(false)}
+          onClose={() => { setShowTripTimer(false); setTripTimerAutoStart(false); }}
         />
       )}
       {showAddEntry && (
@@ -762,8 +766,10 @@ export default function Dashboard() {
           onReset={() => { resetMoveTimer(); setShowTimerModal(false); }}
           onClose={() => setShowTimerModal(false)}
           onAcceptJob={() => {
+            resetMoveTimer();        // stop & reset move timer
             setShowTimerModal(false);
-            setShowTripTimer(true); // opens TripTimerDialog → starts trip timer
+            setTripTimerAutoStart(true); // auto-start trip timer
+            setShowTripTimer(true);
           }}
         />
       )}

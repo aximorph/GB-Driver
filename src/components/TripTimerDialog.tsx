@@ -6,6 +6,7 @@ interface Props {
   onEndTrip: (tripDuration: number, tripStartTime: string) => void; // end trip → open income form
   onExpense: () => void;   // add expense directly
   onClose: () => void;     // cancel / close without entry
+  autoStart?: boolean;     // if true, start trip timer immediately on mount
 }
 
 function formatStopwatch(secs: number): string {
@@ -15,12 +16,24 @@ function formatStopwatch(secs: number): string {
   return h > 0 ? `${h}:${m}:${s}` : `${m}:${s}`;
 }
 
-export default function TripTimerDialog({ onEndTrip, onExpense, onClose }: Props) {
+export default function TripTimerDialog({ onEndTrip, onExpense, onClose, autoStart }: Props) {
   const t = useT();
   const [running, setRunning] = useState(false);
   const [tripStart, setTripStart] = useState<number | null>(null);
   const [tripStartISO, setTripStartISO] = useState<string>('');
   const [elapsed, setElapsed] = useState(0);
+
+  // Auto-start when opened from "รับงาน" button
+  useEffect(() => {
+    if (autoStart) {
+      const now = Date.now();
+      const nowISO = new Date().toISOString();
+      setTripStart(now);
+      setTripStartISO(nowISO);
+      setRunning(true);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     if (!running) return;
