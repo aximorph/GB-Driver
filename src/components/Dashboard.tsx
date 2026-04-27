@@ -106,19 +106,24 @@ export default function Dashboard() {
 
   const playBeep = () => {
     try {
-      const ctx = new AudioContext();
-      for (let i = 0; i < 3; i++) {
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        osc.connect(gain);
-        gain.connect(ctx.destination);
-        osc.frequency.value = 880;
-        osc.type = 'sine';
-        gain.gain.setValueAtTime(0, ctx.currentTime + i * 0.5);
-        gain.gain.linearRampToValueAtTime(0.35, ctx.currentTime + i * 0.5 + 0.05);
-        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + i * 0.5 + 0.4);
-        osc.start(ctx.currentTime + i * 0.5);
-        osc.stop(ctx.currentTime + i * 0.5 + 0.4);
+      const actx = new AudioContext();
+      // 3 rounds of 3 pulses, gap of 0.5 s between rounds
+      for (let round = 0; round < 3; round++) {
+        const roundOffset = round * 2.0; // each round spans ~1.5 s, gap of 0.5 s
+        for (let i = 0; i < 3; i++) {
+          const t = actx.currentTime + roundOffset + i * 0.5;
+          const osc  = actx.createOscillator();
+          const gain = actx.createGain();
+          osc.connect(gain);
+          gain.connect(actx.destination);
+          osc.frequency.value = 880;
+          osc.type = 'sine';
+          gain.gain.setValueAtTime(0, t);
+          gain.gain.linearRampToValueAtTime(0.35, t + 0.05);
+          gain.gain.exponentialRampToValueAtTime(0.001, t + 0.4);
+          osc.start(t);
+          osc.stop(t + 0.4);
+        }
       }
     } catch { /* AudioContext not available */ }
   };
@@ -228,9 +233,13 @@ export default function Dashboard() {
       return;
     }
 
-    // ── Collect any pending intensive bonuses from previous days ─────────────
+    // ── Collect any pending intensive bonuses from PREVIOUS days only ────────
     const pending = getPendingIntensives();
-    const bonusEntries: Entry[] = pending.map(p => ({
+    const readyToAdd = pending.filter(p => p.earnedDate < today);   // only past dates
+    const stillPending = pending.filter(p => p.earnedDate >= today); // same-day stays
+    savePendingIntensives(stillPending);
+
+    const bonusEntries: Entry[] = readyToAdd.map(p => ({
       id: generateId(),
       sessionId: '', // will be filled in below
       timestamp: new Date().toISOString(),
@@ -252,12 +261,11 @@ export default function Dashboard() {
     setSessions(updated);
     saveSessions(updated);
     setActiveSession(session);
-    clearPendingIntensives();
     window.dispatchEvent(new CustomEvent('gbdriver:session-changed'));
 
     // Show toast if bonuses were added
     if (bonusEntries.length > 0) {
-      const total = pending.reduce((s, p) => s + p.amount, 0);
+      const total = readyToAdd.reduce((s, p) => s + p.amount, 0);
       setIntensiveToast({ count: pending.length, total });
       setTimeout(() => setIntensiveToast(null), 4000);
     }
@@ -428,13 +436,7 @@ export default function Dashboard() {
         </button>
       ) : (
         <div className="flex gap-2 mt-2">
-          <button onClick={() => {
-            if (!isGoogleConnected()) { setShowSessionExpiredAlert(true); return; }
-            setShowEndShift(true);
-          }} className="flex-1 py-4 rounded-xl bg-destructive text-white font-bold text-sm shadow-lg shadow-destructive/20 hover:scale-[1.02] transition-transform">
-            {t('dash_end_shift')}
-          </button>
-          {/* Move Timer button */}
+          {/* Move Timer button — left of End Shift */}
           <button
             onClick={() => timerRunning ? setShowTimerModal(true) : startMoveTimer()}
             className={`relative flex flex-col items-center justify-center gap-0.5 px-3 rounded-xl text-sm font-bold transition-all shadow-lg min-w-[68px] ${
@@ -456,6 +458,12 @@ export default function Dashboard() {
             {timerPaused && !timerDone && (
               <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-warning border border-card" />
             )}
+          </button>
+          <button onClick={() => {
+            if (!isGoogleConnected()) { setShowSessionExpiredAlert(true); return; }
+            setShowEndShift(true);
+          }} className="flex-1 py-4 rounded-xl bg-destructive text-white font-bold text-sm shadow-lg shadow-destructive/20 hover:scale-[1.02] transition-transform">
+            {t('dash_end_shift')}
           </button>
         </div>
       )}
@@ -753,6 +761,10 @@ export default function Dashboard() {
           onResume={resumeMoveTimer}
           onReset={() => { resetMoveTimer(); setShowTimerModal(false); }}
           onClose={() => setShowTimerModal(false)}
+          onAcceptJob={() => {
+            setShowTimerModal(false);
+            setShowTripTimer(true); // opens TripTimerDialog → starts trip timer
+          }}
         />
       )}
       {isBackingUp && (

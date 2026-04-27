@@ -341,7 +341,7 @@ export async function generateAndShareDailyCard(
   ctx.fillStyle    = 'rgba(255,255,255,0.18)';
   ctx.font         = `10px ${SANS}`;
   ctx.textBaseline = 'middle';
-  ctx.fillText('gb-driver.pages.dev', PAD, y + FOOTER_H / 2);
+  ctx.fillText('gb-driver.com', PAD, y + FOOTER_H / 2);
 
   ctx.fillStyle = 'rgba(0,242,96,0.32)';
   ctx.font      = `bold 12px ${SANS}`;

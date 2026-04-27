@@ -1,4 +1,4 @@
-import { X, RotateCcw, Pause, Play } from 'lucide-react';
+import { X, RotateCcw, Pause, Play, CarFront } from 'lucide-react';
 import { useT } from '@/context/LangContext';
 
 interface Props {
@@ -10,6 +10,7 @@ interface Props {
   onResume: () => void;
   onReset: () => void;
   onClose: () => void;
+  onAcceptJob: () => void;
 }
 
 export default function MoveTimerModal({
@@ -21,6 +22,7 @@ export default function MoveTimerModal({
   onResume,
   onReset,
   onClose,
+  onAcceptJob,
 }: Props) {
   const t = useT();
 
@@ -137,6 +139,15 @@ export default function MoveTimerModal({
             </button>
           )}
         </div>
+
+        {/* Accept job button */}
+        <button
+          onClick={onAcceptJob}
+          className="w-full flex items-center justify-center gap-2 py-4 rounded-2xl bg-gradient-to-r from-primary to-[#00b050] text-white font-bold text-sm shadow-lg shadow-primary/20 hover:scale-[1.02] transition-transform"
+        >
+          <CarFront size={18} strokeWidth={2.5} />
+          {t('move_timer_accept_job')}
+        </button>
       </div>
     </div>
   );

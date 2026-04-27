@@ -64,6 +64,7 @@ export const translations = {
     move_timer_reset: 'Reset',
     move_timer_done_title: "Time's Up!",
     move_timer_done_desc: 'Time to move to a new spot.',
+    move_timer_accept_job: 'Accept Job',
 
     // entry labels
     dash_taxi: 'Taxi',
@@ -338,6 +339,7 @@ export const translations = {
     move_timer_reset: 'เริ่มใหม่',
     move_timer_done_title: 'หมดเวลา!',
     move_timer_done_desc: 'ถึงเวลาย้ายจุดแล้ว',
+    move_timer_accept_job: 'รับงาน',
     dash_taxi: 'แท็กซี่',
     dash_express: 'ส่งของ',
     dash_grab: 'Grab',
