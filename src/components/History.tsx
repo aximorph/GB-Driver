@@ -205,51 +205,56 @@ export default function History() {
           <div key={key} className="bg-card/70 backdrop-blur-xl border border-white/5 rounded-2xl overflow-hidden shadow-xl mb-3">
 
             {tab === 'daily' ? (
-              /* ── Daily: share button + swipe-to-delete ── */
-              <div className="relative overflow-hidden">
-                {/* Sliding row */}
-                <div
-                  className={`flex items-center transition-transform duration-200 ease-out ${isSwiped ? '-translate-x-16' : ''}`}
-                  onTouchStart={e => {
-                    swipeTouchKey.current    = key;
-                    swipeTouchStartX.current = e.touches[0].clientX;
-                  }}
-                  onTouchEnd={e => {
-                    if (swipeTouchKey.current !== key) return;
-                    const delta = swipeTouchStartX.current - e.changedTouches[0].clientX;
-                    if (delta > 40)  setSwipedDayKey(key);
-                    if (delta < -20) setSwipedDayKey(null);
-                    swipeTouchKey.current = null;
-                  }}
-                >
+              /* ── Daily: share button always visible, swipe-left reveals delete ── */
+              <div
+                className="overflow-hidden"
+                onTouchStart={e => {
+                  swipeTouchKey.current    = key;
+                  swipeTouchStartX.current = e.touches[0].clientX;
+                }}
+                onTouchEnd={e => {
+                  if (swipeTouchKey.current !== key) return;
+                  const delta = swipeTouchStartX.current - e.changedTouches[0].clientX;
+                  if (delta > 40)  setSwipedDayKey(key);
+                  if (delta < -20) setSwipedDayKey(null);
+                  swipeTouchKey.current = null;
+                }}
+              >
+                {/* Flex row wider than container; translate slides delete into view */}
+                <div className={`flex transition-transform duration-200 ease-out ${isSwiped ? '-translate-x-16' : ''}`}>
+
+                  {/* Full-width visible area: main content + share button */}
+                  <div className="flex items-center shrink-0 w-full min-w-0">
+                    <button
+                      onClick={() => { setSwipedDayKey(null); setExpandedDate(isExpanded ? null : key); }}
+                      className="flex-1 p-4 flex items-center justify-between text-left hover:bg-white/5 transition-colors min-w-0"
+                    >
+                      {rowContent}
+                    </button>
+
+                    {/* Share button — always visible */}
+                    <button
+                      onClick={() => handleShare(key, ss)}
+                      disabled={!!sharingKey}
+                      className="shrink-0 p-4 text-muted-foreground hover:text-primary hover:bg-primary/10 transition-all disabled:opacity-40"
+                      title={t('hist_share')}
+                    >
+                      {isSharing
+                        ? <Loader2 size={16} className="animate-spin text-primary" />
+                        : <Share2 size={16} />}
+                    </button>
+                  </div>
+
+                  {/* Delete button — hidden by overflow until swiped */}
                   <button
-                    onClick={() => { setSwipedDayKey(null); setExpandedDate(isExpanded ? null : key); }}
-                    className="flex-1 p-4 flex items-center justify-between text-left hover:bg-white/5 transition-colors min-w-0"
+                    className="shrink-0 w-16 bg-destructive/90 hover:bg-destructive flex flex-col items-center justify-center gap-1 transition-colors"
+                    onClick={() => { setSwipedDayKey(null); setDeletePeriodPending({ key, ss }); }}
                   >
-                    {rowContent}
+                    <Trash2 size={18} className="text-white" />
+                    <span className="text-[9px] text-white/80 font-bold">ลบ</span>
                   </button>
 
-                  {/* Share button */}
-                  <button
-                    onClick={() => handleShare(key, ss)}
-                    disabled={!!sharingKey}
-                    className="p-4 text-muted-foreground hover:text-primary hover:bg-primary/10 transition-all disabled:opacity-40"
-                    title={t('hist_share')}
-                  >
-                    {isSharing
-                      ? <Loader2 size={16} className="animate-spin text-primary" />
-                      : <Share2 size={16} />}
-                  </button>
                 </div>
-
-                {/* Delete button — revealed on swipe left */}
-                <button
-                  className="absolute right-0 top-0 bottom-0 w-16 bg-destructive/90 hover:bg-destructive flex flex-col items-center justify-center gap-1 transition-colors"
-                  onClick={() => { setSwipedDayKey(null); setDeletePeriodPending({ key, ss }); }}
-                >
-                  <Trash2 size={18} className="text-white" />
-                  <span className="text-[9px] text-white/80 font-bold">ลบ</span>
-                </button>
               </div>
             ) : (
               /* ── Weekly: keep original delete button ── */

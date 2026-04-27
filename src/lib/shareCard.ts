@@ -87,11 +87,11 @@ export async function generateAndShareDailyCard(
     : 0;
   const avgDurStr = avgDurSecs > 0 ? fmtDur(avgDurSecs) : '—';
 
-  // Trips sorted by (driverNet + tip) DESC, top 30
+  // Trips sorted by (driverNet + tip) DESC, top 5
   const sortedTrips = [...incomeTrips]
     .sort((a, b) => ((b.driverNet || 0) + (b.tip || 0)) - ((a.driverNet || 0) + (a.tip || 0)))
-    .slice(0, 30);
-  const extraTrips = Math.max(0, tripCount - 30);
+    .slice(0, 5);
+  const extraTrips = Math.max(0, tripCount - 5);
 
   // ── Layout heights ──────────────────────────────────────────────────────────
   const HEADER_H  = 66;
@@ -235,8 +235,8 @@ export async function generateAndShareDailyCard(
 
   // ── SECTION LABEL ────────────────────────────────────────────────────────────
   const secLbl = lang === 'th'
-    ? `รายการ (เรียงตามยอด) · ${Math.min(tripCount, 30)}/${tripCount}`
-    : `Trips by amount · ${Math.min(tripCount, 30)} of ${tripCount}`;
+    ? `รายการ (เรียงตามยอด) · ${Math.min(tripCount, 5)}/${tripCount}`
+    : `Trips by amount · ${Math.min(tripCount, 5)} of ${tripCount}`;
   ctx.fillStyle = 'rgba(255,255,255,0.22)';
   ctx.font      = `bold 9px ${SANS}`;
   ctx.textBaseline = 'middle';
