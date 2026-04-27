@@ -1,12 +1,13 @@
-import { useState, useMemo } from 'react';
-import { getSessions, saveSessions } from '@/lib/storage';
+import { useState, useMemo, useRef, useCallback } from 'react';
+import { getSessions, saveSessions, getProfile } from '@/lib/storage';
 import { ShiftSession, Entry } from '@/lib/types';
 import { format, startOfWeek, parseISO } from 'date-fns';
-import { Trash2, Pencil, Star, Clock, Activity, Coffee } from 'lucide-react';
+import { Trash2, Pencil, Star, Clock, Activity, Coffee, Share2, Loader2 } from 'lucide-react';
 import { useT } from '@/context/LangContext';
 import { useIsLandscape } from '@/hooks/useIsLandscape';
 import SweetAlert from './SweetAlert';
 import AddEntryModal from './AddEntryModal';
+import { generateAndShareDailyCard } from '@/lib/shareCard';
 
 function formatDuration(secs: number): string {
   const h = Math.floor(secs / 3600);
@@ -26,6 +27,10 @@ export default function History() {
   const [deletePeriodPending, setDeletePeriodPending] = useState<{ key: string; ss: ShiftSession[] } | null>(null);
   const [deleteEntryPending, setDeleteEntryPending] = useState<string | null>(null);
   const [editEntryPending, setEditEntryPending] = useState<Entry | null>(null);
+  const [swipedDayKey, setSwipedDayKey] = useState<string | null>(null);
+  const [sharingKey, setSharingKey] = useState<string | null>(null);
+  const swipeTouchKey    = useRef<string | null>(null);
+  const swipeTouchStartX = useRef(0);
 
   const dailyData = useMemo(() => {
     const grouped: Record<string, ShiftSession[]> = {};
@@ -114,6 +119,19 @@ export default function History() {
     setEditEntryPending(null);
   };
 
+  const handleShare = useCallback(async (date: string, ss: ShiftSession[]) => {
+    if (sharingKey) return;
+    setSharingKey(date);
+    try {
+      const lang = getProfile()?.language ?? 'th';
+      await generateAndShareDailyCard(date, ss, lang);
+    } catch (err) {
+      console.error('Share failed:', err);
+    } finally {
+      setSharingKey(null);
+    }
+  }, [sharingKey]);
+
   const exportCSV = () => {
     const entries = sessions.flatMap(s => s.entries.map(e => ({ ...e, date: s.date })));
     const header = 'Date,Type,Amount,Tip,Category,Note\n';
@@ -157,39 +175,99 @@ export default function History() {
       {data.map(([key, ss]) => {
         const stats = calcStats(ss);
         const isExpanded = expandedDate === key;
+        const isSwiped   = swipedDayKey === key;
+        const isSharing  = sharingKey === key;
+
+        // ── Row header content (shared between daily/weekly) ──
+        const rowContent = (
+          <>
+            <div>
+              <p className="text-base font-bold text-white">
+                {tab === 'daily'
+                  ? format(parseISO(key), 'EEE, MMM d')
+                  : `${t('hist_week_of')} ${format(parseISO(key), 'MMM d')}`}
+              </p>
+              <div className="flex items-center gap-2 mt-0.5">
+                <p className="text-xs font-medium text-primary">{stats.trips} {t('hist_trips')}</p>
+                {stats.onlineTime && (
+                  <p className="text-xs font-medium text-muted-foreground">· {stats.onlineTime} {t('hist_online')}</p>
+                )}
+              </div>
+            </div>
+            <div className="text-right">
+              <p className="font-mono text-lg font-extrabold text-primary drop-shadow-sm">฿{stats.net.toFixed(0)}</p>
+              <p className="text-xs font-medium text-muted-foreground">{t('hist_net')}</p>
+            </div>
+          </>
+        );
+
         return (
           <div key={key} className="bg-card/70 backdrop-blur-xl border border-white/5 rounded-2xl overflow-hidden shadow-xl mb-3">
-            {/* Main row */}
-            <div className="flex items-center">
-              <button
-                onClick={() => setExpandedDate(isExpanded ? null : key)}
-                className="flex-1 p-4 flex items-center justify-between text-left hover:bg-white/5 transition-colors"
-              >
-                <div>
-                  <p className="text-base font-bold text-white">
-                    {tab === 'daily' ? format(parseISO(key), 'EEE, MMM d') : `${t('hist_week_of')} ${format(parseISO(key), 'MMM d')}`}
-                  </p>
-                  <div className="flex items-center gap-2 mt-0.5">
-                    <p className="text-xs font-medium text-primary">{stats.trips} {t('hist_trips')}</p>
-                    {stats.onlineTime && (
-                      <p className="text-xs font-medium text-muted-foreground">· {stats.onlineTime} {t('hist_online')}</p>
-                    )}
-                  </div>
+
+            {tab === 'daily' ? (
+              /* ── Daily: share button + swipe-to-delete ── */
+              <div className="relative overflow-hidden">
+                {/* Sliding row */}
+                <div
+                  className={`flex items-center transition-transform duration-200 ease-out ${isSwiped ? '-translate-x-16' : ''}`}
+                  onTouchStart={e => {
+                    swipeTouchKey.current    = key;
+                    swipeTouchStartX.current = e.touches[0].clientX;
+                  }}
+                  onTouchEnd={e => {
+                    if (swipeTouchKey.current !== key) return;
+                    const delta = swipeTouchStartX.current - e.changedTouches[0].clientX;
+                    if (delta > 40)  setSwipedDayKey(key);
+                    if (delta < -20) setSwipedDayKey(null);
+                    swipeTouchKey.current = null;
+                  }}
+                >
+                  <button
+                    onClick={() => { setSwipedDayKey(null); setExpandedDate(isExpanded ? null : key); }}
+                    className="flex-1 p-4 flex items-center justify-between text-left hover:bg-white/5 transition-colors min-w-0"
+                  >
+                    {rowContent}
+                  </button>
+
+                  {/* Share button */}
+                  <button
+                    onClick={() => handleShare(key, ss)}
+                    disabled={!!sharingKey}
+                    className="p-4 text-muted-foreground hover:text-primary hover:bg-primary/10 transition-all disabled:opacity-40"
+                    title={t('hist_share')}
+                  >
+                    {isSharing
+                      ? <Loader2 size={16} className="animate-spin text-primary" />
+                      : <Share2 size={16} />}
+                  </button>
                 </div>
-                <div className="text-right">
-                  <p className="font-mono text-lg font-extrabold text-primary drop-shadow-sm">฿{stats.net.toFixed(0)}</p>
-                  <p className="text-xs font-medium text-muted-foreground">{t('hist_net')}</p>
-                </div>
-              </button>
-              {/* Delete group button */}
-              <button
-                onClick={e => { e.stopPropagation(); setDeletePeriodPending({ key, ss }); }}
-                className="p-4 text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-all"
-                title="Delete this period"
-              >
-                <Trash2 size={16} />
-              </button>
-            </div>
+
+                {/* Delete button — revealed on swipe left */}
+                <button
+                  className="absolute right-0 top-0 bottom-0 w-16 bg-destructive/90 hover:bg-destructive flex flex-col items-center justify-center gap-1 transition-colors"
+                  onClick={() => { setSwipedDayKey(null); setDeletePeriodPending({ key, ss }); }}
+                >
+                  <Trash2 size={18} className="text-white" />
+                  <span className="text-[9px] text-white/80 font-bold">ลบ</span>
+                </button>
+              </div>
+            ) : (
+              /* ── Weekly: keep original delete button ── */
+              <div className="flex items-center">
+                <button
+                  onClick={() => setExpandedDate(isExpanded ? null : key)}
+                  className="flex-1 p-4 flex items-center justify-between text-left hover:bg-white/5 transition-colors"
+                >
+                  {rowContent}
+                </button>
+                <button
+                  onClick={e => { e.stopPropagation(); setDeletePeriodPending({ key, ss }); }}
+                  className="p-4 text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-all"
+                >
+                  <Trash2 size={16} />
+                </button>
+              </div>
+            )}
 
             {/* Expanded entries */}
             {isExpanded && (

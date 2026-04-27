@@ -72,6 +72,8 @@ export const translations = {
     dash_bolt: 'Bolt',
 
     // ── History ────────────────────────────────────────────────────────────────
+    hist_share: 'Share',
+    hist_share_generating: 'Generating…',
     hist_title: 'History',
     hist_export_csv: 'Export CSV',
     hist_daily: 'Daily',
@@ -342,6 +344,8 @@ export const translations = {
     dash_bolt: 'Bolt',
 
     // ── History ────────────────────────────────────────────────────────────────
+    hist_share: 'แชร์',
+    hist_share_generating: 'กำลังสร้าง…',
     hist_title: 'ประวัติ',
     hist_export_csv: 'ส่งออก CSV',
     hist_daily: 'รายวัน',
