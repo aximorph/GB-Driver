@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { ShiftSession, Entry, ShiftStatus, Intensive } from '@/lib/types';
 import { getSessions, saveSessions, getActiveSession, getProfile, getPendingIntensives, savePendingIntensives, clearPendingIntensives } from '@/lib/storage';
 import { isGoogleConnected, backupDataToDrive, scheduleMidnightExpiry } from '@/lib/googleDrive';
-import { goOnline, goOffline, subscribeToOnlineCounts, type ProvinceCount } from '@/lib/presence';
+import { goOnline, goOffline, updatePresence, subscribeToOnlineCounts, type ProvinceCount } from '@/lib/presence';
 import { getProvinceLabel } from '@/lib/provinces';
 import { format } from 'date-fns';
 import { Trash2, Pencil, DollarSign, Receipt, Gift, Clock3, Users, ChevronDown, Timer } from 'lucide-react';
@@ -292,6 +292,7 @@ export default function Dashboard() {
       return updated;
     });
     setActiveSession(prev => prev ? { ...prev, entries: [...prev.entries, newEntry] } : null);
+    updatePresence(); // every trip entry = strong signal user is active
   }, [activeSession]);
 
   const endShift = useCallback((grabPayout: number) => {
@@ -405,6 +406,20 @@ export default function Dashboard() {
     window.addEventListener('gbdriver:open-add-entry', handler);
     return () => window.removeEventListener('gbdriver:open-add-entry', handler);
   }, []);
+
+  // Presence: update when tab becomes visible again (switching back from Grab/FB)
+  useEffect(() => {
+    const onVisible = () => { if (document.visibilityState === 'visible') updatePresence(); };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
+  }, []);
+
+  // Presence: heartbeat every 5 minutes while on shift (safety net)
+  useEffect(() => {
+    if (!activeSession) return;
+    const id = setInterval(updatePresence, 5 * 60 * 1000);
+    return () => clearInterval(id);
+  }, [activeSession]);
 
   // ตั้ง timer logout ตี 0:00 และ listen event เมื่อ token หมดอายุ
   useEffect(() => {
