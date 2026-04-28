@@ -91,6 +91,19 @@ export async function generateAndShareDailyCard(
     return h > 0 ? `${h}h ${m}m` : `${m}m`;
   })();
 
+  // Time range: first start → last end of the day
+  const firstSession = ss.length > 0
+    ? ss.reduce((a, b) => a.startTime < b.startTime ? a : b)
+    : null;
+  const lastEndISO = ss.reduce((latest, s) => {
+    if (!s.endTime) return latest;
+    return !latest || s.endTime > latest ? s.endTime : latest;
+  }, '');
+  const timeRangeStr = firstSession
+    ? format(new Date(firstSession.startTime), 'HH:mm') +
+      (lastEndISO ? '–' + format(new Date(lastEndISO), 'HH:mm') : '+')
+    : '';
+
   // Avg trip duration
   const withDur    = incomeTrips.filter(e => (e.tripDuration ?? 0) > 0);
   const avgDurSecs = withDur.length > 0
@@ -230,9 +243,9 @@ export async function generateAndShareDailyCard(
   ctx.fillRect(0, y + STATS_H - 1, W, 1);
 
   const statCells = [
-    { val: tripCount.toString(), lbl: lang === 'th' ? 'รอบทั้งหมด' : 'trips' },
-    { val: onlineStr,            lbl: lang === 'th' ? 'ออนไลน์'    : 'online' },
-    { val: avgDurStr,            lbl: lang === 'th' ? 'เฉลี่ย/รอบ' : 'avg/trip' },
+    { val: tripCount.toString(), lbl: lang === 'th' ? 'รอบทั้งหมด' : 'trips',    sub: '' },
+    { val: onlineStr,            lbl: lang === 'th' ? 'ออนไลน์'    : 'online',   sub: timeRangeStr },
+    { val: avgDurStr,            lbl: lang === 'th' ? 'เฉลี่ย/รอบ' : 'avg/trip', sub: '' },
   ];
   const cellW = W / 3;
   statCells.forEach((cell, i) => {
@@ -247,6 +260,12 @@ export async function generateAndShareDailyCard(
     ctx.fillStyle = GRAY;
     ctx.font      = `9px ${SANS}`;
     ctx.fillText(cell.lbl.toUpperCase(), cx, mid + 22);
+    // Time-range sub-label (online cell only)
+    if (cell.sub) {
+      ctx.fillStyle = 'rgba(255,255,255,0.22)';
+      ctx.font      = `8px ${MONO}`;
+      ctx.fillText(cell.sub, cx, mid + 35);
+    }
   });
   ctx.textAlign    = 'left';
   ctx.textBaseline = 'alphabetic';

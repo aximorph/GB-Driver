@@ -668,7 +668,7 @@ export default function Dashboard() {
             </div>
             <div className="text-right">
               <p className={`font-mono text-lg font-extrabold ${entry.type === 'income' ? 'text-white' : 'text-foreground'}`}>
-                ฿{entry.type === 'income' ? ((entry.driverNet || 0) + (entry.tip || 0)).toFixed(0) : entry.amount.toFixed(0)}
+                ฿{entry.type === 'income' ? (entry.driverNet || 0).toFixed(0) : entry.amount.toFixed(0)}
               </p>
               {entry.tip && entry.tip > 0 && <p className="text-[10px] text-warning font-bold uppercase mt-0.5">+ ฿{entry.tip.toFixed(0)} {t('dash_tip_label')}</p>}
               <div className="flex items-center gap-1 mt-2 ml-auto">
