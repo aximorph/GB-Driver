@@ -1,12 +1,25 @@
 import { useState, useEffect } from 'react';
-import { Play, CheckCircle2, XCircle, Receipt } from 'lucide-react';
+import { CheckCircle2, XCircle, Receipt } from 'lucide-react';
 import { useT } from '@/context/LangContext';
 
+// ── Persist active trip timer across tab switches / page reloads ──────────────
+const TIMER_KEY = 'gbdriver_active_trip';
+
+function saveTimer(startISO: string) {
+  localStorage.setItem(TIMER_KEY, startISO);
+}
+function loadTimer(): string | null {
+  return localStorage.getItem(TIMER_KEY);
+}
+function clearTimer() {
+  localStorage.removeItem(TIMER_KEY);
+}
+
 interface Props {
-  onEndTrip: (tripDuration: number, tripStartTime: string) => void; // end trip → open income form
-  onExpense: () => void;   // add expense directly
-  onClose: () => void;     // cancel / close without entry
-  autoStart?: boolean;     // if true, start trip timer immediately on mount
+  onEndTrip: (tripDuration: number, tripStartTime: string) => void;
+  onExpense: () => void;
+  onClose: () => void;
+  autoStart?: boolean; // start immediately on mount (from "รับงาน" button)
 }
 
 function formatStopwatch(secs: number): string {
@@ -18,47 +31,49 @@ function formatStopwatch(secs: number): string {
 
 export default function TripTimerDialog({ onEndTrip, onExpense, onClose, autoStart }: Props) {
   const t = useT();
-  const [running, setRunning] = useState(false);
-  const [tripStart, setTripStart] = useState<number | null>(null);
-  const [tripStartISO, setTripStartISO] = useState<string>('');
-  const [elapsed, setElapsed] = useState(0);
 
-  // Auto-start when opened from "รับงาน" button
-  useEffect(() => {
+  // ── Initialise from localStorage (survives tab switch / reload) ──────────
+  const [tripStartISO, setTripStartISO] = useState<string>(() => {
+    // autoStart takes priority; otherwise restore saved timer
     if (autoStart) {
-      const now = Date.now();
-      const nowISO = new Date().toISOString();
-      setTripStart(now);
-      setTripStartISO(nowISO);
-      setRunning(true);
+      const iso = new Date().toISOString();
+      saveTimer(iso);
+      return iso;
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    return loadTimer() ?? '';
+  });
 
+  const running = tripStartISO !== '';
+  const [elapsed, setElapsed] = useState(() =>
+    tripStartISO ? Math.floor((Date.now() - new Date(tripStartISO).getTime()) / 1000) : 0,
+  );
+
+  // Tick every second while running
   useEffect(() => {
     if (!running) return;
-    const interval = setInterval(() => {
-      setElapsed(Math.floor((Date.now() - tripStart!) / 1000));
+    const start = new Date(tripStartISO).getTime();
+    const id = setInterval(() => {
+      setElapsed(Math.floor((Date.now() - start) / 1000));
     }, 1000);
-    return () => clearInterval(interval);
-  }, [running, tripStart]);
+    return () => clearInterval(id);
+  }, [running, tripStartISO]);
 
   const handleStart = () => {
-    const now = Date.now();
-    const nowISO = new Date().toISOString();
-    setTripStart(now);
-    setTripStartISO(nowISO);
-    setRunning(true);
+    const iso = new Date().toISOString();
+    saveTimer(iso);
+    setTripStartISO(iso);
+    setElapsed(0);
   };
 
   const handleEnd = () => {
-    const duration = Math.floor((Date.now() - tripStart!) / 1000);
+    const duration = Math.floor((Date.now() - new Date(tripStartISO).getTime()) / 1000);
+    clearTimer();
     onEndTrip(duration, tripStartISO);
   };
 
   const handleCancelTrip = () => {
-    setRunning(false);
-    setTripStart(null);
+    clearTimer();
+    setTripStartISO('');
     setElapsed(0);
     onClose();
   };
@@ -66,6 +81,7 @@ export default function TripTimerDialog({ onEndTrip, onExpense, onClose, autoSta
   return (
     <div
       className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-end justify-center"
+      // backdrop tap never closes when timer is running
       onClick={!running ? onClose : undefined}
     >
       <div
@@ -75,6 +91,7 @@ export default function TripTimerDialog({ onEndTrip, onExpense, onClose, autoSta
         {/* Header */}
         <div className="flex justify-between items-center px-1">
           <h2 className="text-xl font-extrabold text-white">{t('timer_new_trip')}</h2>
+          {/* X button only visible before timer starts */}
           {!running && (
             <button
               onClick={onClose}
@@ -106,16 +123,12 @@ export default function TripTimerDialog({ onEndTrip, onExpense, onClose, autoSta
         {/* Buttons */}
         {!running ? (
           <div className="space-y-3">
-            {/* Start */}
             <button
               onClick={handleStart}
               className="w-full py-4 rounded-2xl bg-gradient-to-r from-primary to-[#00b050] text-white font-extrabold text-base shadow-lg shadow-primary/20 hover:scale-[1.02] transition-transform flex items-center justify-center gap-3"
             >
-              <Play size={20} fill="white" />
               {t('timer_start')}
             </button>
-
-            {/* Add Expense */}
             <button
               onClick={onExpense}
               className="w-full py-3.5 rounded-2xl bg-secondary border border-white/5 text-muted-foreground hover:text-white hover:border-white/10 font-bold text-sm transition-all flex items-center justify-center gap-2"
@@ -126,7 +139,7 @@ export default function TripTimerDialog({ onEndTrip, onExpense, onClose, autoSta
           </div>
         ) : (
           <div className="grid grid-cols-2 gap-3">
-            {/* Cancel Trip */}
+            {/* Cancel trip — only exit while timer is running */}
             <button
               onClick={handleCancelTrip}
               className="py-4 rounded-2xl bg-secondary border border-white/5 text-muted-foreground hover:text-destructive hover:border-destructive/30 font-bold text-sm transition-all flex items-center justify-center gap-2"
@@ -135,7 +148,7 @@ export default function TripTimerDialog({ onEndTrip, onExpense, onClose, autoSta
               {t('timer_cancel_trip')}
             </button>
 
-            {/* End Trip */}
+            {/* End trip */}
             <button
               onClick={handleEnd}
               className="py-4 rounded-2xl bg-gradient-to-r from-primary to-[#00b050] text-white font-extrabold text-sm shadow-lg shadow-primary/20 hover:scale-[1.02] transition-transform flex items-center justify-center gap-2"

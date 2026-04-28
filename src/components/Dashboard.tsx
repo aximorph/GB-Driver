@@ -3,10 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { ShiftSession, Entry, ShiftStatus, Intensive } from '@/lib/types';
 import { getSessions, saveSessions, getActiveSession, getProfile, getPendingIntensives, savePendingIntensives, clearPendingIntensives } from '@/lib/storage';
 import { isGoogleConnected, backupDataToDrive, scheduleMidnightExpiry } from '@/lib/googleDrive';
-import { goOnline, goOffline, updatePresence, subscribeToOnlineCounts, type ProvinceCount } from '@/lib/presence';
-import { getProvinceLabel } from '@/lib/provinces';
 import { format } from 'date-fns';
-import { Trash2, Pencil, DollarSign, Receipt, Gift, Clock3, Users, ChevronDown, Timer } from 'lucide-react';
+import { Trash2, Pencil, DollarSign, Receipt, Gift, Clock3, ChevronDown, Timer } from 'lucide-react';
 import AddEntryModal from './AddEntryModal';
 import TripTimerDialog from './TripTimerDialog';
 import EndShiftModal from './EndShiftModal';
@@ -72,7 +70,10 @@ export default function Dashboard() {
   const [sessions, setSessions] = useState<ShiftSession[]>(getSessions());
   const [activeSession, setActiveSession] = useState<ShiftSession | null>(getActiveSession());
   const [elapsed, setElapsed] = useState(0);
-  const [showTripTimer, setShowTripTimer] = useState(false);
+  // Restore trip timer dialog if a timer was active before tab switch / reload
+  const [showTripTimer, setShowTripTimer] = useState(
+    () => !!localStorage.getItem('gbdriver_active_trip'),
+  );
   const [tripTimerAutoStart, setTripTimerAutoStart] = useState(false);
   const [showAddEntry, setShowAddEntry] = useState(false);
   const [addEntryType, setAddEntryType] = useState<'income' | 'expense'>('income');
@@ -91,10 +92,6 @@ export default function Dashboard() {
     next.has(id) ? next.delete(id) : next.add(id);
     return next;
   });
-  const [onlineTotal, setOnlineTotal] = useState(0);
-  const [onlineTop5, setOnlineTop5] = useState<ProvinceCount[]>([]);
-  const [showOnlineDropdown, setShowOnlineDropdown] = useState(false);
-  const onlineDropdownRef = useRef<HTMLDivElement>(null);
 
   // ── Move Timer ───────────────────────────────────────────────────────────────
   const getMoveTimerDuration = () => (getProfile()?.moveTimerMinutes ?? 15) * 60;
@@ -271,8 +268,6 @@ export default function Dashboard() {
       setTimeout(() => setIntensiveToast(null), 4000);
     }
 
-    // Presence: go online if province is set
-    if (profile?.province) goOnline(profile.province);
   };
 
   const addEntry = useCallback((entry: Omit<Entry, 'id' | 'sessionId' | 'timestamp'>) => {
@@ -292,7 +287,6 @@ export default function Dashboard() {
       return updated;
     });
     setActiveSession(prev => prev ? { ...prev, entries: [...prev.entries, newEntry] } : null);
-    updatePresence(); // every trip entry = strong signal user is active
   }, [activeSession]);
 
   const endShift = useCallback((grabPayout: number) => {
@@ -332,7 +326,6 @@ export default function Dashboard() {
     });
 
     setActiveSession(null);
-    goOffline(); // Presence: remove from online list
     window.dispatchEvent(new CustomEvent('gbdriver:session-changed'));
     // Clear move timer
     if (timerIntervalRef.current) { clearInterval(timerIntervalRef.current); timerIntervalRef.current = null; }
@@ -379,26 +372,6 @@ export default function Dashboard() {
     setEditEntryPending(null);
   }, []);
 
-  // Subscribe to online presence counts (always, not just during shift)
-  useEffect(() => {
-    const unsub = subscribeToOnlineCounts((total, top5) => {
-      setOnlineTotal(total);
-      setOnlineTop5(top5);
-    });
-    return unsub;
-  }, []);
-
-  // Close online dropdown when clicking outside
-  useEffect(() => {
-    if (!showOnlineDropdown) return;
-    const handler = (e: MouseEvent) => {
-      if (onlineDropdownRef.current && !onlineDropdownRef.current.contains(e.target as Node)) {
-        setShowOnlineDropdown(false);
-      }
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, [showOnlineDropdown]);
 
   // Listen for add entry event from BottomNav → open TripTimerDialog
   useEffect(() => {
@@ -407,19 +380,6 @@ export default function Dashboard() {
     return () => window.removeEventListener('gbdriver:open-add-entry', handler);
   }, []);
 
-  // Presence: update when tab becomes visible again (switching back from Grab/FB)
-  useEffect(() => {
-    const onVisible = () => { if (document.visibilityState === 'visible') updatePresence(); };
-    document.addEventListener('visibilitychange', onVisible);
-    return () => document.removeEventListener('visibilitychange', onVisible);
-  }, []);
-
-  // Presence: heartbeat every 5 minutes while on shift (safety net)
-  useEffect(() => {
-    if (!activeSession) return;
-    const id = setInterval(updatePresence, 5 * 60 * 1000);
-    return () => clearInterval(id);
-  }, [activeSession]);
 
   // ตั้ง timer logout ตี 0:00 และ listen event เมื่อ token หมดอายุ
   useEffect(() => {
@@ -809,48 +769,9 @@ export default function Dashboard() {
   );
 
   const header = (
-    <div className="flex items-center justify-between">
-      <div>
-        <h1 className="text-3xl font-extrabold bg-gradient-to-r from-[#00f260] to-primary bg-clip-text text-transparent drop-shadow-sm">GB-Driver</h1>
-        <p className="text-sm text-muted-foreground mt-1">{format(new Date(), 'EEEE, MMM d, yyyy')}</p>
-      </div>
-      {/* Online drivers badge — top right of header */}
-      <div className="relative" ref={onlineDropdownRef}>
-        <button
-          onClick={() => setShowOnlineDropdown(v => !v)}
-          className="flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1.5 rounded-full bg-primary/10 border border-primary/20 text-primary hover:bg-primary/20 transition-colors"
-        >
-          <Users size={11} />
-          {onlineTotal}
-          <span className="text-primary/70 font-normal">{t('dash_online_total')}</span>
-          <ChevronDown size={10} className={`transition-transform duration-200 ${showOnlineDropdown ? 'rotate-180' : ''}`} />
-        </button>
-        {showOnlineDropdown && (
-          <div className="absolute right-0 top-full mt-1.5 w-52 bg-card/95 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl z-50 overflow-hidden animate-in slide-in-from-top-1 duration-150">
-            <div className="px-3 pt-3 pb-1">
-              <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">{t('dash_online_top5')}</p>
-            </div>
-            {onlineTop5.length === 0 ? (
-              <p className="text-xs text-muted-foreground px-3 pb-3 pt-1">{t('dash_online_no_data')}</p>
-            ) : (
-              <ul className="pb-2">
-                {onlineTop5.map((item, i) => (
-                  <li key={item.provinceId} className="flex items-center justify-between px-3 py-1.5 hover:bg-white/5 transition-colors">
-                    <span className="flex items-center gap-2 text-xs text-foreground">
-                      <span className="text-muted-foreground font-mono w-4">{i + 1}.</span>
-                      {getProvinceLabel(item.provinceId, lang)}
-                    </span>
-                    <span className="text-xs font-mono font-bold text-primary">{item.count}</span>
-                  </li>
-                ))}
-              </ul>
-            )}
-            {!profile?.province && (
-              <p className="text-[10px] text-muted-foreground/70 px-3 pb-2.5 border-t border-white/5 pt-2">{t('dash_online_set_province')}</p>
-            )}
-          </div>
-        )}
-      </div>
+    <div>
+      <h1 className="text-3xl font-extrabold bg-gradient-to-r from-[#00f260] to-primary bg-clip-text text-transparent drop-shadow-sm">GB-Driver</h1>
+      <p className="text-sm text-muted-foreground mt-1">{format(new Date(), 'EEEE, MMM d, yyyy')}</p>
     </div>
   );
 
