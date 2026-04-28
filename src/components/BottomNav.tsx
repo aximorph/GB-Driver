@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { getActiveSession } from '@/lib/storage';
+import { updatePresence } from '@/lib/presence';
 import { Home, Clock, BarChart2, Settings, Plus } from 'lucide-react';
 import SweetAlert from './SweetAlert';
 import { useT } from '@/context/LangContext';
@@ -19,10 +20,13 @@ export default function BottomNav() {
     return () => window.removeEventListener('gbdriver:session-changed', handler);
   }, []);
 
+  const handleNavTap = () => { if (isOnShift) updatePresence(); };
+
   const handleAddClick = () => {
     const activeNow = !!getActiveSession();
     if (activeNow) {
       if (!isOnShift) setIsOnShift(true);
+      updatePresence();
       navigate('/');
       setTimeout(() => {
         window.dispatchEvent(new CustomEvent('gbdriver:open-add-entry'));
@@ -51,12 +55,12 @@ export default function BottomNav() {
         />
 
         <nav className="fixed left-0 top-0 h-screen w-[72px] bg-card/90 backdrop-blur-2xl border-r border-white/5 z-30 shadow-[4px_0_24px_-4px_rgba(0,0,0,0.5)] flex flex-col items-center py-4 gap-1 overflow-hidden">
-          <NavLink to="/" className={sideLink} end>
+          <NavLink to="/" className={sideLink} end onClick={handleNavTap}>
             <Home size={22} strokeWidth={2.5} />
             <span className="text-[9px] font-bold">{t('nav_dashboard')}</span>
           </NavLink>
 
-          <NavLink to="/history" className={sideLink}>
+          <NavLink to="/history" className={sideLink} onClick={handleNavTap}>
             <Clock size={22} strokeWidth={2.5} />
             <span className="text-[9px] font-bold">{t('nav_history')}</span>
           </NavLink>
@@ -76,12 +80,12 @@ export default function BottomNav() {
             </button>
           </div>
 
-          <NavLink to="/analytics" className={sideLink}>
+          <NavLink to="/analytics" className={sideLink} onClick={handleNavTap}>
             <BarChart2 size={22} strokeWidth={2.5} />
             <span className="text-[9px] font-bold">{t('nav_analytics')}</span>
           </NavLink>
 
-          <NavLink to="/profile" className={sideLink}>
+          <NavLink to="/profile" className={sideLink} onClick={handleNavTap}>
             <Settings size={22} strokeWidth={2.5} />
             <span className="text-[9px] font-bold">{t('nav_profile')}</span>
           </NavLink>
@@ -110,11 +114,11 @@ export default function BottomNav() {
 
       <nav className="fixed bottom-0 left-0 right-0 bg-card/80 backdrop-blur-2xl border-t border-white/5 z-30 shadow-[0_-10px_40px_-10px_rgba(0,0,0,0.5)]">
         <div className="max-w-[430px] mx-auto flex justify-around items-end py-3 px-2 pb-6">
-          <NavLink to="/" className={linkClass} end>
+          <NavLink to="/" className={linkClass} end onClick={handleNavTap}>
             <Home size={22} strokeWidth={2.5} className="mb-0.5" />
             <span>{t('nav_dashboard')}</span>
           </NavLink>
-          <NavLink to="/history" className={linkClass}>
+          <NavLink to="/history" className={linkClass} onClick={handleNavTap}>
             <Clock size={22} strokeWidth={2.5} className="mb-0.5" />
             <span>{t('nav_history')}</span>
           </NavLink>
@@ -138,11 +142,11 @@ export default function BottomNav() {
             <span className="text-xs">{t('nav_add')}</span>
           </button>
 
-          <NavLink to="/analytics" className={linkClass}>
+          <NavLink to="/analytics" className={linkClass} onClick={handleNavTap}>
             <BarChart2 size={22} strokeWidth={2.5} className="mb-0.5" />
             <span>{t('nav_analytics')}</span>
           </NavLink>
-          <NavLink to="/profile" className={linkClass}>
+          <NavLink to="/profile" className={linkClass} onClick={handleNavTap}>
             <Settings size={22} strokeWidth={2.5} className="mb-0.5" />
             <span>{t('nav_profile')}</span>
           </NavLink>
