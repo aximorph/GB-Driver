@@ -7,13 +7,14 @@ import { format } from 'date-fns';
 import { ShiftSession, Entry } from './types';
 
 // ── Palette ───────────────────────────────────────────────────────────────────
-const BG      = '#0a0f0a';
-const GREEN   = '#00f260';
-const VIOLET  = '#8b5cf6';
-const WHITE   = '#ffffff';
-const GRAY    = 'rgba(255,255,255,0.38)';
+const BG       = '#0a0f0a';
+const GREEN    = '#00f260';
+const VIOLET   = '#8b5cf6';
+const YELLOW   = '#f5c518';   // tip colour
+const WHITE    = '#ffffff';
+const GRAY     = 'rgba(255,255,255,0.38)';
 const GRAY_DIM = 'rgba(255,255,255,0.07)';
-const DIVIDER = 'rgba(255,255,255,0.07)';
+const DIVIDER  = 'rgba(255,255,255,0.07)';
 
 const W     = 390;
 const SCALE = 2;
@@ -91,17 +92,22 @@ export async function generateAndShareDailyCard(
     return h > 0 ? `${h}h ${m}m` : `${m}m`;
   })();
 
-  // Time range: first start → last end of the day
+  // Time range: earliest start → end of the LONGEST session.
+  // Using longest session (not latest) prevents a short late-night open/close
+  // from incorrectly appearing as the "end of work" time.
   const firstSession = ss.length > 0
     ? ss.reduce((a, b) => a.startTime < b.startTime ? a : b)
     : null;
-  const lastEndISO = ss.reduce((latest, s) => {
-    if (!s.endTime) return latest;
-    return !latest || s.endTime > latest ? s.endTime : latest;
-  }, '');
+  const longestSession = ss.reduce<ShiftSession | null>((best, s) => {
+    if (!s.endTime) return best;
+    const dur = new Date(s.endTime).getTime() - new Date(s.startTime).getTime();
+    if (!best || !best.endTime) return s;
+    const bestDur = new Date(best.endTime).getTime() - new Date(best.startTime).getTime();
+    return dur > bestDur ? s : best;
+  }, null);
   const timeRangeStr = firstSession
     ? format(new Date(firstSession.startTime), 'HH:mm') +
-      (lastEndISO ? '–' + format(new Date(lastEndISO), 'HH:mm') : '+')
+      (longestSession?.endTime ? '–' + format(new Date(longestSession.endTime), 'HH:mm') : '+')
     : '';
 
   // Avg trip duration
@@ -123,37 +129,46 @@ export async function generateAndShareDailyCard(
   const grabExtra = Math.max(0, grabAll.length - 5);
   const boltExtra = Math.max(0, boltAll.length - 5);
 
-  // Subtotals (ALL trips for that platform, driverNet only — no tips)
+  // Subtotals (driverNet only — tips shown separately)
   const grabSubtotal = grabAll.reduce((s, e) => s + (e.driverNet || 0), 0);
   const boltSubtotal = boltAll.reduce((s, e) => s + (e.driverNet || 0), 0);
+  const grabTips     = grabAll.reduce((s, e) => s + (e.tip || 0), 0);
+  const boltTips     = boltAll.reduce((s, e) => s + (e.tip || 0), 0);
 
   // For single-platform fallback
   const singleRows     = hasBoth ? [] : (grabRows.length ? grabRows : boltRows);
   const singleExtra    = hasBoth ? 0  : (grabExtra || boltExtra);
   const singleSubtotal = hasBoth ? 0  : (grabSubtotal || boltSubtotal);
+  const singleTips     = hasBoth ? 0  : (grabTips || boltTips);
   const singleColor    = hasBoth ? GREEN : (grabAll.length ? GREEN : VIOLET);
+
+  // Tip subtotal rows (only drawn when tips > 0)
+  const TIP_SUBTOTAL_H = 26;
+  const hasDualTips   = hasBoth && (grabTips > 0 || boltTips > 0);
+  const hasSingleTips = !hasBoth && singleTips > 0;
+  const tipSubtotalH  = (hasDualTips || hasSingleTips) ? TIP_SUBTOTAL_H : 0;
 
   // ── Layout constants ──────────────────────────────────────────────────────
   const HEADER_H   = 66;
   const HERO_H     = 110;
-  const STATS_H    = 80;
+  const STATS_H    = 88;   // slightly taller to fit time-range sub-label
   const SUBTOTAL_H = 38;
   const FOOTER_H   = 48;
 
   // Dual-platform section heights
   const COL_HDR_H  = 32;
-  const TRIP_H_D   = 40;
+  const TRIP_H_D   = 42;   // slightly taller to fit tip line
   const MORE_H_D   = (hasBoth && (grabExtra > 0 || boltExtra > 0)) ? 26 : 0;
   const dualRows   = Math.max(grabRows.length, boltRows.length);
 
   // Single-platform section heights
   const SEC_LBL_H = 34;
-  const TRIP_H_S  = 44;
+  const TRIP_H_S  = 46;   // slightly taller to fit tip line
   const MORE_H_S  = (!hasBoth && singleExtra > 0) ? 32 : 0;
 
   const tripSection = hasBoth
-    ? COL_HDR_H + dualRows * TRIP_H_D + MORE_H_D + SUBTOTAL_H
-    : SEC_LBL_H + singleRows.length * TRIP_H_S + MORE_H_S + SUBTOTAL_H;
+    ? COL_HDR_H + dualRows * TRIP_H_D + MORE_H_D + SUBTOTAL_H + tipSubtotalH
+    : SEC_LBL_H + singleRows.length * TRIP_H_S + MORE_H_S + SUBTOTAL_H + tipSubtotalH;
 
   const totalH = HEADER_H + HERO_H + STATS_H + tripSection + FOOTER_H;
 
@@ -250,7 +265,7 @@ export async function generateAndShareDailyCard(
   const cellW = W / 3;
   statCells.forEach((cell, i) => {
     const cx  = cellW * i + cellW / 2;
-    const mid = y + STATS_H / 2;
+    const mid = y + STATS_H / 2 - 4;
     if (i > 0) { ctx.fillStyle = DIVIDER; ctx.fillRect(cellW * i, y + 14, 1, STATS_H - 28); }
     ctx.fillStyle    = WHITE;
     ctx.font         = `bold 20px ${MONO}`;
@@ -259,12 +274,12 @@ export async function generateAndShareDailyCard(
     ctx.fillText(cell.val, cx, mid + 4);
     ctx.fillStyle = GRAY;
     ctx.font      = `9px ${SANS}`;
-    ctx.fillText(cell.lbl.toUpperCase(), cx, mid + 22);
+    ctx.fillText(cell.lbl.toUpperCase(), cx, mid + 20);
     // Time-range sub-label (online cell only)
     if (cell.sub) {
       ctx.fillStyle = 'rgba(255,255,255,0.22)';
       ctx.font      = `8px ${MONO}`;
-      ctx.fillText(cell.sub, cx, mid + 35);
+      ctx.fillText(cell.sub, cx, mid + 34);
     }
   });
   ctx.textAlign    = 'left';
@@ -274,23 +289,20 @@ export async function generateAndShareDailyCard(
   // ── TRIP SECTION ──────────────────────────────────────────────────────────
   if (hasBoth) {
     // ── DUAL PLATFORM ────────────────────────────────────────────────────────
-    // Column boundaries
-    const MID   = W / 2;
-    const L0    = PAD;        // grab col left edge
-    const L1    = MID - 5;   // grab col right edge
-    const R0    = MID + 5;   // bolt col left edge
-    const R1    = W - PAD;   // bolt col right edge
+    const MID = W / 2;
+    const L0  = PAD;        // grab col left edge
+    const L1  = MID - 5;   // grab col right edge
+    const R0  = MID + 5;   // bolt col left edge
+    const R1  = W - PAD;   // bolt col right edge
 
     // Column headers
     const drawColHeader = (
       label: string, count: number, x0: number, x1: number, color: string,
     ) => {
-      // platform name
       ctx.fillStyle    = color;
       ctx.font         = `bold 11px ${SANS}`;
       ctx.textBaseline = 'middle';
       ctx.fillText(label, x0 + 10, y + COL_HDR_H / 2);
-      // trip count badge
       const cntStr = `${count} ${lang === 'th' ? 'รอบ' : 'trips'}`;
       ctx.fillStyle = 'rgba(255,255,255,0.30)';
       ctx.font      = `9px ${SANS}`;
@@ -322,13 +334,16 @@ export async function generateAndShareDailyCard(
         ctx.fillStyle = GRAY_DIM;
         ctx.fillRect(x0, rowY, x1 - x0, rowH);
       }
-      if (!e) return; // empty cell (one column has fewer rows)
+      if (!e) return;
 
-      const rowMid = rowY + rowH / 2;
+      const hasTip = (e.tip ?? 0) > 0;
+      // Shift content up when tip is shown so both lines fit
+      const shift = hasTip ? -4 : 0;
+      const rowMid = rowY + rowH / 2 + shift;
 
       // dot
       ctx.beginPath();
-      ctx.arc(x0 + 6, rowMid, 3.5, 0, Math.PI * 2);
+      ctx.arc(x0 + 6, rowY + rowH / 2, 3.5, 0, Math.PI * 2);
       ctx.fillStyle = color;
       ctx.fill();
 
@@ -336,21 +351,30 @@ export async function generateAndShareDailyCard(
       ctx.fillStyle    = 'rgba(255,255,255,0.75)';
       ctx.font         = `10px ${SANS}`;
       ctx.textBaseline = 'alphabetic';
-      ctx.fillText(orderLabel(e, lang), x0 + 15, rowMid - 3);
+      ctx.fillText(orderLabel(e, lang), x0 + 15, rowMid - 2);
 
       // time
       const timeStr = format(new Date(e.timestamp), 'HH:mm');
       ctx.fillStyle = GRAY;
       ctx.font      = `9px ${MONO}`;
-      ctx.fillText(timeStr, x0 + 15, rowMid + 11);
+      ctx.fillText(timeStr, x0 + 15, rowMid + 10);
 
-      // amount (right-aligned in column)
+      // driverNet (right-aligned, top)
       const amtStr = `฿${Math.round(e.driverNet || 0)}`;
       ctx.fillStyle    = WHITE;
       ctx.font         = `bold 11px ${MONO}`;
       ctx.textAlign    = 'right';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(amtStr, x1, rowMid);
+      ctx.textBaseline = 'alphabetic';
+      ctx.fillText(amtStr, x1, rowMid - 2);
+
+      // tip (right-aligned, bottom, yellow)
+      if (hasTip) {
+        const tipStr = `+฿${Math.round(e.tip!)} tip`;
+        ctx.fillStyle = YELLOW;
+        ctx.font      = `8px ${MONO}`;
+        ctx.fillText(tipStr, x1, rowMid + 11);
+      }
+
       ctx.textAlign    = 'left';
       ctx.textBaseline = 'alphabetic';
 
@@ -362,8 +386,8 @@ export async function generateAndShareDailyCard(
     for (let i = 0; i < dualRows; i++) {
       const rowY  = y + i * TRIP_H_D;
       const isAlt = i % 2 === 0;
-      drawDualRow(grabRows[i] ?? null, rowY, TRIP_H_D, L0, L1, GREEN,   isAlt);
-      drawDualRow(boltRows[i] ?? null, rowY, TRIP_H_D, R0, R1, VIOLET,  isAlt);
+      drawDualRow(grabRows[i] ?? null, rowY, TRIP_H_D, L0, L1, GREEN,  isAlt);
+      drawDualRow(boltRows[i] ?? null, rowY, TRIP_H_D, R0, R1, VIOLET, isAlt);
     }
     y += dualRows * TRIP_H_D;
 
@@ -388,7 +412,7 @@ export async function generateAndShareDailyCard(
       y += MORE_H_D;
     }
 
-    // Subtotal row
+    // driverNet subtotal row
     const drawSubtotal = (
       subtotal: number, x0: number, x1: number, color: string,
     ) => {
@@ -411,6 +435,31 @@ export async function generateAndShareDailyCard(
     drawSubtotal(boltSubtotal, R0, R1, VIOLET);
     y += SUBTOTAL_H;
 
+    // Tips subtotal row (only if any tips exist)
+    if (hasDualTips) {
+      const drawTipSubtotal = (tipAmt: number, x0: number, x1: number) => {
+        ctx.fillStyle    = 'rgba(245,197,24,0.06)';
+        ctx.fillRect(x0, y, x1 - x0, TIP_SUBTOTAL_H);
+        const lbl = lang === 'th' ? 'ทิปรวม' : 'Tips';
+        ctx.fillStyle    = 'rgba(245,197,24,0.55)';
+        ctx.font         = `bold 8px ${SANS}`;
+        ctx.textBaseline = 'middle';
+        ctx.fillText(lbl.toUpperCase(), x0 + 10, y + TIP_SUBTOTAL_H / 2);
+        if (tipAmt > 0) {
+          const tipStr = `+฿${Math.round(tipAmt)}`;
+          ctx.fillStyle = YELLOW;
+          ctx.font      = `bold 11px ${MONO}`;
+          ctx.textAlign = 'right';
+          ctx.fillText(tipStr, x1, y + TIP_SUBTOTAL_H / 2);
+          ctx.textAlign = 'left';
+        }
+        ctx.textBaseline = 'alphabetic';
+      };
+      drawTipSubtotal(grabTips, L0, L1);
+      drawTipSubtotal(boltTips, R0, R1);
+      y += TIP_SUBTOTAL_H;
+    }
+
   } else {
     // ── SINGLE PLATFORM ───────────────────────────────────────────────────────
     const secLbl = lang === 'th'
@@ -426,8 +475,9 @@ export async function generateAndShareDailyCard(
     y += SEC_LBL_H;
 
     singleRows.forEach((e, i) => {
-      const rowY  = y + i * TRIP_H_S;
+      const rowY   = y + i * TRIP_H_S;
       const rowMid = rowY + TRIP_H_S / 2;
+      const hasTip = (e.tip ?? 0) > 0;
 
       if (i % 2 === 0) { ctx.fillStyle = GRAY_DIM; ctx.fillRect(0, rowY, W, TRIP_H_S); }
 
@@ -437,7 +487,7 @@ export async function generateAndShareDailyCard(
       ctx.fillStyle = singleColor;
       ctx.fill();
 
-      // platform + order
+      // platform + order type (top line)
       const platName = grabAll.length ? 'Grab' : 'Bolt';
       ctx.fillStyle    = singleColor;
       ctx.font         = `bold 11px ${SANS}`;
@@ -448,30 +498,36 @@ export async function generateAndShareDailyCard(
       ctx.font      = `11px ${SANS}`;
       ctx.fillText(` · ${orderLabel(e, lang)}`, PAD + 14 + platW, rowMid - 3);
 
-      // time
+      // time + duration (bottom line)
       const timeStr = format(new Date(e.timestamp), 'HH:mm');
       ctx.fillStyle = GRAY;
       ctx.font      = `10px ${MONO}`;
-      ctx.fillText(timeStr, PAD + 14, rowMid + 14);
-
-      // duration
+      ctx.fillText(timeStr, PAD + 14, rowMid + 13);
       if (e.tripDuration && e.tripDuration > 0) {
-        const tw  = ctx.measureText(timeStr).width;
+        const tw = ctx.measureText(timeStr).width;
         ctx.fillStyle = 'rgba(0,242,96,0.55)';
         ctx.font      = `bold 10px ${MONO}`;
-        ctx.fillText(`  ⏱ ${fmtDur(e.tripDuration)}`, PAD + 14 + tw, rowMid + 14);
+        ctx.fillText(`  ⏱ ${fmtDur(e.tripDuration)}`, PAD + 14 + tw, rowMid + 13);
       }
 
-      // amount (driverNet only, no tip)
+      // driverNet (top-right)
       const amtStr = `฿${Math.round(e.driverNet || 0)}`;
       ctx.fillStyle    = WHITE;
       ctx.font         = `bold 13px ${MONO}`;
       ctx.textAlign    = 'right';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(amtStr, W - PAD, rowMid);
+      ctx.textBaseline = 'alphabetic';
+      ctx.fillText(amtStr, W - PAD, rowMid - 3);
+
+      // tip (bottom-right, yellow)
+      if (hasTip) {
+        const tipStr = `+฿${Math.round(e.tip!)} tip`;
+        ctx.fillStyle = YELLOW;
+        ctx.font      = `bold 10px ${MONO}`;
+        ctx.fillText(tipStr, W - PAD, rowMid + 13);
+      }
+
       ctx.textAlign    = 'left';
       ctx.textBaseline = 'alphabetic';
-
       ctx.fillStyle = DIVIDER;
       ctx.fillRect(PAD, rowY + TRIP_H_S - 1, W - PAD * 2, 1);
     });
@@ -492,7 +548,7 @@ export async function generateAndShareDailyCard(
       y += MORE_H_S;
     }
 
-    // Subtotal row
+    // driverNet subtotal row
     ctx.fillStyle = 'rgba(255,255,255,0.05)';
     ctx.fillRect(0, y, W, SUBTOTAL_H);
     const subLbl = lang === 'th' ? 'รวมรายรับ' : 'Total Income';
@@ -508,6 +564,25 @@ export async function generateAndShareDailyCard(
     ctx.textAlign    = 'left';
     ctx.textBaseline = 'alphabetic';
     y += SUBTOTAL_H;
+
+    // Tips subtotal row (only if tips exist)
+    if (hasSingleTips) {
+      ctx.fillStyle = 'rgba(245,197,24,0.06)';
+      ctx.fillRect(0, y, W, TIP_SUBTOTAL_H);
+      const tipLbl = lang === 'th' ? 'ทิปรวม' : 'Tips Total';
+      ctx.fillStyle    = 'rgba(245,197,24,0.55)';
+      ctx.font         = `bold 8px ${SANS}`;
+      ctx.textBaseline = 'middle';
+      ctx.fillText(tipLbl.toUpperCase(), PAD, y + TIP_SUBTOTAL_H / 2);
+      const tipAmtStr = `+฿${Math.round(singleTips)}`;
+      ctx.fillStyle    = YELLOW;
+      ctx.font         = `bold 12px ${MONO}`;
+      ctx.textAlign    = 'right';
+      ctx.fillText(tipAmtStr, W - PAD, y + TIP_SUBTOTAL_H / 2);
+      ctx.textAlign    = 'left';
+      ctx.textBaseline = 'alphabetic';
+      y += TIP_SUBTOTAL_H;
+    }
   }
 
   // ── FOOTER ────────────────────────────────────────────────────────────────
