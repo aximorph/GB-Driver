@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { ShiftSession, Entry, ShiftStatus, Intensive } from '@/lib/types';
 import { getSessions, saveSessions, getActiveSession, getProfile, getPendingIntensives, savePendingIntensives, clearPendingIntensives } from '@/lib/storage';
 import { isGoogleConnected, backupDataToDrive, scheduleMidnightExpiry } from '@/lib/googleDrive';
+import { getAuthMode, setAuthMode, isGuestMode } from '@/lib/auth';
+import AuthChoiceModal from './AuthChoiceModal';
 import { goOnline, goOffline, initPresence, updatePresence, subscribeToOnlineCounts, type ProvinceCount } from '@/lib/presence';
 import { getProvinceLabel } from '@/lib/provinces';
 import { format } from 'date-fns';
@@ -84,6 +86,8 @@ export default function Dashboard() {
   const [showEndShift, setShowEndShift] = useState(false);
   const [showLoginAlert, setShowLoginAlert] = useState(false);
   const [showSessionExpiredAlert, setShowSessionExpiredAlert] = useState(false);
+  const [showAuthChoice, setShowAuthChoice] = useState(false);
+  const [showGuestBackupAlert, setShowGuestBackupAlert] = useState(false);
   const [isBackingUp, setIsBackingUp] = useState(false);
   const [deleteEntryPending, setDeleteEntryPending] = useState<string | null>(null);
   const [editEntryPending, setEditEntryPending] = useState<Entry | null>(null);
@@ -232,11 +236,11 @@ export default function Dashboard() {
   };
 
   const startShift = () => {
-    // ต้อง login Google ก่อน
-    if (!isGoogleConnected()) {
-      setShowLoginAlert(true);
-      return;
-    }
+    const authMode = getAuthMode();
+    // No auth mode chosen yet — show choice modal
+    if (authMode === null) { setShowAuthChoice(true); return; }
+    // Google mode but token missing — session expired
+    if (authMode === 'google' && !isGoogleConnected()) { setShowLoginAlert(true); return; }
 
     // ── Collect any pending intensive bonuses from PREVIOUS days only ────────
     const pending = getPendingIntensives();
@@ -343,8 +347,8 @@ export default function Dashboard() {
     if (timerIntervalRef.current) { clearInterval(timerIntervalRef.current); timerIntervalRef.current = null; }
     setTimerRunning(false); setTimerPaused(false); setTimerDone(false);
 
-    // ── Auto backup OUTSIDE setSessions (side-effects must not live in updaters)
-    if (isGoogleConnected()) {
+    // ── Auto backup (Google mode only)
+    if (!isGuestMode() && isGoogleConnected()) {
       setIsBackingUp(true);
       backupDataToDrive()
         .then(() => {
@@ -488,7 +492,7 @@ export default function Dashboard() {
             )}
           </button>
           <button onClick={() => {
-            if (!isGoogleConnected()) { setShowSessionExpiredAlert(true); return; }
+            if (!isGuestMode() && !isGoogleConnected()) { setShowSessionExpiredAlert(true); return; }
             setShowEndShift(true);
           }} className="flex-1 py-4 rounded-xl bg-destructive text-white font-bold text-sm shadow-lg shadow-destructive/20 hover:scale-[1.02] transition-transform">
             {t('dash_end_shift')}
@@ -762,6 +766,26 @@ export default function Dashboard() {
         onConfirm={() => { setShowLoginAlert(false); navigate('/profile'); }}
         onCancel={() => setShowLoginAlert(false)}
       />
+      {showAuthChoice && (
+        <AuthChoiceModal
+          onSelectGoogle={() => { setShowAuthChoice(false); navigate('/profile'); }}
+          onSelectGuest={() => {
+            setAuthMode('guest');
+            setShowAuthChoice(false);
+          }}
+          onClose={() => setShowAuthChoice(false)}
+        />
+      )}
+      <SweetAlert
+        show={showGuestBackupAlert}
+        icon="warning"
+        title={t('auth_guest_backup_title')}
+        description={t('auth_guest_backup_desc')}
+        confirmText={t('auth_switch_to_google')}
+        cancelText={t('dash_cancel')}
+        onConfirm={() => { setShowGuestBackupAlert(false); navigate('/profile'); }}
+        onCancel={() => setShowGuestBackupAlert(false)}
+      />
       <SweetAlert
         show={showSessionExpiredAlert}
         icon="warning"
@@ -823,7 +847,14 @@ export default function Dashboard() {
   const header = (
     <div className="flex items-center justify-between">
       <div>
-        <h1 className="text-3xl font-extrabold bg-gradient-to-r from-[#00f260] to-primary bg-clip-text text-transparent drop-shadow-sm">GB-Driver</h1>
+        <div className="flex items-center gap-2">
+          <h1 className="text-3xl font-extrabold bg-gradient-to-r from-[#00f260] to-primary bg-clip-text text-transparent drop-shadow-sm">GB-Driver</h1>
+          {isGuestMode() && (
+            <span className="text-[9px] font-black px-2 py-0.5 rounded-md bg-warning/15 border border-warning/30 text-warning tracking-widest">
+              {t('auth_guest_badge')}
+            </span>
+          )}
+        </div>
         <p className="text-sm text-muted-foreground mt-1">{format(new Date(), 'EEEE, MMM d, yyyy')}</p>
       </div>
       {/* Online drivers badge */}

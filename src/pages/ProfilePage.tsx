@@ -2,9 +2,10 @@ import { useState, useEffect } from 'react';
 import { DriverProfile, Intensive, IntensiveTier, IntensiveCountsFor } from '@/lib/types';
 import { THAI_PROVINCES } from '@/lib/provinces';
 import { getProfile, saveProfile, saveSessions, getSessions } from '@/lib/storage';
-import { Zap, Fuel, Cloud, CheckCircle2, LogIn, RefreshCw, LogOut, Download, Trash2, Plus, Target, Gift, X, ChevronRight, Clock3, Globe, CalendarDays, Timer } from 'lucide-react';
+import { Zap, Fuel, Cloud, CheckCircle2, LogIn, RefreshCw, LogOut, Download, Trash2, Plus, Target, Gift, X, ChevronRight, Clock3, Globe, CalendarDays, Timer, UserX, ShieldAlert } from 'lucide-react';
 import { format } from 'date-fns';
 import { initGoogleIdentity, requestGoogleLogin, backupDataToDrive, restoreFromDrive, isGoogleConnected, disconnectGoogle } from '@/lib/googleDrive';
+import { getAuthMode, setAuthMode, isGuestMode } from '@/lib/auth';
 import SweetAlert from '@/components/SweetAlert';
 import { useLang, useT } from '@/context/LangContext';
 import type { Lang } from '@/lib/i18n';
@@ -342,6 +343,7 @@ export default function ProfilePage() {
   const handleGoogleConnect = async () => {
     try {
       await requestGoogleLogin();
+      setAuthMode('google');
       setGoogleConnected(true);
 
       // Auto-restore ONLY when this device has no local data at all.
@@ -368,7 +370,7 @@ export default function ProfilePage() {
     }
   };
 
-  const handleGoogleDisconnect = () => { disconnectGoogle(); setGoogleConnected(false); };
+  const handleGoogleDisconnect = () => { disconnectGoogle(); setAuthMode(null); setGoogleConnected(false); };
 
   const handleManualSync = async () => {
     setIsSyncing(true);
@@ -666,7 +668,35 @@ export default function ProfilePage() {
         <Cloud size={20} className="text-primary" />
         <h3 className="text-sm font-bold tracking-widest text-muted-foreground uppercase">{t('profile_gdrive_title')}</h3>
       </div>
-      {!googleConnected ? (
+
+      {/* ── Guest mode status ── */}
+      {isGuestMode() && !googleConnected && (
+        <div className="space-y-3">
+          <div className="flex items-start gap-3 p-3.5 bg-warning/8 rounded-2xl border border-warning/20">
+            <UserX size={20} className="text-warning shrink-0 mt-0.5" />
+            <div>
+              <p className="text-sm font-bold text-warning">{t('auth_guest_option')}</p>
+              <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">{t('auth_guest_status_desc')}</p>
+            </div>
+          </div>
+          <button onClick={handleGoogleConnect}
+            className="w-full flex items-center justify-center gap-3 bg-white text-black py-3.5 rounded-2xl font-bold text-sm hover:bg-gray-200 transition-colors">
+            <LogIn size={18} /> {t('auth_switch_to_google')}
+          </button>
+          <div className="flex items-start gap-2 px-1">
+            <ShieldAlert size={12} className="text-muted-foreground shrink-0 mt-0.5" />
+            <p className="text-[11px] text-muted-foreground leading-relaxed">
+              {t('profile_gdrive_legal_prefix')}{' '}
+              <a href="/privacy" target="_blank" rel="noopener noreferrer" className="underline hover:text-white transition-colors">{t('profile_gdrive_privacy')}</a>
+              {' '}{t('profile_gdrive_legal_and')}{' '}
+              <a href="/terms" target="_blank" rel="noopener noreferrer" className="underline hover:text-white transition-colors">{t('profile_gdrive_terms')}</a>
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* ── Not logged in (no auth mode) ── */}
+      {!isGuestMode() && !googleConnected && (
         <div className="flex flex-col gap-3">
           <p className="text-xs font-medium text-muted-foreground">{t('profile_gdrive_desc')}</p>
           <button onClick={handleGoogleConnect}
@@ -680,7 +710,10 @@ export default function ProfilePage() {
             <a href="/terms" target="_blank" rel="noopener noreferrer" className="underline hover:text-white transition-colors">{t('profile_gdrive_terms')}</a>
           </p>
         </div>
-      ) : (
+      )}
+
+      {/* ── Google connected ── */}
+      {googleConnected && (
         <div className="space-y-4">
           <div className="flex items-center justify-between p-3 bg-primary/10 rounded-2xl border border-primary/20">
             <div className="flex items-center gap-3">
