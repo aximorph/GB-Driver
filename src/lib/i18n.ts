@@ -273,6 +273,7 @@ export const translations = {
     profile_clear_data_btn: 'Clear All Local Data',
     profile_save_btn: 'Save Changes',
     profile_saved_btn: '✓ Saved!',
+    profile_saved_backed_btn: '✓ Saved & Backed Up!',
     profile_language_title: 'Language',
 
     // Intensive modal
@@ -314,6 +315,12 @@ export const translations = {
     alert_restore_failed: 'Failed to restore from Google Drive.',
     alert_backup_failed: 'Failed to backup to Google Drive.',
     alert_google_failed: 'Failed to connect to Google Drive.',
+
+    // ── Trip Value Toast ────────────────────────────────────────────────────────
+    toast_trip_good: '🔥 Great trip!',
+    toast_trip_low: 'Below average',
+    toast_per_min: '฿/min',
+    toast_avg: 'avg',
   },
 
   th: {
@@ -586,6 +593,7 @@ export const translations = {
     profile_clear_data_btn: 'ล้างข้อมูลทั้งหมด',
     profile_save_btn: 'บันทึกการเปลี่ยนแปลง',
     profile_saved_btn: '✓ บันทึกแล้ว!',
+    profile_saved_backed_btn: '✓ บันทึก & สำรองแล้ว!',
     profile_language_title: 'ภาษา',
 
     // Intensive modal
@@ -627,6 +635,12 @@ export const translations = {
     alert_restore_failed: 'กู้ข้อมูลจาก Google Drive ไม่สำเร็จ',
     alert_backup_failed: 'สำรองข้อมูลไปยัง Google Drive ไม่สำเร็จ',
     alert_google_failed: 'เชื่อมต่อ Google Drive ไม่สำเร็จ',
+
+    // ── Trip Value Toast ────────────────────────────────────────────────────────
+    toast_trip_good: '🔥 ออเดอร์ดี!',
+    toast_trip_low: 'ต่ำกว่าเฉลี่ย',
+    toast_per_min: '฿/นาที',
+    toast_avg: 'เฉลี่ย',
   },
 } as const;
 

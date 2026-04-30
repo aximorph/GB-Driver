@@ -308,6 +308,8 @@ export default function ProfilePage() {
   );
 
   const [saved, setSaved] = useState(false);
+  const [backingUpAfterSave, setBackingUpAfterSave] = useState(false);
+  const [savedAndBacked, setSavedAndBacked] = useState(false);
   const [googleConnected, setGoogleConnected] = useState(isGoogleConnected());
   const [isSyncing, setIsSyncing] = useState(false);
   const [isRestoring, setIsRestoring] = useState(false);
@@ -320,7 +322,7 @@ export default function ProfilePage() {
 
   useEffect(() => { initGoogleIdentity(); }, []);
 
-  const handleSave = () => {
+  const handleSave = async () => {
     const updated: DriverProfile = {
       vehicleType,
       fuelType: vehicleType === 'petrol' ? fuelType : undefined,
@@ -337,6 +339,23 @@ export default function ProfilePage() {
     setLang(selectedLang); // Apply language change app-wide
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
+
+    // Auto-backup when in Google mode
+    if (!isGuestMode() && isGoogleConnected()) {
+      setBackingUpAfterSave(true);
+      try {
+        await backupDataToDrive();
+        const syncTime = new Date().toISOString();
+        localStorage.setItem('gdrive_last_sync', syncTime);
+        setLastSync(syncTime);
+        setSavedAndBacked(true);
+        setTimeout(() => setSavedAndBacked(false), 2500);
+      } catch (err) {
+        console.warn('Auto backup after save failed:', err);
+      } finally {
+        setBackingUpAfterSave(false);
+      }
+    }
   };
 
   // ── Google Drive handlers ──────────────────────────────────────────────────
@@ -761,11 +780,23 @@ export default function ProfilePage() {
   const saveButton = (
     <button
       onClick={handleSave}
-      className={`w-full py-4 rounded-2xl font-extrabold text-base transition-all shadow-lg hover:scale-[1.02] ${
-        saved ? 'bg-primary/20 text-primary border border-primary/20 shadow-none' : 'bg-gradient-to-r from-primary to-[#00b050] text-white shadow-primary/20'
+      disabled={backingUpAfterSave}
+      className={`w-full py-4 rounded-2xl font-extrabold text-base transition-all shadow-lg hover:scale-[1.02] disabled:opacity-70 disabled:cursor-not-allowed disabled:hover:scale-100 ${
+        savedAndBacked
+          ? 'bg-primary/20 text-primary border border-primary/20 shadow-none'
+          : saved
+            ? 'bg-primary/20 text-primary border border-primary/20 shadow-none'
+            : 'bg-gradient-to-r from-primary to-[#00b050] text-white shadow-primary/20'
       }`}
     >
-      {saved ? t('profile_saved_btn') : t('profile_save_btn')}
+      {backingUpAfterSave
+        ? t('profile_gdrive_backing_up')
+        : savedAndBacked
+          ? t('profile_saved_backed_btn')
+          : saved
+            ? t('profile_saved_btn')
+            : t('profile_save_btn')
+      }
     </button>
   );
 

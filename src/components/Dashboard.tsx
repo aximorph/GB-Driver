@@ -97,6 +97,7 @@ export default function Dashboard() {
   const [editEntryPending, setEditEntryPending] = useState<Entry | null>(null);
   const [collapsedIntensives, setCollapsedIntensives] = useState<Set<string>>(new Set());
   const [intensiveToast, setIntensiveToast] = useState<{ count: number; total: number } | null>(null);
+  const [tripValueToast, setTripValueToast] = useState<{ netPerMin: number; avgPerMin: number } | null>(null);
   const toggleIntensive = (id: string) => setCollapsedIntensives(prev => {
     const next = new Set(prev);
     next.has(id) ? next.delete(id) : next.add(id);
@@ -789,6 +790,39 @@ export default function Dashboard() {
             setShowAddEntry(false);
             setPendingTripDuration(undefined);
             setPendingTripStartTime(undefined);
+
+            // Task 2: Reset move timer when an income trip is added
+            if (entry.type === 'income' && timerRunning) {
+              resetMoveTimer();
+            }
+
+            // Task 3: Trip value toast (only for real trips with duration, >7 days of history)
+            if (
+              entry.type === 'income' &&
+              !entry.note?.startsWith('Intensive:') &&
+              (entry.tripDuration ?? 0) > 0 &&
+              (entry.driverNet ?? 0) > 0
+            ) {
+              const allSessions = getSessions();
+              const distinctDates = new Set(allSessions.map(s => s.date));
+              if (distinctDates.size > 7) {
+                const allEntries = allSessions.flatMap(s => s.entries);
+                const tripsWithDuration = allEntries.filter(e =>
+                  e.type === 'income' &&
+                  !e.note?.startsWith('Intensive:') &&
+                  (e.tripDuration ?? 0) > 0 &&
+                  (e.driverNet ?? 0) > 0,
+                );
+                if (tripsWithDuration.length > 0) {
+                  const avgPerMin = tripsWithDuration.reduce(
+                    (sum, e) => sum + (e.driverNet ?? 0) / ((e.tripDuration ?? 1) / 60), 0,
+                  ) / tripsWithDuration.length;
+                  const netPerMin = (entry.driverNet ?? 0) / ((entry.tripDuration ?? 1) / 60);
+                  setTripValueToast({ netPerMin, avgPerMin });
+                  setTimeout(() => setTripValueToast(null), 5000);
+                }
+              }
+            }
           }}
           onClose={() => {
             setShowAddEntry(false);
@@ -903,6 +937,23 @@ export default function Dashboard() {
           </div>
         </div>
       )}
+      {tripValueToast && (() => {
+        const isGood = tripValueToast.netPerMin >= tripValueToast.avgPerMin;
+        return (
+          <div className={`fixed bottom-28 left-1/2 -translate-x-1/2 w-max max-w-[320px] bg-card/95 backdrop-blur-xl border rounded-2xl px-4 py-3 shadow-2xl flex items-center gap-3 z-50 animate-in fade-in slide-in-from-bottom-2 duration-300 ${isGood ? 'border-primary/30' : 'border-white/10'}`}>
+            <span className="text-xl shrink-0">{isGood ? '🔥' : '📉'}</span>
+            <div>
+              <p className={`text-xs font-extrabold ${isGood ? 'text-primary' : 'text-muted-foreground'}`}>
+                {isGood ? t('toast_trip_good') : t('toast_trip_low')}
+              </p>
+              <p className="text-[11px] text-white font-mono mt-0.5">
+                ฿{tripValueToast.netPerMin.toFixed(1)} {t('toast_per_min')}
+                <span className="text-muted-foreground"> · {t('toast_avg')} ฿{tripValueToast.avgPerMin.toFixed(1)}</span>
+              </p>
+            </div>
+          </div>
+        );
+      })()}
     </>
   );
 
