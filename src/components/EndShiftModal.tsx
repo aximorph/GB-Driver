@@ -20,12 +20,19 @@ export default function EndShiftModal({ session, onConfirm, onClose }: Props) {
   const t = useT();
   const [grabPayout, setGrabPayout] = useState('');
 
-  const calcGross = session.entries
-    .filter(e => e.type === 'income')
+  // Only Grab trips — excludes bolt, vip, etc, and intensive bonuses
+  const grabCalc = session.entries
+    .filter(e =>
+      e.type === 'income' &&
+      !e.note?.startsWith('Intensive:') &&
+      e.platform !== 'bolt' &&
+      e.platform !== 'vip' &&
+      e.platform !== 'etc',
+    )
     .reduce((sum, e) => sum + (e.driverNet || 0), 0);
 
   const payoutNum = parseFloat(grabPayout) || 0;
-  const diff = payoutNum - calcGross;
+  const diff      = Math.round(payoutNum - grabCalc); // round to avoid float dust
 
   // ── Time breakdown ─────────────────────────────────────────────────────────
   const now = new Date();
@@ -45,30 +52,39 @@ export default function EndShiftModal({ session, onConfirm, onClose }: Props) {
       <div className="w-full max-w-[430px] bg-card border border-border rounded-xl p-5 space-y-4 max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
         <h2 className="text-lg font-bold text-foreground">{t('end_title')}</h2>
 
-        <div className="bg-secondary rounded-lg p-3 text-center">
-          <p className="text-xs text-muted-foreground">{t('end_calc_gross')}</p>
-          <p className="font-mono text-2xl font-bold text-primary">฿{calcGross.toFixed(0)}</p>
-        </div>
-
-        <div>
-          <label className="text-xs text-muted-foreground mb-1 block">{t('end_grab_payout')}</label>
-          <div className="relative">
-            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">฿</span>
-            <input
-              type="number"
-              value={grabPayout}
-              onChange={e => setGrabPayout(e.target.value)}
-              className="w-full bg-secondary text-foreground rounded-lg p-2.5 pl-8 text-sm font-mono border border-border"
-              placeholder="0"
-            />
+        {/* Grab calculated vs payout comparison */}
+        <div className="grid grid-cols-2 gap-2">
+          <div className="bg-secondary rounded-xl p-3 text-center">
+            <p className="text-[10px] text-muted-foreground leading-tight mb-1">{t('end_calc_grab_only')}</p>
+            <p className="font-mono text-xl font-bold text-primary">฿{grabCalc.toFixed(0)}</p>
+          </div>
+          <div className="bg-secondary rounded-xl p-3 space-y-1.5">
+            <p className="text-[10px] text-muted-foreground">{t('end_grab_payout')}</p>
+            <div className="relative">
+              <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground text-xs">฿</span>
+              <input
+                type="number"
+                value={grabPayout}
+                onChange={e => setGrabPayout(e.target.value)}
+                className="w-full bg-black/20 text-foreground rounded-lg py-1.5 pl-6 pr-2 text-sm font-mono border border-white/10 outline-none focus:border-primary/40 transition-colors"
+                placeholder="0"
+              />
+            </div>
           </div>
         </div>
 
-        {payoutNum > 0 && (
-          <div className={`rounded-lg p-2 text-center ${diff >= 0 ? 'bg-primary/10 border border-primary/20' : 'bg-destructive/10 border border-destructive/20'}`}>
-            <span className={`font-mono font-bold text-sm ${diff >= 0 ? 'text-primary' : 'text-destructive'}`}>
-              {t('end_difference')} {diff >= 0 ? '+' : ''}฿{diff.toFixed(0)}
-            </span>
+        {/* Difference + auto-save hint */}
+        {payoutNum > 0 && diff !== 0 && (
+          <div className={`rounded-xl p-3 space-y-1.5 ${diff > 0 ? 'bg-primary/8 border border-primary/20' : 'bg-destructive/8 border border-destructive/20'}`}>
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-muted-foreground">{t('end_difference')}</span>
+              <span className={`font-mono font-bold text-base ${diff > 0 ? 'text-primary' : 'text-destructive'}`}>
+                {diff > 0 ? '+' : ''}฿{diff}
+              </span>
+            </div>
+            <p className="text-[11px] text-muted-foreground leading-relaxed">
+              {t('end_adjustment_hint')}
+            </p>
           </div>
         )}
 

@@ -334,10 +334,45 @@ export default function Dashboard() {
       }
       savePendingIntensives(existingPending);
 
-      // ── Close out the session (no bonus entries added here) ────────────────
+      // ── Income adjustment if Grab payout ≠ Grab-calculated ──────────────────
+      const adjustmentEntries = (() => {
+        if (grabPayout <= 0) return [];
+        const grabCalc = activeSession.entries
+          .filter(e =>
+            e.type === 'income' &&
+            !e.note?.startsWith('Intensive:') &&
+            e.platform !== 'bolt' &&
+            e.platform !== 'vip' &&
+            e.platform !== 'etc',
+          )
+          .reduce((sum, e) => sum + (e.driverNet || 0), 0);
+        const diff = Math.round(grabPayout - grabCalc);
+        if (diff === 0) return [];
+        const adjEntry = {
+          id: generateId(),
+          sessionId: activeSession.id,
+          timestamp: new Date().toISOString(),
+          type: 'income' as const,
+          platform: 'etc' as const,
+          appFare: 0,
+          customerPaid: 0,
+          tip: 0,
+          driverNet: diff,
+          amount: diff,
+          note: '⚖️ ' + (diff > 0 ? '+' : '') + diff + ' — การปรับรายได้',
+        };
+        return [adjEntry];
+      })();
+
+      // ── Close out the session ─────────────────────────────────────────────
       const updated = prev.map(s =>
         s.id === activeSession.id
-          ? { ...s, endTime: new Date().toISOString(), grabPayoutAmount: grabPayout }
+          ? {
+              ...s,
+              endTime: new Date().toISOString(),
+              grabPayoutAmount: grabPayout,
+              entries: [...s.entries, ...adjustmentEntries],
+            }
           : s
       );
       saveSessions(updated);

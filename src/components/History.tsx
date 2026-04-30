@@ -400,8 +400,12 @@ export default function History() {
 
                         {/* Right: amount + edit + delete */}
                         <div className="flex items-center gap-1 shrink-0">
-                          <span className="font-mono text-sm font-bold text-white mr-1">
-                            ฿{isIncome ? (e.driverNet || 0).toFixed(0) : e.amount.toFixed(0)}
+                          <span className={`font-mono text-sm font-bold mr-1 ${
+                            isIncome && (e.driverNet || 0) < 0 ? 'text-destructive' : 'text-white'
+                          }`}>
+                            {isIncome
+                              ? `฿${(e.driverNet || 0).toFixed(0)}`
+                              : `-฿${e.amount.toFixed(0)}`}
                           </span>
                           <button
                             onClick={() => setEditEntryPending(e)}

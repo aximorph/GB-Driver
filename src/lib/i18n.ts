@@ -159,9 +159,11 @@ export const translations = {
 
     // ── EndShiftModal ──────────────────────────────────────────────────────────
     end_title: 'End Shift',
-    end_calc_gross: 'Calculated Gross Earnings',
-    end_grab_payout: 'Grab payout amount (from app)',
+    end_calc_grab_only: 'Grab Calculated (trips only)',
+    end_grab_payout: 'Grab payout (from app)',
     end_difference: 'Difference:',
+    end_adjustment_hint: 'This difference will be saved automatically as an income adjustment.',
+    end_adjustment_note: 'Income Adjustment',
     end_cancel: 'Cancel',
     end_confirm: 'Confirm & End',
 
@@ -470,9 +472,11 @@ export const translations = {
 
     // ── EndShiftModal ──────────────────────────────────────────────────────────
     end_title: 'จบกะ',
-    end_calc_gross: 'รายรับรวม (คำนวณ)',
-    end_grab_payout: 'ยอดที่ Grab โอน (จากแอป)',
+    end_calc_grab_only: 'Grab คำนวณได้ (เฉพาะงานขับ)',
+    end_grab_payout: 'Grab โอนจริง (จากแอป)',
     end_difference: 'ส่วนต่าง:',
+    end_adjustment_hint: 'ส่วนต่างนี้จะถูกบันทึกเป็น "การปรับรายได้" อัตโนมัติ',
+    end_adjustment_note: 'การปรับรายได้',
     end_cancel: 'ยกเลิก',
     end_confirm: 'ยืนยัน & จบกะ',
 
