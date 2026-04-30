@@ -11,6 +11,7 @@ import { format } from 'date-fns';
 import { Trash2, Pencil, DollarSign, Receipt, Gift, Clock3, Users, ChevronDown, Timer } from 'lucide-react';
 import AddEntryModal from './AddEntryModal';
 import TripTimerDialog from './TripTimerDialog';
+import ClaimEntryDialog from './ClaimEntryDialog';
 import EndShiftModal from './EndShiftModal';
 import MoveTimerModal from './MoveTimerModal';
 import SweetAlert from './SweetAlert';
@@ -36,6 +37,8 @@ function countEligibleTrips(entries: Entry[], intensive: Intensive): number {
     if (e.type !== 'income') return false;
     if (e.note?.startsWith('Intensive:')) return false;
     if (e.platform === 'bolt') return false; // Bolt never counts
+    if (e.platform === 'vip')  return false; // VIP (direct) never counts
+    if (e.platform === 'etc')  return false; // misc/claim never counts
     if (cf === 'ride') return (e.orderType === 'ride' || !e.orderType);
     if (cf === 'express') return e.orderType === 'express';
     return true; // 'all' — any Grab order
@@ -88,6 +91,7 @@ export default function Dashboard() {
   const [showSessionExpiredAlert, setShowSessionExpiredAlert] = useState(false);
   const [showAuthChoice, setShowAuthChoice] = useState(false);
   const [showGuestBackupAlert, setShowGuestBackupAlert] = useState(false);
+  const [showClaimEntry, setShowClaimEntry] = useState(false);
   const [isBackingUp, setIsBackingUp] = useState(false);
   const [deleteEntryPending, setDeleteEntryPending] = useState<string | null>(null);
   const [editEntryPending, setEditEntryPending] = useState<Entry | null>(null);
@@ -650,12 +654,24 @@ export default function Dashboard() {
                 <div className="flex items-center gap-1.5 flex-wrap">
                   <h4 className="font-bold text-sm text-foreground">
                     {entry.type === 'income'
-                      ? entry.note?.startsWith('Intensive:') ? entry.note : (entry.orderType === 'express' ? t('dash_express') : t('dash_taxi'))
+                      ? entry.note?.startsWith('Intensive:')
+                        ? entry.note
+                        : entry.platform === 'vip' || entry.platform === 'etc'
+                        ? (entry.note || (entry.platform === 'vip' ? t('dash_vip') : t('dash_etc')))
+                        : (entry.orderType === 'express' ? t('dash_express') : t('dash_taxi'))
                       : (entry.expenseCategory || t('dash_expenses'))}
                   </h4>
                   {entry.type === 'income' && !entry.note?.startsWith('Intensive:') && (
-                    <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-md uppercase ${entry.platform === 'bolt' ? 'bg-violet-500/20 text-violet-400 border border-violet-500/20' : 'bg-primary/15 text-primary border border-primary/20'}`}>
-                      {entry.platform === 'bolt' ? t('dash_bolt') : t('dash_grab')}
+                    <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-md uppercase ${
+                      entry.platform === 'bolt' ? 'bg-violet-500/20 text-violet-400 border border-violet-500/20'
+                      : entry.platform === 'vip' ? 'bg-pink-500/20 text-pink-400 border border-pink-500/20'
+                      : entry.platform === 'etc' ? 'bg-amber-400/15 text-amber-400 border border-amber-400/20'
+                      : 'bg-primary/15 text-primary border border-primary/20'
+                    }`}>
+                      {entry.platform === 'bolt' ? t('dash_bolt')
+                       : entry.platform === 'vip' ? t('dash_vip')
+                       : entry.platform === 'etc' ? t('dash_etc')
+                       : t('dash_grab')}
                     </span>
                   )}
                 </div>
@@ -720,6 +736,11 @@ export default function Dashboard() {
             setAddEntryType('expense');
             setShowAddEntry(true);
           }}
+          onClaim={() => {
+            setShowTripTimer(false);
+            setTripTimerAutoStart(false);
+            setShowClaimEntry(true);
+          }}
           onClose={() => { setShowTripTimer(false); setTripTimerAutoStart(false); }}
         />
       )}
@@ -739,6 +760,12 @@ export default function Dashboard() {
             setPendingTripDuration(undefined);
             setPendingTripStartTime(undefined);
           }}
+        />
+      )}
+      {showClaimEntry && (
+        <ClaimEntryDialog
+          onSave={(entry) => { addEntry(entry); setShowClaimEntry(false); }}
+          onClose={() => setShowClaimEntry(false)}
         />
       )}
       {editEntryPending && (

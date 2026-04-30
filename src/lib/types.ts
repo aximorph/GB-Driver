@@ -43,8 +43,8 @@ export interface Entry {
   sessionId: string;
   timestamp: string;
   type: 'income' | 'expense';
-  platform?: 'grab' | 'bolt';   // income only, default grab
-  orderType?: 'ride' | 'express'; // income only, default ride
+  platform?: 'grab' | 'bolt' | 'vip' | 'etc';  // income only; vip=direct, etc=misc/claim
+  orderType?: 'ride' | 'express'; // income only, default ride (unused for vip/etc)
   appFare?: number;
   customerPaid?: number;
   tip?: number;

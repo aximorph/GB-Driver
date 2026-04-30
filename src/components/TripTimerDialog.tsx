@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { CheckCircle2, XCircle, Receipt } from 'lucide-react';
+import { CheckCircle2, XCircle, Receipt, Coins } from 'lucide-react';
 import { useT } from '@/context/LangContext';
 
 // ── Persist active trip timer across tab switches / page reloads ──────────────
@@ -18,6 +18,7 @@ function clearTimer() {
 interface Props {
   onEndTrip: (tripDuration: number, tripStartTime: string) => void;
   onExpense: () => void;
+  onClaim: () => void;
   onClose: () => void;
   autoStart?: boolean; // start immediately on mount (from "รับงาน" button)
 }
@@ -29,7 +30,7 @@ function formatStopwatch(secs: number): string {
   return h > 0 ? `${h}:${m}:${s}` : `${m}:${s}`;
 }
 
-export default function TripTimerDialog({ onEndTrip, onExpense, onClose, autoStart }: Props) {
+export default function TripTimerDialog({ onEndTrip, onExpense, onClaim, onClose, autoStart }: Props) {
   const t = useT();
 
   // ── Initialise from localStorage (survives tab switch / reload) ──────────
@@ -129,13 +130,22 @@ export default function TripTimerDialog({ onEndTrip, onExpense, onClose, autoSta
             >
               {t('timer_start')}
             </button>
-            <button
-              onClick={onExpense}
-              className="w-full py-3.5 rounded-2xl bg-secondary border border-white/5 text-muted-foreground hover:text-white hover:border-white/10 font-bold text-sm transition-all flex items-center justify-center gap-2"
-            >
-              <Receipt size={16} />
-              {t('timer_add_expense')}
-            </button>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                onClick={onExpense}
+                className="py-3.5 rounded-2xl bg-secondary border border-white/5 text-muted-foreground hover:text-white hover:border-white/10 font-bold text-sm transition-all flex items-center justify-center gap-2"
+              >
+                <Receipt size={15} />
+                {t('timer_add_expense')}
+              </button>
+              <button
+                onClick={onClaim}
+                className="py-3.5 rounded-2xl bg-secondary border border-white/5 text-muted-foreground hover:text-amber-400 hover:border-amber-400/30 font-bold text-sm transition-all flex items-center justify-center gap-2"
+              >
+                <Coins size={15} />
+                {t('timer_add_claim')}
+              </button>
+            </div>
           </div>
         ) : (
           <div className="grid grid-cols-2 gap-3">

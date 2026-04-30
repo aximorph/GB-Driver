@@ -47,7 +47,7 @@ export default function AddEntryModal({
 
   // In edit mode seed state from the existing entry
   const [type, setType] = useState<'income' | 'expense'>(editEntry?.type ?? initialType);
-  const [platform, setPlatform] = useState<'grab' | 'bolt'>(editEntry?.platform ?? 'grab');
+  const [platform, setPlatform] = useState<'grab' | 'bolt' | 'vip' | 'etc'>(editEntry?.platform ?? 'grab');
   const [orderType, setOrderType] = useState<'ride' | 'express'>(editEntry?.orderType ?? 'ride');
   const [appFare, setAppFare] = useState(editEntry?.appFare?.toString() ?? '');
   // customerPaid: only pre-fill if it differs from appFare (tip scenario)
@@ -70,6 +70,8 @@ export default function AddEntryModal({
 
   const profile = getProfile();
   const isFuelSelected = type === 'expense' && expenseCategory === 'Fuel';
+  const isVIP = type === 'income' && platform === 'vip';
+  const isEtc = type === 'income' && platform === 'etc';
 
   useEffect(() => {
     if (!isFuelSelected) {
@@ -101,6 +103,24 @@ export default function AddEntryModal({
 
   const handleSave = () => {
     if (type === 'income') {
+      // VIP / etc: only driverNet matters, no app fare or tip
+      if (isVIP || isEtc) {
+        const net = parseFloat(driverReceived) || 0;
+        if (!net) return;
+        const payload: Omit<Entry, 'id' | 'sessionId' | 'timestamp'> = {
+          type,
+          platform,
+          appFare: 0,
+          customerPaid: 0,
+          tip: 0,
+          driverNet: net,
+          amount: net,
+          note,
+        };
+        if (isEditMode && onUpdate) { onUpdate(editEntry!.id, payload); }
+        else { onSave(payload); }
+        return;
+      }
       if (!fareNum) return;
       const payload: Omit<Entry, 'id' | 'sessionId' | 'timestamp'> = {
         type,
@@ -188,19 +208,25 @@ export default function AddEntryModal({
 
           {type === 'income' ? (
             <div className="space-y-2.5">
-              {/* Platform + Order Type */}
-              <div className="flex gap-2">
-                <div className="flex bg-secondary/60 p-1 rounded-xl border border-white/5 gap-1 flex-1">
-                  {(['grab', 'bolt'] as const).map(p => (
-                    <button key={p} onClick={() => setPlatform(p)}
-                      className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                        platform === p ? 'bg-primary/20 text-primary border border-primary/30' : 'text-muted-foreground hover:text-white'
-                      }`}>
-                      {p === 'grab' ? t('add_grab') : t('add_bolt')}
-                    </button>
-                  ))}
-                </div>
-                <div className="flex bg-secondary/60 p-1 rounded-xl border border-white/5 gap-1 flex-1">
+              {/* Platform selector — Grab · Bolt · VIP */}
+              <div className="flex bg-secondary/60 p-1 rounded-xl border border-white/5 gap-1">
+                {([
+                  { value: 'grab' as const, label: t('add_grab'), cls: 'text-primary border-primary/30 bg-primary/20' },
+                  { value: 'bolt' as const, label: t('add_bolt'), cls: 'text-violet-400 border-violet-400/30 bg-violet-400/15' },
+                  { value: 'vip'  as const, label: t('add_vip'),  cls: 'text-pink-400 border-pink-400/30 bg-pink-400/15' },
+                ]).map(p => (
+                  <button key={p.value} onClick={() => setPlatform(p.value)}
+                    className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                      platform === p.value ? `${p.cls} border` : 'text-muted-foreground hover:text-white'
+                    }`}>
+                    {p.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Order type selector — hidden for VIP/etc */}
+              {!isVIP && !isEtc && (
+                <div className="flex bg-secondary/60 p-1 rounded-xl border border-white/5 gap-1">
                   {([
                     { value: 'ride' as const, labelKey: 'add_taxi' as const },
                     { value: 'express' as const, labelKey: 'add_express' as const },
@@ -213,12 +239,14 @@ export default function AddEntryModal({
                     </button>
                   ))}
                 </div>
-              </div>
+              )}
 
-              {/* Express / Bolt notice */}
-              {(orderType === 'express' || platform === 'bolt') && (
+              {/* Warning: no intensive */}
+              {(orderType === 'express' || platform === 'bolt' || isVIP) && (
                 <p className="text-[11px] text-warning/80 px-1">
-                  ⚠ {orderType === 'express' && platform === 'bolt'
+                  ⚠ {isVIP
+                    ? t('add_vip_warn')
+                    : orderType === 'express' && platform === 'bolt'
                     ? t('add_bolt_express_warn')
                     : orderType === 'express'
                     ? t('add_express_only_warn')
@@ -226,40 +254,52 @@ export default function AddEntryModal({
                 </p>
               )}
 
-              {/* App Fare + Customer Paid */}
-              <div className="grid grid-cols-2 gap-2">
-                <InputField label={t('add_app_fare')} prefix="฿" value={appFare} onChange={setAppFare} />
-                <InputField
-                  label={t('add_customer_paid')}
-                  prefix="฿"
-                  value={customerPaid}
-                  onChange={setCustomerPaid}
-                  placeholder={fareNum > 0 ? fareNum.toFixed(0) : '0'}
-                />
-              </div>
-
-              {/* Driver Received + Save inline */}
-              <div className="flex gap-2 items-end">
-                <div className="flex-1">
-                  <InputField label={t('add_driver_received')} prefix="฿" value={driverReceived} onChange={setDriverReceived} />
+              {/* VIP / etc: simplified — only driverNet */}
+              {(isVIP || isEtc) ? (
+                <div className="flex gap-2 items-end">
+                  <div className="flex-1">
+                    <InputField label={t('add_vip_driver_received')} prefix="฿" value={driverReceived} onChange={setDriverReceived} />
+                  </div>
+                  {saveBtn}
                 </div>
-                {saveBtn}
-              </div>
+              ) : (
+                <>
+                  {/* App Fare + Customer Paid */}
+                  <div className="grid grid-cols-2 gap-2">
+                    <InputField label={t('add_app_fare')} prefix="฿" value={appFare} onChange={setAppFare} />
+                    <InputField
+                      label={t('add_customer_paid')}
+                      prefix="฿"
+                      value={customerPaid}
+                      onChange={setCustomerPaid}
+                      placeholder={fareNum > 0 ? fareNum.toFixed(0) : '0'}
+                    />
+                  </div>
 
-              {/* Tip + App deduction */}
-              {(tip > 0 || (fareNum > 0 && driverNet > 0 && appDeducted > 0)) && (
-                <div className="flex items-center gap-3 px-1">
-                  {tip > 0 && (
-                    <span className="text-xs font-mono font-bold text-warning">
-                      {t('add_tip_label')} +฿{tip.toFixed(0)}
-                    </span>
+                  {/* Driver Received + Save inline */}
+                  <div className="flex gap-2 items-end">
+                    <div className="flex-1">
+                      <InputField label={t('add_driver_received')} prefix="฿" value={driverReceived} onChange={setDriverReceived} />
+                    </div>
+                    {saveBtn}
+                  </div>
+
+                  {/* Tip + App deduction */}
+                  {(tip > 0 || (fareNum > 0 && driverNet > 0 && appDeducted > 0)) && (
+                    <div className="flex items-center gap-3 px-1">
+                      {tip > 0 && (
+                        <span className="text-xs font-mono font-bold text-warning">
+                          {t('add_tip_label')} +฿{tip.toFixed(0)}
+                        </span>
+                      )}
+                      {fareNum > 0 && driverNet > 0 && appDeducted > 0 && (
+                        <span className="text-xs font-mono text-destructive/80">
+                          {t('add_app_deducted')} ฿{appDeducted.toFixed(0)} ({appDeductedPct.toFixed(1)}%)
+                        </span>
+                      )}
+                    </div>
                   )}
-                  {fareNum > 0 && driverNet > 0 && appDeducted > 0 && (
-                    <span className="text-xs font-mono text-destructive/80">
-                      {t('add_app_deducted')} ฿{appDeducted.toFixed(0)} ({appDeductedPct.toFixed(1)}%)
-                    </span>
-                  )}
-                </div>
+                </>
               )}
             </div>
           ) : (

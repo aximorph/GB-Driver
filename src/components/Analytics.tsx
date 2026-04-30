@@ -144,7 +144,7 @@ export default function Analytics() {
     };
 
     const all  = calc(inc);
-    const grab = calc(inc.filter(e => e.platform !== 'bolt'));
+    const grab = calc(inc.filter(e => e.platform !== 'bolt' && e.platform !== 'vip' && e.platform !== 'etc'));
     const bolt = calc(inc.filter(e => e.platform === 'bolt'));
 
     return { all, grab, bolt };

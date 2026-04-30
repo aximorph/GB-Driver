@@ -10,6 +10,7 @@ import { ShiftSession, Entry } from './types';
 const BG       = '#0a0f0a';
 const GREEN    = '#00f260';
 const VIOLET   = '#8b5cf6';
+const PINK     = '#ec4899';   // VIP colour
 const YELLOW   = '#f5c518';   // tip colour
 const WHITE    = '#ffffff';
 const GRAY     = 'rgba(255,255,255,0.38)';
@@ -118,34 +119,53 @@ export async function generateAndShareDailyCard(
   const avgDurStr = avgDurSecs > 0 ? fmtDur(avgDurSecs) : '—';
 
   // ── Platform split ────────────────────────────────────────────────────────
-  const grabAll = [...incomeTrips].filter(e => e.platform !== 'bolt').sort(byNetDesc);
+  // 'etc' entries are included in totals/stats but never shown as a column
+  const grabAll = [...incomeTrips].filter(e => !e.platform || (e.platform !== 'bolt' && e.platform !== 'vip' && e.platform !== 'etc')).sort(byNetDesc);
   const boltAll = [...incomeTrips].filter(e => e.platform === 'bolt').sort(byNetDesc);
+  const vipAll  = [...incomeTrips].filter(e => e.platform === 'vip').sort(byNetDesc);
 
-  const hasBoth = grabAll.length > 0 && boltAll.length > 0;
+  // Top-2 platforms by trip count (only platforms with data)
+  const platforms = [
+    { key: 'grab' as const, data: grabAll, color: GREEN,  label: 'Grab'  },
+    { key: 'bolt' as const, data: boltAll, color: VIOLET, label: 'Bolt'  },
+    { key: 'vip'  as const, data: vipAll,  color: PINK,   label: 'VIP'   },
+  ].filter(p => p.data.length > 0)
+   .sort((a, b) => b.data.length - a.data.length)
+   .slice(0, 2);
 
-  // Top 5 displayed per platform
-  const grabRows  = grabAll.slice(0, 5);
-  const boltRows  = boltAll.slice(0, 5);
-  const grabExtra = Math.max(0, grabAll.length - 5);
-  const boltExtra = Math.max(0, boltAll.length - 5);
+  const hasDual = platforms.length === 2;
 
-  // Subtotals (driverNet only — tips shown separately)
-  const grabSubtotal = grabAll.reduce((s, e) => s + (e.driverNet || 0), 0);
-  const boltSubtotal = boltAll.reduce((s, e) => s + (e.driverNet || 0), 0);
-  const grabTips     = grabAll.reduce((s, e) => s + (e.tip || 0), 0);
-  const boltTips     = boltAll.reduce((s, e) => s + (e.tip || 0), 0);
+  // For each active platform
+  const platA = platforms[0] ?? null;
+  const platB = platforms[1] ?? null;
 
-  // For single-platform fallback
-  const singleRows     = hasBoth ? [] : (grabRows.length ? grabRows : boltRows);
-  const singleExtra    = hasBoth ? 0  : (grabExtra || boltExtra);
-  const singleSubtotal = hasBoth ? 0  : (grabSubtotal || boltSubtotal);
-  const singleTips     = hasBoth ? 0  : (grabTips || boltTips);
-  const singleColor    = hasBoth ? GREEN : (grabAll.length ? GREEN : VIOLET);
+  const rowsA  = platA?.data.slice(0, 5) ?? [];
+  const rowsB  = platB?.data.slice(0, 5) ?? [];
+  const extraA = platA ? Math.max(0, platA.data.length - 5) : 0;
+  const extraB = platB ? Math.max(0, platB.data.length - 5) : 0;
+
+  const subtotalA = platA?.data.reduce((s, e) => s + (e.driverNet || 0), 0) ?? 0;
+  const subtotalB = platB?.data.reduce((s, e) => s + (e.driverNet || 0), 0) ?? 0;
+  const tipsA     = platA?.data.reduce((s, e) => s + (e.tip || 0), 0) ?? 0;
+  const tipsB     = platB?.data.reduce((s, e) => s + (e.tip || 0), 0) ?? 0;
+
+  // Legacy aliases for single-platform path
+  const grabSubtotal = subtotalA;
+  const boltSubtotal = subtotalB;
+  const grabTips     = tipsA;
+  const boltTips     = tipsB;
+
+  // Single-platform
+  const singleRows     = hasDual ? [] : rowsA;
+  const singleExtra    = hasDual ? 0  : extraA;
+  const singleSubtotal = hasDual ? 0  : subtotalA;
+  const singleTips     = hasDual ? 0  : tipsA;
+  const singleColor    = hasDual ? GREEN : (platA?.color ?? GREEN);
 
   // Tip subtotal rows (only drawn when tips > 0)
   const TIP_SUBTOTAL_H = 26;
-  const hasDualTips   = hasBoth && (grabTips > 0 || boltTips > 0);
-  const hasSingleTips = !hasBoth && singleTips > 0;
+  const hasDualTips   = hasDual && (grabTips > 0 || boltTips > 0);
+  const hasSingleTips = !hasDual && singleTips > 0;
   const tipSubtotalH  = (hasDualTips || hasSingleTips) ? TIP_SUBTOTAL_H : 0;
 
   // ── Layout constants ──────────────────────────────────────────────────────
@@ -158,15 +178,15 @@ export async function generateAndShareDailyCard(
   // Dual-platform section heights
   const COL_HDR_H  = 32;
   const TRIP_H_D   = 42;   // slightly taller to fit tip line
-  const MORE_H_D   = (hasBoth && (grabExtra > 0 || boltExtra > 0)) ? 26 : 0;
-  const dualRows   = Math.max(grabRows.length, boltRows.length);
+  const MORE_H_D   = (hasDual && (extraA > 0 || extraB > 0)) ? 26 : 0;
+  const dualRows   = Math.max(rowsA.length, rowsB.length);
 
   // Single-platform section heights
   const SEC_LBL_H = 34;
   const TRIP_H_S  = 46;   // slightly taller to fit tip line
-  const MORE_H_S  = (!hasBoth && singleExtra > 0) ? 32 : 0;
+  const MORE_H_S  = (!hasDual && singleExtra > 0) ? 32 : 0;
 
-  const tripSection = hasBoth
+  const tripSection = hasDual
     ? COL_HDR_H + dualRows * TRIP_H_D + MORE_H_D + SUBTOTAL_H + tipSubtotalH
     : SEC_LBL_H + singleRows.length * TRIP_H_S + MORE_H_S + SUBTOTAL_H + tipSubtotalH;
 
@@ -287,7 +307,7 @@ export async function generateAndShareDailyCard(
   y += STATS_H;
 
   // ── TRIP SECTION ──────────────────────────────────────────────────────────
-  if (hasBoth) {
+  if (hasDual) {
     // ── DUAL PLATFORM ────────────────────────────────────────────────────────
     const MID = W / 2;
     const L0  = PAD;        // grab col left edge
@@ -311,8 +331,8 @@ export async function generateAndShareDailyCard(
       ctx.textAlign = 'left';
     };
 
-    drawColHeader('Grab', grabAll.length, L0, L1, GREEN);
-    drawColHeader('Bolt', boltAll.length, R0, R1, VIOLET);
+    drawColHeader(platA!.label, platA!.data.length, L0, L1, platA!.color);
+    drawColHeader(platB!.label, platB!.data.length, R0, R1, platB!.color);
 
     // Center divider (runs through entire trip section)
     ctx.fillStyle = 'rgba(255,255,255,0.10)';
@@ -386,8 +406,8 @@ export async function generateAndShareDailyCard(
     for (let i = 0; i < dualRows; i++) {
       const rowY  = y + i * TRIP_H_D;
       const isAlt = i % 2 === 0;
-      drawDualRow(grabRows[i] ?? null, rowY, TRIP_H_D, L0, L1, GREEN,  isAlt);
-      drawDualRow(boltRows[i] ?? null, rowY, TRIP_H_D, R0, R1, VIOLET, isAlt);
+      drawDualRow(rowsA[i] ?? null, rowY, TRIP_H_D, L0, L1, platA!.color, isAlt);
+      drawDualRow(rowsB[i] ?? null, rowY, TRIP_H_D, R0, R1, platB!.color, isAlt);
     }
     y += dualRows * TRIP_H_D;
 
@@ -404,8 +424,8 @@ export async function generateAndShareDailyCard(
         ctx.textAlign    = 'left';
         ctx.textBaseline = 'alphabetic';
       };
-      drawMore(grabExtra, L0, L1);
-      drawMore(boltExtra, R0, R1);
+      drawMore(extraA, L0, L1);
+      drawMore(extraB, R0, R1);
       ctx.fillStyle = DIVIDER;
       ctx.fillRect(L0, y + MORE_H_D - 1, L1 - L0, 1);
       ctx.fillRect(R0, y + MORE_H_D - 1, R1 - R0, 1);
@@ -431,8 +451,8 @@ export async function generateAndShareDailyCard(
       ctx.textAlign    = 'left';
       ctx.textBaseline = 'alphabetic';
     };
-    drawSubtotal(grabSubtotal, L0, L1, GREEN);
-    drawSubtotal(boltSubtotal, R0, R1, VIOLET);
+    drawSubtotal(subtotalA, L0, L1, platA!.color);
+    drawSubtotal(subtotalB, R0, R1, platB!.color);
     y += SUBTOTAL_H;
 
     // Tips subtotal row (only if any tips exist)
@@ -455,8 +475,8 @@ export async function generateAndShareDailyCard(
         }
         ctx.textBaseline = 'alphabetic';
       };
-      drawTipSubtotal(grabTips, L0, L1);
-      drawTipSubtotal(boltTips, R0, R1);
+      drawTipSubtotal(tipsA, L0, L1);
+      drawTipSubtotal(tipsB, R0, R1);
       y += TIP_SUBTOTAL_H;
     }
 
@@ -488,7 +508,7 @@ export async function generateAndShareDailyCard(
       ctx.fill();
 
       // platform + order type (top line)
-      const platName = grabAll.length ? 'Grab' : 'Bolt';
+      const platName = platA?.label ?? 'Grab';
       ctx.fillStyle    = singleColor;
       ctx.font         = `bold 11px ${SANS}`;
       ctx.textBaseline = 'alphabetic';
