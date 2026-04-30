@@ -337,7 +337,11 @@ export default function History() {
                             <div className="flex items-center gap-1.5 flex-wrap">
                               <span className="text-xs font-medium text-white">
                                 {isIncome
-                                  ? isBonus ? e.note : (e.orderType === 'express' ? t('add_express') : t('add_taxi'))
+                                  ? isBonus
+                                    ? e.note
+                                    : e.platform === 'vip' || e.platform === 'etc'
+                                    ? (e.note || (e.platform === 'vip' ? t('dash_vip') : t('dash_etc')))
+                                    : (e.orderType === 'express' ? t('add_express') : t('add_taxi'))
                                   : (e.expenseCategory || t('hist_trip_label'))}
                               </span>
                               {/* Platform badge */}
@@ -345,9 +349,16 @@ export default function History() {
                                 <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-md uppercase ${
                                   e.platform === 'bolt'
                                     ? 'bg-violet-500/20 text-violet-400 border border-violet-500/20'
+                                    : e.platform === 'vip'
+                                    ? 'bg-pink-500/20 text-pink-400 border border-pink-500/20'
+                                    : e.platform === 'etc'
+                                    ? 'bg-amber-400/15 text-amber-400 border border-amber-400/20'
                                     : 'bg-primary/15 text-primary border border-primary/20'
                                 }`}>
-                                  {e.platform === 'bolt' ? t('add_bolt') : t('add_grab')}
+                                  {e.platform === 'bolt' ? t('add_bolt')
+                                   : e.platform === 'vip' ? t('add_vip')
+                                   : e.platform === 'etc' ? t('add_etc')
+                                   : t('add_grab')}
                                 </span>
                               )}
                               {/* Tip badge */}
