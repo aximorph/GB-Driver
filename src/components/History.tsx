@@ -7,7 +7,7 @@ import { useT } from '@/context/LangContext';
 import { useIsLandscape } from '@/hooks/useIsLandscape';
 import SweetAlert from './SweetAlert';
 import AddEntryModal from './AddEntryModal';
-import { generateAndShareDailyCard } from '@/lib/shareCard';
+import { generateAndShareDailyCard, generateAndShareWeeklyCard, generateAndShareMonthlyCard } from '@/lib/shareCard';
 
 function formatDuration(secs: number): string {
   const h = Math.floor(secs / 3600);
@@ -19,7 +19,7 @@ function formatDuration(secs: number): string {
 export default function History() {
   const t = useT();
   const isLandscape = useIsLandscape();
-  const [tab, setTab] = useState<'daily' | 'weekly'>('daily');
+  const [tab, setTab] = useState<'daily' | 'weekly' | 'monthly'>('daily');
   const [expandedDate, setExpandedDate] = useState<string | null>(null);
   const [sessions, setSessions] = useState<ShiftSession[]>(() =>
     getSessions().filter(s => s.endTime)
@@ -50,6 +50,16 @@ export default function History() {
       weeks[ws].push(s);
     });
     return Object.entries(weeks).sort((a, b) => b[0].localeCompare(a[0]));
+  }, [sessions]);
+
+  const monthlyData = useMemo(() => {
+    const months: Record<string, ShiftSession[]> = {};
+    sessions.forEach(s => {
+      const mk = s.date.slice(0, 7); // YYYY-MM
+      if (!months[mk]) months[mk] = [];
+      months[mk].push(s);
+    });
+    return Object.entries(months).sort((a, b) => b[0].localeCompare(a[0]));
   }, [sessions]);
 
   const calcStats = (ss: ShiftSession[]) => {
@@ -132,6 +142,32 @@ export default function History() {
     }
   }, [sharingKey]);
 
+  const handleShareWeekly = useCallback(async (weekKey: string, ss: ShiftSession[]) => {
+    if (sharingKey) return;
+    setSharingKey(weekKey);
+    try {
+      const lang = getProfile()?.language ?? 'th';
+      await generateAndShareWeeklyCard(weekKey, ss, lang);
+    } catch (err) {
+      console.error('Weekly share failed:', err);
+    } finally {
+      setSharingKey(null);
+    }
+  }, [sharingKey]);
+
+  const handleShareMonthly = useCallback(async (monthKey: string, ss: ShiftSession[]) => {
+    if (sharingKey) return;
+    setSharingKey(monthKey);
+    try {
+      const lang = getProfile()?.language ?? 'th';
+      await generateAndShareMonthlyCard(monthKey, ss, lang);
+    } catch (err) {
+      console.error('Monthly share failed:', err);
+    } finally {
+      setSharingKey(null);
+    }
+  }, [sharingKey]);
+
   const exportCSV = () => {
     const entries = sessions.flatMap(s => s.entries.map(e => ({ ...e, date: s.date })));
     const header = 'Date,Type,Amount,Tip,Category,Note\n';
@@ -146,7 +182,7 @@ export default function History() {
     a.click();
   };
 
-  const data = tab === 'daily' ? dailyData : weeklyData;
+  const data = tab === 'daily' ? dailyData : tab === 'weekly' ? weeklyData : monthlyData;
 
   return (
     <div className={`p-4 space-y-5 relative animate-in fade-in slide-in-from-bottom-4 duration-500 ${isLandscape ? 'pb-4' : 'pb-28'}`}>
@@ -158,8 +194,8 @@ export default function History() {
         </button>
       </div>
 
-      <div className="grid grid-cols-2 gap-2 bg-secondary/50 p-1.5 rounded-2xl border border-white/5">
-        {(['daily', 'weekly'] as const).map(tabOption => (
+      <div className="grid grid-cols-3 gap-2 bg-secondary/50 p-1.5 rounded-2xl border border-white/5">
+        {(['daily', 'weekly', 'monthly'] as const).map(tabOption => (
           <button
             key={tabOption}
             onClick={() => setTab(tabOption)}
@@ -167,7 +203,7 @@ export default function History() {
               tab === tabOption ? 'bg-primary/20 text-primary shadow-sm scale-[0.98]' : 'text-muted-foreground hover:text-foreground'
             }`}
           >
-            {tabOption === 'daily' ? t('hist_daily') : t('hist_weekly')}
+            {tabOption === 'daily' ? t('hist_daily') : tabOption === 'weekly' ? t('hist_weekly') : t('hist_monthly')}
           </button>
         ))}
       </div>
@@ -256,14 +292,66 @@ export default function History() {
 
                 </div>
               </div>
-            ) : (
-              /* ── Weekly: keep original delete button ── */
+            ) : tab === 'weekly' ? (
+              /* ── Weekly: expand + share + delete ── */
               <div className="flex items-center">
                 <button
                   onClick={() => setExpandedDate(isExpanded ? null : key)}
                   className="flex-1 p-4 flex items-center justify-between text-left hover:bg-white/5 transition-colors"
                 >
                   {rowContent}
+                </button>
+                <button
+                  onClick={() => handleShareWeekly(key, ss)}
+                  disabled={!!sharingKey}
+                  className="shrink-0 p-4 text-muted-foreground hover:text-primary hover:bg-primary/10 transition-all disabled:opacity-40"
+                  title={t('hist_share')}
+                >
+                  {sharingKey === key
+                    ? <Loader2 size={16} className="animate-spin text-primary" />
+                    : <Share2 size={16} />}
+                </button>
+                <button
+                  onClick={e => { e.stopPropagation(); setDeletePeriodPending({ key, ss }); }}
+                  className="p-4 text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-all"
+                >
+                  <Trash2 size={16} />
+                </button>
+              </div>
+            ) : (
+              /* ── Monthly: expand + share + delete ── */
+              <div className="flex items-center">
+                <button
+                  onClick={() => setExpandedDate(isExpanded ? null : key)}
+                  className="flex-1 p-4 flex items-center justify-between text-left hover:bg-white/5 transition-colors"
+                >
+                  <>
+                    <div>
+                      <p className="text-base font-bold text-white">
+                        {format(parseISO(key + '-01'), 'MMMM yyyy')}
+                      </p>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <p className="text-xs font-medium text-primary">{stats.trips} {t('hist_trips')}</p>
+                        {stats.onlineTime && (
+                          <p className="text-xs font-medium text-muted-foreground">· {stats.onlineTime} {t('hist_online')}</p>
+                        )}
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-mono text-lg font-extrabold text-primary drop-shadow-sm">฿{stats.net.toFixed(0)}</p>
+                      <p className="text-xs font-medium text-muted-foreground">{t('hist_net')}</p>
+                    </div>
+                  </>
+                </button>
+                <button
+                  onClick={() => handleShareMonthly(key, ss)}
+                  disabled={!!sharingKey}
+                  className="shrink-0 p-4 text-muted-foreground hover:text-primary hover:bg-primary/10 transition-all disabled:opacity-40"
+                  title={t('hist_share')}
+                >
+                  {sharingKey === key
+                    ? <Loader2 size={16} className="animate-spin text-primary" />
+                    : <Share2 size={16} />}
                 </button>
                 <button
                   onClick={e => { e.stopPropagation(); setDeletePeriodPending({ key, ss }); }}
