@@ -159,7 +159,7 @@ export const translations = {
 
     // ── EndShiftModal ──────────────────────────────────────────────────────────
     end_title: 'End Shift',
-    end_calc_grab_only: 'Grab Calculated (trips only)',
+    end_calc_grab_only: 'Grab App Income (calculated)',
     end_grab_payout: 'Grab payout (from app)',
     end_difference: 'Difference:',
     end_adjustment_hint: 'This difference will be saved automatically as an income adjustment.',
@@ -479,7 +479,7 @@ export const translations = {
 
     // ── EndShiftModal ──────────────────────────────────────────────────────────
     end_title: 'จบกะ',
-    end_calc_grab_only: 'Grab คำนวณได้ (เฉพาะงานขับ)',
+    end_calc_grab_only: 'Grab คำนวณได้ (เฉพาะงานผ่านแอป)',
     end_grab_payout: 'Grab โอนจริง (จากแอป)',
     end_difference: 'ส่วนต่าง:',
     end_adjustment_hint: 'ส่วนต่างนี้จะถูกบันทึกเป็น "การปรับรายได้" อัตโนมัติ',
