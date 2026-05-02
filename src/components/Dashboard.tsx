@@ -264,11 +264,15 @@ export default function Dashboard() {
     }));
 
     const sessionId = generateId();
+    // Snapshot enabled intensives at shift start — used by endShift so that
+    // changes in Settings mid-shift don't affect the bonus calculation.
+    const intensivesSnapshot = (getProfile()?.intensives ?? []).filter(i => i.enabled !== false);
     const session: ShiftSession = {
       id: sessionId,
       date: today,
       startTime: new Date().toISOString(),
       entries: bonusEntries.map(e => ({ ...e, sessionId })),
+      intensivesSnapshot,
     };
 
     const updated = [...sessions, session];
@@ -283,7 +287,7 @@ export default function Dashboard() {
     // Show toast if bonuses were added
     if (bonusEntries.length > 0) {
       const total = readyToAdd.reduce((s, p) => s + p.amount, 0);
-      setIntensiveToast({ count: pending.length, total });
+      setIntensiveToast({ count: readyToAdd.length, total });
       setTimeout(() => setIntensiveToast(null), 4000);
     }
 
@@ -314,24 +318,30 @@ export default function Dashboard() {
 
     setSessions(prev => {
       // ── Queue intensive bonuses as PENDING (Grab pays them next day) ───────
-      const allTodayEntries = prev
-        .filter(s => s.date === today)
+      // Use activeSession.date (not closure's `today`) — more robust for cross-midnight shifts.
+      const shiftDate = activeSession.date;
+      const allShiftDayEntries = prev
+        .filter(s => s.date === shiftDate)
         .flatMap(s => s.entries);
 
-      const todayIntensivesNow = (getProfile()?.intensives ?? []).filter(i => i.enabled !== false);
+      // Use the snapshot taken at shift START — immune to mid-shift Settings changes.
+      // Fall back to current profile only for old sessions that predate the snapshot field.
+      const intensivesToEvaluate =
+        activeSession.intensivesSnapshot ??
+        (getProfile()?.intensives ?? []).filter(i => i.enabled !== false);
       const existingPending = getPendingIntensives();
 
-      for (const intensive of todayIntensivesNow) {
-        const eligible = countEligibleTrips(allTodayEntries, intensive);
+      for (const intensive of intensivesToEvaluate) {
+        const eligible = countEligibleTrips(allShiftDayEntries, intensive);
         const bonus = getEarnedBonus(intensive, eligible);
         if (bonus <= 0) continue;
 
         // Skip if already pending or already recorded as an entry
-        const alreadyPending = existingPending.some(p => p.name === intensive.name && p.earnedDate === today);
-        const alreadyEntry = allTodayEntries.some(e => e.note?.startsWith(`Intensive: ${intensive.name}`));
+        const alreadyPending = existingPending.some(p => p.name === intensive.name && p.earnedDate === shiftDate);
+        const alreadyEntry = allShiftDayEntries.some(e => e.note?.startsWith(`Intensive: ${intensive.name}`));
         if (alreadyPending || alreadyEntry) continue;
 
-        existingPending.push({ name: intensive.name, amount: bonus, earnedDate: today });
+        existingPending.push({ name: intensive.name, amount: bonus, earnedDate: shiftDate });
       }
       savePendingIntensives(existingPending);
 

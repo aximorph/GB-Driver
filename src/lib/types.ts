@@ -36,6 +36,7 @@ export interface ShiftSession {
   endTime?: string;
   grabPayoutAmount?: number;
   entries: Entry[];
+  intensivesSnapshot?: Intensive[]; // snapshot of enabled intensives at shift start
 }
 
 export interface Entry {
