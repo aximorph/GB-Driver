@@ -187,6 +187,17 @@ export async function generateAndShareDailyCard(
     : 0;
   const avgDurStr = avgDurSecs > 0 ? fmtDur(avgDurSecs) : '—';
 
+  // Working / waiting time (Option C: inline mini bar in online cell)
+  const workingSecs  = withDur.reduce((s, e) => s + (e.tripDuration ?? 0), 0);
+  const waitingSecs  = Math.max(0, totalOnlineSecs - workingSecs);
+  const hasWorkData  = workingSecs > 0 && totalOnlineSecs > 0;
+  const fmtShort = (secs: number): string => {
+    if (secs <= 0) return '0m';
+    const h = Math.floor(secs / 3600);
+    const m = Math.floor((secs % 3600) / 60);
+    return h > 0 ? `${h}h${m}m` : `${m}m`;
+  };
+
   // ── Platform split ────────────────────────────────────────────────────────
   // 'etc' entries are included in totals/stats but never shown as a column
   const grabAll = [...incomeTrips].filter(e => !e.platform || (e.platform !== 'bolt' && e.platform !== 'vip' && e.platform !== 'etc')).sort(byNetDesc);
@@ -240,7 +251,7 @@ export async function generateAndShareDailyCard(
   // ── Layout constants ──────────────────────────────────────────────────────
   const HEADER_H        = 66;
   const HERO_H          = 110;
-  const STATS_H         = 88;   // slightly taller to fit time-range sub-label
+  const STATS_H         = 93;   // +5px to fit working/waiting mini bar in online cell
   const SUBTOTAL_H      = 38;
   const PLATFORM_BAR_H  = incomeTrips.length > 0 ? 40 : 0;
   const FOOTER_H        = 48;
@@ -354,8 +365,10 @@ export async function generateAndShareDailyCard(
   ];
   const cellW = W / 3;
   statCells.forEach((cell, i) => {
-    const cx  = cellW * i + cellW / 2;
-    const mid = y + STATS_H / 2 - 4;
+    const cx = cellW * i + cellW / 2;
+    // Online cell: shift content up when work data exists, to make room for bar
+    const midOffset = (i === 1 && hasWorkData) ? (STATS_H / 2 - 13) : (STATS_H / 2 - 4);
+    const mid = y + midOffset;
     if (i > 0) { ctx.fillStyle = DIVIDER; ctx.fillRect(cellW * i, y + 14, 1, STATS_H - 28); }
     ctx.fillStyle    = WHITE;
     ctx.font         = `bold 20px ${MONO}`;
@@ -370,6 +383,31 @@ export async function generateAndShareDailyCard(
       ctx.fillStyle = 'rgba(255,255,255,0.22)';
       ctx.font      = `8px ${MONO}`;
       ctx.fillText(cell.sub, cx, mid + 34);
+    }
+    // Working / waiting mini bar (online cell only, when trip duration data exists)
+    if (i === 1 && hasWorkData) {
+      const barW  = 84;
+      const barX  = cx - barW / 2;
+      const barY  = y + 77;
+      const barH  = 3;
+      const workW = Math.max(1, Math.round(barW * workingSecs / totalOnlineSecs));
+      // Background rail (represents waiting time)
+      ctx.fillStyle = 'rgba(255,255,255,0.10)';
+      ctx.fillRect(barX, barY, barW, barH);
+      // Work segment (green)
+      ctx.fillStyle = 'rgba(0,242,96,0.60)';
+      ctx.fillRect(barX, barY, workW, barH);
+      // Labels: "ทำ Xm" left, "รอ Xm" right
+      const workLbl = (lang === 'th' ? 'ทำ ' : 'work ') + fmtShort(workingSecs);
+      const waitLbl = (lang === 'th' ? 'รอ ' : 'wait ') + fmtShort(waitingSecs);
+      ctx.font         = `bold 8px ${MONO}`;
+      ctx.textBaseline = 'alphabetic';
+      ctx.fillStyle    = 'rgba(0,242,96,0.70)';
+      ctx.textAlign    = 'left';
+      ctx.fillText(workLbl, barX, y + 89);
+      ctx.fillStyle = 'rgba(255,255,255,0.32)';
+      ctx.textAlign = 'right';
+      ctx.fillText(waitLbl, barX + barW, y + 89);
     }
   });
   ctx.textAlign    = 'left';
