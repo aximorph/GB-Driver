@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { ShiftSession, Entry, ShiftStatus, Intensive } from '@/lib/types';
 import { getSessions, saveSessions, getActiveSession, getProfile, getPendingIntensives, savePendingIntensives, clearPendingIntensives } from '@/lib/storage';
 import { isGoogleConnected, backupDataToDrive, scheduleMidnightExpiry } from '@/lib/googleDrive';
+import { prefetchFuelPrices } from '@/lib/fuelApi';
 import { getAuthMode, setAuthMode, isGuestMode } from '@/lib/auth';
 import AuthChoiceModal from './AuthChoiceModal';
 import { goOnline, goOffline, initPresence, updatePresence, subscribeToOnlineCounts, type ProvinceCount } from '@/lib/presence';
@@ -493,6 +494,25 @@ export default function Dashboard() {
     const handler = () => setShowLoginAlert(true);
     window.addEventListener('gbdriver:google-disconnected', handler);
     return () => window.removeEventListener('gbdriver:google-disconnected', handler);
+  }, []);
+
+  // Pre-warm fuel price cache on mount, then refresh every day at 00:00
+  useEffect(() => {
+    prefetchFuelPrices();
+    // Schedule a refresh each midnight so the cache stays current
+    function scheduleMidnightFuelRefresh() {
+      const now      = new Date();
+      const midnight = new Date(now);
+      midnight.setHours(24, 0, 0, 0);
+      const msUntilMidnight = midnight.getTime() - now.getTime();
+      return setTimeout(() => {
+        prefetchFuelPrices();
+        // Re-schedule for the next midnight
+        timerId = scheduleMidnightFuelRefresh();
+      }, msUntilMidnight);
+    }
+    let timerId = scheduleMidnightFuelRefresh();
+    return () => clearTimeout(timerId);
   }, []);
 
   // ── Reusable sections ────────────────────────────────────────────────
