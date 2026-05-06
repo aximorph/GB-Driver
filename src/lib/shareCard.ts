@@ -219,10 +219,13 @@ export async function generateAndShareDailyCard(
   const platA = platforms[0] ?? null;
   const platB = platforms[1] ?? null;
 
-  const rowsA  = platA?.data.slice(0, 5) ?? [];
-  const rowsB  = platB?.data.slice(0, 5) ?? [];
-  const extraA = platA ? Math.max(0, platA.data.length - 5) : 0;
-  const extraB = platB ? Math.max(0, platB.data.length - 5) : 0;
+  // Exclude adjustment entries (note starts with '⚖️') from displayed trip rows
+  // They are still counted in subtotals so the total matches Grab's reported number.
+  const isAdj = (e: Entry) => e.note?.startsWith('⚖️') ?? false;
+  const rowsA  = (platA?.data.filter(e => !isAdj(e)) ?? []).slice(0, 5);
+  const rowsB  = (platB?.data.filter(e => !isAdj(e)) ?? []).slice(0, 5);
+  const extraA = platA ? Math.max(0, platA.data.filter(e => !isAdj(e)).length - 5) : 0;
+  const extraB = platB ? Math.max(0, platB.data.filter(e => !isAdj(e)).length - 5) : 0;
 
   const subtotalA = platA?.data.reduce((s, e) => s + (e.driverNet || 0), 0) ?? 0;
   const subtotalB = platB?.data.reduce((s, e) => s + (e.driverNet || 0), 0) ?? 0;

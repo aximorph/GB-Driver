@@ -365,7 +365,7 @@ export default function Dashboard() {
           sessionId: activeSession.id,
           timestamp: new Date().toISOString(),
           type: 'income' as const,
-          platform: 'etc' as const,
+          platform: 'grab' as const,   // belongs to Grab totals (not misc)
           appFare: 0,
           customerPaid: 0,
           tip: 0,
