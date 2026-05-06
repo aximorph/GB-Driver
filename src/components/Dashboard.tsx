@@ -337,9 +337,13 @@ export default function Dashboard() {
         const bonus = getEarnedBonus(intensive, eligible);
         if (bonus <= 0) continue;
 
-        // Skip if already pending or already recorded as an entry
+        // Skip if already pending or already recorded as an entry FOR THIS DATE.
+        // Note: must match the exact date suffix — a same-name bonus from a *previous*
+        // day (added at the start of today's shift) must not block today's entry.
         const alreadyPending = existingPending.some(p => p.name === intensive.name && p.earnedDate === shiftDate);
-        const alreadyEntry = allShiftDayEntries.some(e => e.note?.startsWith(`Intensive: ${intensive.name}`));
+        const alreadyEntry = allShiftDayEntries.some(e =>
+          e.note === `Intensive: ${intensive.name} (${shiftDate})`
+        );
         if (alreadyPending || alreadyEntry) continue;
 
         existingPending.push({ name: intensive.name, amount: bonus, earnedDate: shiftDate });
