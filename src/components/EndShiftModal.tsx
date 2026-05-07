@@ -31,14 +31,17 @@ export default function EndShiftModal({ session, onConfirm, onClose }: Props) {
     )
     .reduce((sum, e) => sum + (e.driverNet || 0), 0);
 
-  // Intensive bonuses added at shift start (from previous day) — Grab bundles
-  // these into today's payout, so we must include them in the comparison total.
+  // Intensive bonuses (prev day) and claim/misc (platform=etc) are both paid
+  // by Grab and bundled into today's payout — include them in the comparison.
   const intensiveCalc = session.entries
     .filter(e => e.type === 'income' && e.note?.startsWith('Intensive:'))
     .reduce((sum, e) => sum + (e.driverNet || 0), 0);
+  const claimCalc = session.entries
+    .filter(e => e.type === 'income' && e.platform === 'etc')
+    .reduce((sum, e) => sum + (e.driverNet || 0), 0);
 
   // The "Grab-calculated" total the user should compare against Grab's app
-  const grabCalc = grabTripsCalc + intensiveCalc;
+  const grabCalc = grabTripsCalc + intensiveCalc + claimCalc;
 
   const payoutNum = parseFloat(grabPayout) || 0;
   const diff      = Math.round(payoutNum - grabCalc); // round to avoid float dust
