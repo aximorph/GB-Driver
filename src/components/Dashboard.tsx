@@ -362,7 +362,13 @@ export default function Dashboard() {
             e.platform !== 'etc',
           )
           .reduce((sum, e) => sum + (e.driverNet || 0), 0);
-        const diff = Math.round(grabPayout - grabCalc);
+        // Intensive bonuses from previous days are already in Grab's payout.
+        // Subtract them so the adjustment covers only the true trip discrepancy —
+        // otherwise they'd be counted twice (as explicit entries + inside the adj).
+        const intensivePaid = activeSession.entries
+          .filter(e => e.type === 'income' && e.note?.startsWith('Intensive:'))
+          .reduce((sum, e) => sum + (e.driverNet || 0), 0);
+        const diff = Math.round(grabPayout - grabCalc - intensivePaid);
         if (diff === 0) return [];
         const adjEntry = {
           id: generateId(),

@@ -72,13 +72,15 @@ function computeCardTotals(ss: ShiftSession[]): CardTotals {
   const bolt  = trips.filter(e => e.platform === 'bolt');
   const vip   = trips.filter(e => e.platform === 'vip');
   const net1  = (arr: Entry[]) => arr.reduce((s, e) => s + (e.driverNet || 0), 0);
-  const grabNet  = net1(grab);
+  // Intensive bonuses belong to Grab (Grab pays them bundled with trips).
+  // Merge them into grabNet so weekly/monthly totals match Grab's displayed amount.
+  const grabNet  = net1(grab) + net1(bonus);
   const boltNet  = net1(bolt);
   const vipNet   = net1(vip);
   const tips     = trips.reduce((s, e) => s + (e.tip || 0), 0);
-  const bonusAmt = net1(bonus);
+  const bonusAmt = net1(bonus);  // kept for reference / platform-bar label
   const expenses = all.filter(e => e.type === 'expense').reduce((s, e) => s + e.amount, 0);
-  const income   = grabNet + boltNet + vipNet + bonusAmt;
+  const income   = grabNet + boltNet + vipNet; // bonus already inside grabNet
   const net      = income + tips - expenses;
   const onlineSecs = ss.reduce((s, sess) => {
     if (!sess.endTime) return s;
@@ -227,10 +229,15 @@ export async function generateAndShareDailyCard(
   const extraA = platA ? Math.max(0, platA.data.filter(e => !isAdj(e)).length - 5) : 0;
   const extraB = platB ? Math.max(0, platB.data.filter(e => !isAdj(e)).length - 5) : 0;
 
-  const subtotalA = platA?.data.reduce((s, e) => s + (e.driverNet || 0), 0) ?? 0;
-  const subtotalB = platB?.data.reduce((s, e) => s + (e.driverNet || 0), 0) ?? 0;
-  const tipsA     = platA?.data.reduce((s, e) => s + (e.tip || 0), 0) ?? 0;
-  const tipsB     = platB?.data.reduce((s, e) => s + (e.tip || 0), 0) ?? 0;
+  // Base subtotals from trip entries only
+  const subtotalATrips = platA?.data.reduce((s, e) => s + (e.driverNet || 0), 0) ?? 0;
+  const subtotalB      = platB?.data.reduce((s, e) => s + (e.driverNet || 0), 0) ?? 0;
+  const tipsA          = platA?.data.reduce((s, e) => s + (e.tip || 0), 0) ?? 0;
+  const tipsB          = platB?.data.reduce((s, e) => s + (e.tip || 0), 0) ?? 0;
+
+  // If the top platform is Grab, add intensive bonuses to its subtotal —
+  // Grab bundles them into today's payout so the column should reflect that.
+  const subtotalA = (platA?.key === 'grab' ? subtotalATrips + bonusAmt : subtotalATrips);
 
   // Legacy aliases for single-platform path
   const grabSubtotal = subtotalA;
@@ -718,7 +725,8 @@ export async function generateAndShareDailyCard(
 
   // ── PLATFORM BREAKDOWN BAR ───────────────────────────────────────────────
   if (PLATFORM_BAR_H > 0) {
-    const grabNetTotal = grabAll.reduce((s, e) => s + (e.driverNet || 0), 0);
+    // Include intensive bonuses in GRAB total — Grab pays them bundled with trips
+    const grabNetTotal = grabAll.reduce((s, e) => s + (e.driverNet || 0), 0) + bonusAmt;
     const boltNetTotal = boltAll.reduce((s, e) => s + (e.driverNet || 0), 0);
     const vipNetTotal  = vipAll.reduce((s, e)  => s + (e.driverNet || 0), 0);
     renderPlatformBar(ctx, y, grabNetTotal, boltNetTotal, vipNetTotal, tips, lang, SANS, MONO);
