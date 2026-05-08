@@ -116,6 +116,11 @@ export default function AddEntryModal({
           driverNet: net,
           amount: net,
           note,
+          // Preserve trip timer data (VIP trips can also be timed)
+          ...(displayTripDuration !== undefined && {
+            tripDuration: displayTripDuration,
+            tripStartTime: displayTripStartTime,
+          }),
         };
         if (isEditMode && onUpdate) { onUpdate(editEntry!.id, payload); }
         else { onSave(payload); }

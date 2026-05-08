@@ -333,17 +333,34 @@ export default function Dashboard() {
       const existingPending = getPendingIntensives();
 
       for (const intensive of intensivesToEvaluate) {
-        const eligible = countEligibleTrips(allShiftDayEntries, intensive);
+        // Campaign intensives (dateStart/dateEnd) count trips across the whole period,
+        // not just today — so the count never resets on a new day.
+        const isCampaign = !!(intensive.dateStart || intensive.dateEnd);
+        const entriesToCount = isCampaign
+          ? prev
+              .filter(s =>
+                s.date >= (intensive.dateStart ?? '0000-01-01') &&
+                s.date <= (intensive.dateEnd   ?? '9999-12-31'),
+              )
+              .flatMap(s => s.entries)
+          : allShiftDayEntries;
+
+        const eligible = countEligibleTrips(entriesToCount, intensive);
         const bonus = getEarnedBonus(intensive, eligible);
         if (bonus <= 0) continue;
 
-        // Skip if already pending or already recorded as an entry FOR THIS DATE.
-        // Note: must match the exact date suffix — a same-name bonus from a *previous*
-        // day (added at the start of today's shift) must not block today's entry.
-        const alreadyPending = existingPending.some(p => p.name === intensive.name && p.earnedDate === shiftDate);
-        const alreadyEntry = allShiftDayEntries.some(e =>
-          e.note === `Intensive: ${intensive.name} (${shiftDate})`
-        );
+        // Campaign intensives: one bonus for the whole campaign (check any date).
+        // Daily intensives:    one bonus per shift-date.
+        const alreadyPending = isCampaign
+          ? existingPending.some(p => p.name === intensive.name)
+          : existingPending.some(p => p.name === intensive.name && p.earnedDate === shiftDate);
+        const alreadyEntry = isCampaign
+          ? prev.some(s => s.entries.some(e =>
+              e.note?.startsWith(`Intensive: ${intensive.name} (`),
+            ))
+          : allShiftDayEntries.some(e =>
+              e.note === `Intensive: ${intensive.name} (${shiftDate})`,
+            );
         if (alreadyPending || alreadyEntry) continue;
 
         existingPending.push({ name: intensive.name, amount: bonus, earnedDate: shiftDate });
@@ -628,15 +645,28 @@ export default function Dashboard() {
       <h3 className="text-xs font-black text-muted-foreground px-2 tracking-widest uppercase">{t('dash_intensive')}</h3>
       {todayIntensives.map(intensive => {
         const sortedTiers = [...intensive.tiers].sort((a, b) => a.trips - b.trips);
-        const eligibleTrips = countEligibleTrips(todayEntries, intensive);
+        // Campaign intensive: show cumulative progress across the entire date range.
+        // Daily intensive: show today's count only.
+        const isCampaign = !!(intensive.dateStart || intensive.dateEnd);
+        const entriesForProgress = isCampaign
+          ? sessions
+              .filter(s =>
+                s.date >= (intensive.dateStart ?? '0000-01-01') &&
+                s.date <= (intensive.dateEnd   ?? '9999-12-31'),
+              )
+              .flatMap(s => s.entries)
+          : todayEntries;
+        const eligibleTrips = countEligibleTrips(entriesForProgress, intensive);
         const earnedBonus = getEarnedBonus(intensive, eligibleTrips);
         const currentTier = [...sortedTiers].filter(t => eligibleTrips >= t.trips).pop() ?? null;
         const nextTier = sortedTiers.find(t => eligibleTrips < t.trips) ?? null;
         const progressFrom = currentTier?.trips ?? 0;
         const pct = nextTier ? ((eligibleTrips - progressFrom) / (nextTier.trips - progressFrom)) * 100 : 100;
-        const alreadyRecorded =
-          todayEntries.some(e => e.note?.startsWith(`Intensive: ${intensive.name}`)) ||
-          getPendingIntensives().some(p => p.name === intensive.name && p.earnedDate === today);
+        const alreadyRecorded = isCampaign
+          ? sessions.some(s => s.entries.some(e => e.note?.startsWith(`Intensive: ${intensive.name} (`))) ||
+            getPendingIntensives().some(p => p.name === intensive.name)
+          : (todayEntries.some(e => e.note?.startsWith(`Intensive: ${intensive.name}`)) ||
+             getPendingIntensives().some(p => p.name === intensive.name && p.earnedDate === today));
         const now = new Date();
         const nowHHMM = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
         const todayDate = now.toISOString().slice(0, 10);
