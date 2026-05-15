@@ -314,7 +314,7 @@ export default function Dashboard() {
     updatePresence();
   }, [activeSession]);
 
-  const endShift = useCallback((grabPayout: number) => {
+  const endShift = useCallback((grabPayout: number, boltPayout: number = 0) => {
     if (!activeSession) return;
 
     setSessions(prev => {
@@ -367,44 +367,73 @@ export default function Dashboard() {
       }
       savePendingIntensives(existingPending);
 
-      // ── Income adjustment if Grab payout ≠ Grab-calculated ──────────────────
+      // ── Income adjustments if payout ≠ calculated ────────────────────────────
       const adjustmentEntries = (() => {
-        if (grabPayout <= 0) return [];
-        const grabCalc = activeSession.entries
-          .filter(e =>
-            e.type === 'income' &&
-            !e.note?.startsWith('Intensive:') &&
-            e.platform !== 'bolt' &&
-            e.platform !== 'vip' &&
-            e.platform !== 'etc',
-          )
-          .reduce((sum, e) => sum + (e.driverNet || 0), 0);
-        // Intensive bonuses (prev day) and claim/misc income (platform=etc) are
-        // both paid by Grab and included in grabPayout. Subtract them so the
-        // adjustment only covers the true per-trip rounding discrepancy —
-        // otherwise they'd be counted twice (explicit entries + inside the adj).
-        const intensivePaid = activeSession.entries
-          .filter(e => e.type === 'income' && e.note?.startsWith('Intensive:'))
-          .reduce((sum, e) => sum + (e.driverNet || 0), 0);
-        const claimPaid = activeSession.entries
-          .filter(e => e.type === 'income' && e.platform === 'etc')
-          .reduce((sum, e) => sum + (e.driverNet || 0), 0);
-        const diff = Math.round(grabPayout - grabCalc - intensivePaid - claimPaid);
-        if (diff === 0) return [];
-        const adjEntry = {
-          id: generateId(),
-          sessionId: activeSession.id,
-          timestamp: new Date().toISOString(),
-          type: 'income' as const,
-          platform: 'grab' as const,   // belongs to Grab totals (not misc)
-          appFare: 0,
-          customerPaid: 0,
-          tip: 0,
-          driverNet: diff,
-          amount: diff,
-          note: '⚖️ ' + (diff > 0 ? '+' : '') + diff + ' — การปรับรายได้',
-        };
-        return [adjEntry];
+        const entries: typeof activeSession.entries = [];
+
+        // Grab adjustment
+        if (grabPayout > 0) {
+          const grabCalc = activeSession.entries
+            .filter(e =>
+              e.type === 'income' &&
+              !e.note?.startsWith('Intensive:') &&
+              e.platform !== 'bolt' &&
+              e.platform !== 'vip' &&
+              e.platform !== 'etc',
+            )
+            .reduce((sum, e) => sum + (e.driverNet || 0), 0);
+          // Intensive bonuses (prev day) and claim/misc income (platform=etc) are
+          // both paid by Grab and included in grabPayout. Subtract them so the
+          // adjustment only covers the true per-trip rounding discrepancy —
+          // otherwise they'd be counted twice (explicit entries + inside the adj).
+          const intensivePaid = activeSession.entries
+            .filter(e => e.type === 'income' && e.note?.startsWith('Intensive:'))
+            .reduce((sum, e) => sum + (e.driverNet || 0), 0);
+          const claimPaid = activeSession.entries
+            .filter(e => e.type === 'income' && e.platform === 'etc')
+            .reduce((sum, e) => sum + (e.driverNet || 0), 0);
+          const grabDiff = Math.round(grabPayout - grabCalc - intensivePaid - claimPaid);
+          if (grabDiff !== 0) {
+            entries.push({
+              id: generateId(),
+              sessionId: activeSession.id,
+              timestamp: new Date().toISOString(),
+              type: 'income' as const,
+              platform: 'grab' as const,
+              appFare: 0,
+              customerPaid: 0,
+              tip: 0,
+              driverNet: grabDiff,
+              amount: grabDiff,
+              note: '⚖️ ' + (grabDiff > 0 ? '+' : '') + grabDiff + ' — การปรับรายได้',
+            });
+          }
+        }
+
+        // Bolt adjustment
+        if (boltPayout > 0) {
+          const boltCalc = activeSession.entries
+            .filter(e => e.type === 'income' && e.platform === 'bolt')
+            .reduce((sum, e) => sum + (e.driverNet || 0), 0);
+          const boltDiff = Math.round(boltPayout - boltCalc);
+          if (boltDiff !== 0) {
+            entries.push({
+              id: generateId(),
+              sessionId: activeSession.id,
+              timestamp: new Date().toISOString(),
+              type: 'income' as const,
+              platform: 'bolt' as const,
+              appFare: 0,
+              customerPaid: 0,
+              tip: 0,
+              driverNet: boltDiff,
+              amount: boltDiff,
+              note: '⚖️ ' + (boltDiff > 0 ? '+' : '') + boltDiff + ' — การปรับรายได้',
+            });
+          }
+        }
+
+        return entries;
       })();
 
       // ── Close out the session ─────────────────────────────────────────────
@@ -922,7 +951,7 @@ export default function Dashboard() {
       {showEndShift && activeSession && (
         <EndShiftModal
           session={activeSession}
-          onConfirm={(payout) => { endShift(payout); setShowEndShift(false); }}
+          onConfirm={(grabPayout, boltPayout) => { endShift(grabPayout, boltPayout); setShowEndShift(false); }}
           onClose={() => setShowEndShift(false)}
         />
       )}
