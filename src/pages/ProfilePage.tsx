@@ -841,16 +841,16 @@ export default function ProfilePage() {
           <div className="grid grid-cols-2 gap-4 items-start">
             {/* Left: vehicle + province + timer + goal + language */}
             <div className="space-y-4">
+              {driveSection}
               {vehicleSection}
               {provinceSection}
               {timerSection}
               {goalSection}
               {languageSection}
             </div>
-            {/* Right: intensives + drive */}
+            {/* Right: intensives */}
             <div className="space-y-4">
               {intensivesSection}
-              {driveSection}
             </div>
           </div>
           {saveButton}
@@ -858,12 +858,12 @@ export default function ProfilePage() {
       ) : (
         <div className="space-y-5">
           {profileHeader}
+          {driveSection}
           {vehicleSection}
           {provinceSection}
           {timerSection}
           {goalSection}
           {intensivesSection}
-          {driveSection}
           {languageSection}
           {saveButton}
         </div>

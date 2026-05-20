@@ -231,8 +231,8 @@ export default function History() {
               </div>
             </div>
             <div className="text-right">
-              <p className="font-mono text-lg font-extrabold text-primary drop-shadow-sm">฿{stats.net.toFixed(0)}</p>
-              <p className="text-xs font-medium text-muted-foreground">{t('hist_net')}</p>
+              <p className="font-mono text-lg font-extrabold text-primary drop-shadow-sm">฿{stats.gross.toFixed(0)}</p>
+              <p className="text-xs font-medium text-muted-foreground">{t('hist_gross')}</p>
             </div>
           </>
         );
@@ -338,8 +338,8 @@ export default function History() {
                       </div>
                     </div>
                     <div className="text-right">
-                      <p className="font-mono text-lg font-extrabold text-primary drop-shadow-sm">฿{stats.net.toFixed(0)}</p>
-                      <p className="text-xs font-medium text-muted-foreground">{t('hist_net')}</p>
+                      <p className="font-mono text-lg font-extrabold text-primary drop-shadow-sm">฿{stats.gross.toFixed(0)}</p>
+                      <p className="text-xs font-medium text-muted-foreground">{t('hist_gross')}</p>
                     </div>
                   </>
                 </button>
