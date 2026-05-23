@@ -118,6 +118,9 @@ export const translations = {
     hist_trip_label: 'Trip',
     hist_week_of: 'Week of',
 
+    // ── Smart Calendar ─────────────────────────────────────────────────────────
+    cal_title: 'Smart Calendar',
+
     // ── Analytics ──────────────────────────────────────────────────────────────
     analytics_title: 'Analytics',
     analytics_no_data: 'Complete some shifts to see analytics',
@@ -438,6 +441,9 @@ export const translations = {
     hist_delete_confirm: 'ลบข้อมูลทั้งหมดในช่วงนี้? ไม่สามารถยกเลิกได้',
     hist_trip_label: 'รอบ',
     hist_week_of: 'สัปดาห์ของ',
+
+    // ── Smart Calendar ─────────────────────────────────────────────────────────
+    cal_title: 'ปฏิทินอัจฉริยะ',
 
     // ── Analytics ──────────────────────────────────────────────────────────────
     analytics_title: 'วิเคราะห์',

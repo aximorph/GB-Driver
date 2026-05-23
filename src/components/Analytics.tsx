@@ -4,6 +4,7 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pi
 import { format, subDays } from 'date-fns';
 import { useT } from '@/context/LangContext';
 import { useIsLandscape } from '@/hooks/useIsLandscape';
+import SmartCalendarCard from '@/components/SmartCalendarCard';
 
 const GREEN  = 'hsl(145, 100%, 45%)';
 const YELLOW = 'hsl(54,  100%, 62%)';
@@ -151,6 +152,8 @@ export default function Analytics() {
   }, [sessions]);
 
   // ── Section variables ───────────────────────────────────────────────────────
+  const calendarSection = <SmartCalendarCard />;
+
   const header = (
     <>
       <div className="absolute top-0 left-0 w-64 h-64 bg-primary/5 rounded-full blur-3xl -z-10 -translate-x-16 -translate-y-16" />
@@ -441,6 +444,7 @@ export default function Analytics() {
       ) : isLandscape ? (
         <div className="space-y-4">
           {header}
+          {calendarSection}
           <div className="grid grid-cols-2 gap-4 items-start">
             {/* Left: charts over time */}
             <div className="space-y-4">
@@ -459,6 +463,7 @@ export default function Analytics() {
       ) : (
         <div className="space-y-5">
           {header}
+          {calendarSection}
           {barChartSection}
           {heatmapSection}
           {pieTipSection}
