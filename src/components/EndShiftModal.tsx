@@ -59,7 +59,9 @@ export default function EndShiftModal({ session, onConfirm, onClose }: Props) {
   // ── Time breakdown ─────────────────────────────────────────────────────────
   const now = new Date();
   const shiftStart = new Date(session.startTime);
-  const onlineSecs = Math.floor((now.getTime() - shiftStart.getTime()) / 1000);
+  const pausedMs = (session.totalPausedMs ?? 0) +
+    (session.pausedAt ? now.getTime() - new Date(session.pausedAt).getTime() : 0);
+  const onlineSecs = Math.max(0, Math.floor((now.getTime() - shiftStart.getTime() - pausedMs) / 1000));
 
   // Sum of trip durations for income entries that have it (non-bonus)
   const workingSecs = session.entries

@@ -68,10 +68,12 @@ export default function History() {
     const gross = entries.filter(e => e.type === 'income').reduce((sum, e) => sum + (e.driverNet || 0), 0);
     const tips = entries.filter(e => e.type === 'income').reduce((sum, e) => sum + (e.tip || 0), 0);
     const expenses = entries.filter(e => e.type === 'expense').reduce((sum, e) => sum + e.amount, 0);
-    // รวมเวลา online ของทุก session ในกลุ่ม (เฉพาะที่จบแล้ว)
+    // รวมเวลา online ของทุก session ในกลุ่ม (เฉพาะที่จบแล้ว) หักเวลาพัก
     const totalOnlineSecs = ss.reduce((sum, s) => {
       if (!s.endTime) return sum;
-      return sum + Math.floor((new Date(s.endTime).getTime() - new Date(s.startTime).getTime()) / 1000);
+      const rawMs = new Date(s.endTime).getTime() - new Date(s.startTime).getTime();
+      const pausedMs = s.totalPausedMs ?? 0;
+      return sum + Math.max(0, Math.floor((rawMs - pausedMs) / 1000));
     }, 0);
     const totalMinutes = totalOnlineSecs / 60;
     const hours = Math.floor(totalMinutes / 60);

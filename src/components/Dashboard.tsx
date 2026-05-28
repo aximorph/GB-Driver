@@ -9,7 +9,7 @@ import AuthChoiceModal from './AuthChoiceModal';
 import { goOnline, goOffline, initPresence, updatePresence, subscribeToOnlineCounts, type ProvinceCount } from '@/lib/presence';
 import { getProvinceLabel } from '@/lib/provinces';
 import { format } from 'date-fns';
-import { Trash2, Pencil, DollarSign, Receipt, Gift, Clock3, Users, ChevronDown, Timer } from 'lucide-react';
+import { Trash2, Pencil, DollarSign, Receipt, Gift, Clock3, Users, ChevronDown, Timer, Pause, Play } from 'lucide-react';
 import AddEntryModal from './AddEntryModal';
 import TripTimerDialog from './TripTimerDialog';
 import ClaimEntryDialog from './ClaimEntryDialog';
@@ -204,6 +204,40 @@ export default function Dashboard() {
     return () => { if (timerIntervalRef.current) clearInterval(timerIntervalRef.current); };
   }, []);
 
+  // ── Shift pause ─────────────────────────────────────────────────────────────
+  const shiftIsPaused = !!activeSession?.pausedAt;
+
+  const pauseShift = useCallback(() => {
+    if (!activeSession || activeSession.pausedAt) return;
+    const now = new Date().toISOString();
+    setSessions(prev => {
+      const updated = prev.map(s =>
+        s.id === activeSession.id ? { ...s, pausedAt: now } : s,
+      );
+      saveSessions(updated);
+      return updated;
+    });
+    setActiveSession(prev => prev ? { ...prev, pausedAt: now } : null);
+  }, [activeSession]);
+
+  const resumeShift = useCallback(() => {
+    if (!activeSession || !activeSession.pausedAt) return;
+    const addedMs = Date.now() - new Date(activeSession.pausedAt).getTime();
+    const newTotalPausedMs = (activeSession.totalPausedMs ?? 0) + addedMs;
+    setSessions(prev => {
+      const updated = prev.map(s =>
+        s.id === activeSession.id
+          ? { ...s, pausedAt: undefined, totalPausedMs: newTotalPausedMs }
+          : s,
+      );
+      saveSessions(updated);
+      return updated;
+    });
+    setActiveSession(prev =>
+      prev ? { ...prev, pausedAt: undefined, totalPausedMs: newTotalPausedMs } : null,
+    );
+  }, [activeSession]);
+
   const status: ShiftStatus = activeSession ? 'on_shift' : 'offline';
   const profile = getProfile();
   const today = new Date().toISOString().split('T')[0];
@@ -225,14 +259,24 @@ export default function Dashboard() {
   // Only show enabled intensives
   const todayIntensives = (profile?.intensives ?? []).filter(i => i.enabled !== false);
 
+  // Keep a ref so the interval always reads the latest session without restarting
+  const activeSessionRef = useRef(activeSession);
+  useEffect(() => { activeSessionRef.current = activeSession; }, [activeSession]);
+
   useEffect(() => {
-    if (!activeSession) return;
-    const start = new Date(activeSession.startTime).getTime();
+    if (!activeSession) { setElapsed(0); return; }
     const interval = setInterval(() => {
-      setElapsed(Math.floor((Date.now() - start) / 1000));
+      const s = activeSessionRef.current;
+      if (!s) return;
+      const now = Date.now();
+      const start = new Date(s.startTime).getTime();
+      const pausedMs = (s.totalPausedMs ?? 0) +
+        (s.pausedAt ? now - new Date(s.pausedAt).getTime() : 0);
+      setElapsed(Math.max(0, Math.floor((now - start - pausedMs) / 1000)));
     }, 1000);
     return () => clearInterval(interval);
-  }, [activeSession]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeSession?.id]); // restart only when a new shift begins
 
   const formatElapsed = (secs: number) => {
     const h = Math.floor(secs / 3600).toString().padStart(2, '0');
@@ -437,13 +481,20 @@ export default function Dashboard() {
       })();
 
       // ── Close out the session ─────────────────────────────────────────────
+      // Finalise any in-progress pause (add remaining pause to totalPausedMs)
+      const nowMs = Date.now();
+      const finalPausedMs = (activeSession.totalPausedMs ?? 0) +
+        (activeSession.pausedAt ? nowMs - new Date(activeSession.pausedAt).getTime() : 0);
+
       const updated = prev.map(s =>
         s.id === activeSession.id
           ? {
               ...s,
-              endTime: new Date().toISOString(),
+              endTime: new Date(nowMs).toISOString(),
               grabPayoutAmount: grabPayout,
               entries: [...s.entries, ...adjustmentEntries],
+              pausedAt: undefined,
+              totalPausedMs: finalPausedMs > 0 ? finalPausedMs : undefined,
             }
           : s
       );
@@ -589,7 +640,12 @@ export default function Dashboard() {
       </div>
       {status === 'on_shift' && (
         <div className="text-center py-4">
-          <p className="text-4xl font-mono font-extrabold text-white tracking-widest">{formatElapsed(elapsed)}</p>
+          <p className={`text-4xl font-mono font-extrabold tracking-widest transition-colors ${shiftIsPaused ? 'text-warning/80' : 'text-white'}`}>
+            {formatElapsed(elapsed)}
+          </p>
+          {shiftIsPaused && (
+            <p className="text-[11px] text-warning font-bold mt-1 animate-pulse">⏸ หยุดพักชั่วคราว</p>
+          )}
         </div>
       )}
       {status === 'offline' ? (
@@ -626,6 +682,23 @@ export default function Dashboard() {
             setShowEndShift(true);
           }} className="flex-1 py-4 rounded-xl bg-destructive text-white font-bold text-sm shadow-lg shadow-destructive/20 hover:scale-[1.02] transition-transform">
             {t('dash_end_shift')}
+          </button>
+          {/* Shift Pause / Resume button */}
+          <button
+            onClick={shiftIsPaused ? resumeShift : pauseShift}
+            className={`flex flex-col items-center justify-center gap-0.5 px-3 rounded-xl text-sm font-bold transition-all shadow-lg min-w-[68px] ${
+              shiftIsPaused
+                ? 'bg-warning/20 border border-warning/40 text-warning animate-pulse'
+                : 'bg-secondary border border-white/10 text-muted-foreground hover:text-white hover:bg-white/10'
+            }`}
+          >
+            {shiftIsPaused
+              ? <Play size={20} strokeWidth={2.5} />
+              : <Pause size={20} strokeWidth={2.5} />
+            }
+            <span className="text-[9px] font-bold leading-none">
+              {shiftIsPaused ? t('dash_resume') : t('dash_pause')}
+            </span>
           </button>
         </div>
       )}

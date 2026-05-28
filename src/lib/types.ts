@@ -37,6 +37,8 @@ export interface ShiftSession {
   grabPayoutAmount?: number;
   entries: Entry[];
   intensivesSnapshot?: Intensive[]; // snapshot of enabled intensives at shift start
+  pausedAt?: string;       // ISO timestamp when shift was paused (undefined = running)
+  totalPausedMs?: number;  // accumulated paused milliseconds (excluding current pause)
 }
 
 export interface Entry {
