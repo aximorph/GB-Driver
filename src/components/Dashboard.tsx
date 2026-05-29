@@ -9,6 +9,7 @@ import AuthChoiceModal from './AuthChoiceModal';
 import { goOnline, goOffline, initPresence, updatePresence, subscribeToOnlineCounts, type ProvinceCount } from '@/lib/presence';
 import { getProvinceLabel } from '@/lib/provinces';
 import { format } from 'date-fns';
+import { localDateStr } from '@/lib/utils';
 import { Trash2, Pencil, DollarSign, Receipt, Gift, Clock3, Users, ChevronDown, Timer, Pause, Play } from 'lucide-react';
 import AddEntryModal from './AddEntryModal';
 import TripTimerDialog from './TripTimerDialog';
@@ -240,7 +241,7 @@ export default function Dashboard() {
 
   const status: ShiftStatus = activeSession ? 'on_shift' : 'offline';
   const profile = getProfile();
-  const today = new Date().toISOString().split('T')[0];
+  const today = localDateStr();
 
 
   // entries ของ session ที่กำลัง active เท่านั้น — หายเมื่อ end shift

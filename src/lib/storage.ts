@@ -1,4 +1,5 @@
 import { DriverProfile, ShiftSession, PendingIntensive } from './types';
+import { localDateStr } from './utils';
 
 const PROFILE_KEY = 'driver_profile';
 const SESSIONS_KEY = 'shift_sessions';
@@ -27,8 +28,7 @@ export function getActiveSession(): ShiftSession | null {
 }
 
 export function getTodaySessions(): ShiftSession[] {
-  const today = new Date().toISOString().split('T')[0];
-  return getSessions().filter(s => s.date === today);
+  return getSessions().filter(s => s.date === localDateStr());
 }
 
 const PENDING_INTENSIVES_KEY = 'gbdriver_pending_intensives';
