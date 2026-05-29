@@ -49,6 +49,7 @@ export default function AddEntryModal({
   const [type, setType] = useState<'income' | 'expense'>(editEntry?.type ?? initialType);
   const [platform, setPlatform] = useState<'grab' | 'bolt' | 'vip' | 'etc'>(editEntry?.platform ?? 'grab');
   const [orderType, setOrderType] = useState<'ride' | 'express'>(editEntry?.orderType ?? 'ride');
+  const [paymentType, setPaymentType] = useState<'cash' | 'transfer' | 'credit' | ''>(editEntry?.paymentType ?? '');
   const [appFare, setAppFare] = useState(editEntry?.appFare?.toString() ?? '');
   // customerPaid: only pre-fill if it differs from appFare (tip scenario)
   const [customerPaid, setCustomerPaid] = useState(
@@ -121,6 +122,7 @@ export default function AddEntryModal({
             tripDuration: displayTripDuration,
             tripStartTime: displayTripStartTime,
           }),
+          ...(paymentType && (platform === 'grab' || platform === 'bolt') && { paymentType }),
         };
         if (isEditMode && onUpdate) { onUpdate(editEntry!.id, payload); }
         else { onSave(payload); }
@@ -142,6 +144,7 @@ export default function AddEntryModal({
           tripDuration: displayTripDuration,
           tripStartTime: displayTripStartTime,
         }),
+        ...(paymentType && (platform === 'grab' || platform === 'bolt') && { paymentType }),
       };
       if (isEditMode && onUpdate) {
         onUpdate(editEntry!.id, payload);
@@ -243,6 +246,33 @@ export default function AddEntryModal({
                       {t(o.labelKey)}
                     </button>
                   ))}
+                </div>
+              )}
+
+              {/* Payment type selector — grab / bolt only */}
+              {!isVIP && !isEtc && (
+                <div>
+                  <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest px-1 mb-1.5">{t('add_payment_type')}</p>
+                  <div className="flex bg-secondary/60 p-1 rounded-xl border border-white/5 gap-1">
+                    {([
+                      { value: 'cash'     as const, labelKey: 'add_pay_cash'     as const },
+                      { value: 'transfer' as const, labelKey: 'add_pay_transfer' as const },
+                      { value: 'credit'   as const, labelKey: 'add_pay_credit'   as const },
+                    ]).map(p => (
+                      <button
+                        key={p.value}
+                        type="button"
+                        onClick={() => setPaymentType(prev => prev === p.value ? '' : p.value)}
+                        className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                          paymentType === p.value
+                            ? 'bg-primary/20 text-primary border border-primary/30'
+                            : 'text-muted-foreground hover:text-white'
+                        }`}
+                      >
+                        {t(p.labelKey)}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               )}
 

@@ -451,6 +451,18 @@ export default function History() {
                                    : t('add_grab')}
                                 </span>
                               )}
+                              {/* Payment type badge */}
+                              {e.paymentType && (
+                                <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-md uppercase shrink-0 ${
+                                  e.paymentType === 'cash'
+                                    ? 'bg-primary/15 text-primary border border-primary/20'
+                                    : e.paymentType === 'transfer'
+                                    ? 'bg-blue-500/15 text-blue-400 border border-blue-500/20'
+                                    : 'bg-violet-500/15 text-violet-400 border border-violet-500/20'
+                                }`}>
+                                  {e.paymentType === 'cash' ? t('add_pay_cash') : e.paymentType === 'transfer' ? t('add_pay_transfer') : t('add_pay_credit')}
+                                </span>
+                              )}
                               {/* Tip badge */}
                               {e.tip && e.tip > 0 && (
                                 <span className="flex items-center gap-0.5 text-[10px] font-bold text-warning bg-warning/10 border border-warning/20 px-1.5 py-0.5 rounded-md shrink-0">

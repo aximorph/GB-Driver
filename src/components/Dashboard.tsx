@@ -98,6 +98,7 @@ export default function Dashboard() {
   const [deleteEntryPending, setDeleteEntryPending] = useState<string | null>(null);
   const [editEntryPending, setEditEntryPending] = useState<Entry | null>(null);
   const [collapsedIntensives, setCollapsedIntensives] = useState<Set<string>>(new Set());
+  const [showIncomeBreakdown, setShowIncomeBreakdown] = useState(false);
   const [intensiveToast, setIntensiveToast] = useState<{ count: number; total: number } | null>(null);
   const [tripValueToast, setTripValueToast] = useState<{ netPerMin: number; avgPerMin: number } | null>(null);
   const toggleIntensive = (id: string) => setCollapsedIntensives(prev => {
@@ -252,10 +253,21 @@ export default function Dashboard() {
     .filter(s => s.date === today)
     .flatMap(s => s.entries);
 
-  const grossEarnings = todayEntries.filter(e => e.type === 'income').reduce((sum, e) => sum + (e.driverNet || 0), 0);
-  const totalTips = todayEntries.filter(e => e.type === 'income').reduce((sum, e) => sum + (e.tip || 0), 0);
+  const incomeEntries = todayEntries.filter(e => e.type === 'income');
+  const grossEarnings = incomeEntries.reduce((sum, e) => sum + (e.driverNet || 0), 0);
+  const totalTips = incomeEntries.reduce((sum, e) => sum + (e.tip || 0), 0);
   const totalExpenses = todayEntries.filter(e => e.type === 'expense').reduce((sum, e) => sum + e.amount, 0);
   const netEarnings = grossEarnings + totalTips - totalExpenses;
+
+  // Payment type breakdown (grab + bolt income entries only)
+  const payBreakdown = (() => {
+    const grabBoltIncome = incomeEntries.filter(e => e.platform === 'grab' || e.platform === 'bolt');
+    const cash     = grabBoltIncome.filter(e => e.paymentType === 'cash').reduce((s, e) => s + (e.driverNet || 0), 0);
+    const transfer = grabBoltIncome.filter(e => e.paymentType === 'transfer').reduce((s, e) => s + (e.driverNet || 0), 0);
+    const credit   = grabBoltIncome.filter(e => e.paymentType === 'credit').reduce((s, e) => s + (e.driverNet || 0), 0);
+    const unrecorded = grabBoltIncome.filter(e => !e.paymentType).reduce((s, e) => s + (e.driverNet || 0), 0);
+    return { cash, transfer, credit, unrecorded, hasData: grabBoltIncome.length > 0 };
+  })();
 
   // Only show enabled intensives
   const todayIntensives = (profile?.intensives ?? []).filter(i => i.enabled !== false);
@@ -707,7 +719,7 @@ export default function Dashboard() {
   );
 
   const summarySection = (
-    <div className="bg-card/80 backdrop-blur-xl border border-white/5 rounded-3xl p-6 shadow-xl relative overflow-hidden">
+    <div className="bg-card/80 backdrop-blur-xl border border-white/5 rounded-3xl p-6 shadow-xl relative overflow-hidden" onClick={() => showIncomeBreakdown && setShowIncomeBreakdown(false)}>
       <div className="absolute -bottom-8 -right-8 w-40 h-40 bg-white/5 rounded-full blur-3xl -z-10"></div>
       <div className="flex justify-between items-end mb-6">
         <h3 className="text-xs font-black text-muted-foreground tracking-widest uppercase">{t('dash_summary')}</h3>
@@ -715,7 +727,44 @@ export default function Dashboard() {
       </div>
       <div className={`grid gap-x-6 gap-y-5 ${isLandscape ? 'grid-cols-4' : 'grid-cols-2'}`}>
         <SummaryItem label={t('dash_net_earnings')} value={netEarnings} color="text-white text-2xl" />
-        <SummaryItem label={t('dash_gross')} value={grossEarnings} color="text-primary text-xl" />
+        {/* Gross — clickable when grab/bolt entries exist */}
+        <div className="flex flex-col gap-1 relative">
+          <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest">{t('dash_gross')}</p>
+          <button
+            type="button"
+            onClick={() => payBreakdown.hasData && setShowIncomeBreakdown(v => !v)}
+            className={`font-mono font-extrabold text-primary text-xl text-left ${payBreakdown.hasData ? 'underline decoration-dotted underline-offset-2 cursor-pointer' : ''}`}
+          >
+            ฿{grossEarnings.toFixed(0)}
+          </button>
+          {showIncomeBreakdown && payBreakdown.hasData && (
+            <div
+              className="absolute top-full left-0 mt-1 z-30 bg-popover border border-border rounded-2xl shadow-2xl p-3 min-w-[180px] space-y-2"
+              onClick={e => e.stopPropagation()}
+            >
+              <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1">{t('dash_income_breakdown')}</p>
+              {([
+                { key: 'cash',       label: t('dash_pay_cash'),       val: payBreakdown.cash,       color: 'text-primary' },
+                { key: 'transfer',   label: t('dash_pay_transfer'),   val: payBreakdown.transfer,   color: 'text-blue-400' },
+                { key: 'credit',     label: t('dash_pay_credit'),     val: payBreakdown.credit,     color: 'text-violet-400' },
+                { key: 'unrecorded', label: t('dash_pay_unrecorded'), val: payBreakdown.unrecorded, color: 'text-muted-foreground' },
+              ] as { key: string; label: string; val: number; color: string }[])
+                .filter(r => r.val > 0)
+                .map(r => (
+                  <div key={r.key} className="flex items-center justify-between gap-4">
+                    <span className="text-xs text-muted-foreground">{r.label}</span>
+                    <span className={`font-mono font-bold text-sm ${r.color}`}>฿{r.val.toFixed(0)}</span>
+                  </div>
+                ))}
+              <button
+                onClick={() => setShowIncomeBreakdown(false)}
+                className="mt-1 w-full text-[10px] text-muted-foreground hover:text-white transition-colors text-center"
+              >
+                ✕
+              </button>
+            </div>
+          )}
+        </div>
         <SummaryItem label={t('dash_tips')} value={totalTips} color="text-warning text-xl" />
         <SummaryItem label={t('dash_expenses')} value={totalExpenses} color="text-destructive text-xl" />
       </div>

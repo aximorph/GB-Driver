@@ -59,6 +59,7 @@ export interface Entry {
   fuelLiters?: number;
   tripDuration?: number;    // seconds, income trips only
   tripStartTime?: string;   // ISO timestamp when trip started
+  paymentType?: 'cash' | 'transfer' | 'credit'; // income only (grab/bolt); undefined = not recorded
 }
 
 export type ShiftStatus = 'offline' | 'on_shift' | 'shift_ended';
