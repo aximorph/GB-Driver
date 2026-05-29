@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { DriverProfile, Intensive, IntensiveTier, IntensiveCountsFor } from '@/lib/types';
 import { THAI_PROVINCES } from '@/lib/provinces';
 import { getProfile, saveProfile, saveSessions, getSessions } from '@/lib/storage';
-import { Zap, Fuel, Cloud, CheckCircle2, LogIn, RefreshCw, LogOut, Download, Trash2, Plus, Target, Gift, X, ChevronRight, Clock3, Globe, CalendarDays, Timer, UserX, ShieldAlert } from 'lucide-react';
+import { Zap, Fuel, Cloud, CheckCircle2, LogIn, RefreshCw, LogOut, Download, Trash2, Plus, Target, Gift, X, ChevronRight, Clock3, Globe, CalendarDays, Timer, UserX, ShieldAlert, Moon, Sun } from 'lucide-react';
 import { format } from 'date-fns';
 import { initGoogleIdentity, requestGoogleLogin, backupDataToDrive, restoreFromDrive, isGoogleConnected, disconnectGoogle } from '@/lib/googleDrive';
 import { getAuthMode, setAuthMode, isGuestMode } from '@/lib/auth';
@@ -298,6 +298,9 @@ export default function ProfilePage() {
   const [selectedLang, setSelectedLang] = useState<Lang>(profile?.language ?? lang);
   const [province, setProvince] = useState<string>(profile?.province ?? '');
   const [moveTimerMinutes, setMoveTimerMinutes] = useState<number>(profile?.moveTimerMinutes ?? 15);
+  const [shiftMode, setShiftMode] = useState<'normal' | 'night'>(profile?.shiftMode ?? 'normal');
+  const [shiftStart, setShiftStart] = useState<string>(profile?.shiftStart ?? '07:00');
+  const [shiftEnd, setShiftEnd] = useState<string>(profile?.shiftEnd ?? '19:00');
 
   const [intensives, setIntensives] = useState<Intensive[]>(
     (profile?.intensives ?? []).map(i => ({
@@ -333,6 +336,9 @@ export default function ProfilePage() {
       language: selectedLang,
       province: province || undefined,
       moveTimerMinutes,
+      shiftStart,
+      shiftEnd,
+      shiftMode,
     };
     saveProfile(updated);
     setProfile(updated);
@@ -527,6 +533,74 @@ export default function ProfilePage() {
           </option>
         ))}
       </select>
+    </div>
+  );
+
+  // Shift window preview string
+  const shiftWindowPreview = (() => {
+    const nightLabel = shiftMode === 'night' ? ' (+1)' : '';
+    return `${shiftStart} – ${shiftEnd}${nightLabel}`;
+  })();
+
+  const shiftSection = (
+    <div className="bg-card/70 backdrop-blur-xl border border-white/5 rounded-3xl p-5 space-y-4 shadow-xl">
+      <div className="flex items-center gap-2">
+        <Clock3 size={18} className="text-primary" />
+        <h3 className="text-sm font-bold tracking-widest text-muted-foreground uppercase">{t('profile_shift_title')}</h3>
+      </div>
+      <p className="text-xs text-muted-foreground -mt-1">{t('profile_shift_desc')}</p>
+
+      {/* Mode toggle */}
+      <div>
+        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-2">{t('profile_shift_mode')}</p>
+        <div className="flex bg-secondary/60 p-1 rounded-2xl border border-white/5 gap-1">
+          {([
+            { value: 'normal' as const, label: t('profile_shift_normal'), icon: <Sun size={13} /> },
+            { value: 'night'  as const, label: t('profile_shift_night'),  icon: <Moon size={13} /> },
+          ]).map(opt => (
+            <button
+              key={opt.value}
+              type="button"
+              onClick={() => setShiftMode(opt.value)}
+              className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-bold transition-all ${
+                shiftMode === opt.value
+                  ? opt.value === 'night'
+                    ? 'bg-violet-500/20 text-violet-300 border border-violet-500/30'
+                    : 'bg-primary/20 text-primary border border-primary/30'
+                  : 'text-muted-foreground hover:text-white'
+              }`}
+            >
+              {opt.icon}
+              {opt.label}
+            </button>
+          ))}
+        </div>
+        <p className="text-[11px] text-muted-foreground mt-1.5 px-1">
+          {shiftMode === 'night' ? t('profile_shift_night_desc') : t('profile_shift_normal_desc')}
+        </p>
+      </div>
+
+      {/* Time pickers */}
+      <div className="grid grid-cols-2 gap-3">
+        <div className="space-y-1.5">
+          <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">{t('profile_shift_start')}</p>
+          <TimePicker24 value={shiftStart} onChange={setShiftStart} />
+        </div>
+        <div className="space-y-1.5">
+          <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
+            {t('profile_shift_end')}{shiftMode === 'night' && <span className="text-violet-400 ml-1 normal-case">(+1 วัน)</span>}
+          </p>
+          <TimePicker24 value={shiftEnd} onChange={setShiftEnd} />
+        </div>
+      </div>
+
+      {/* Preview */}
+      <div className="flex items-center justify-between bg-secondary/50 border border-white/5 rounded-2xl px-4 py-3">
+        <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">{t('profile_shift_preview')}</span>
+        <span className={`font-mono font-bold text-sm ${shiftMode === 'night' ? 'text-violet-300' : 'text-primary'}`}>
+          {shiftWindowPreview}
+        </span>
+      </div>
     </div>
   );
 
@@ -839,11 +913,12 @@ export default function ProfilePage() {
         <div className="space-y-4">
           {profileHeader}
           <div className="grid grid-cols-2 gap-4 items-start">
-            {/* Left: vehicle + province + timer + goal + language */}
+            {/* Left: vehicle + province + shift + timer + goal + language */}
             <div className="space-y-4">
               {driveSection}
               {vehicleSection}
               {provinceSection}
+              {shiftSection}
               {timerSection}
               {goalSection}
               {languageSection}
@@ -861,6 +936,7 @@ export default function ProfilePage() {
           {driveSection}
           {vehicleSection}
           {provinceSection}
+          {shiftSection}
           {timerSection}
           {goalSection}
           {intensivesSection}

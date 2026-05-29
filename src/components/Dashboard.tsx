@@ -9,7 +9,7 @@ import AuthChoiceModal from './AuthChoiceModal';
 import { goOnline, goOffline, initPresence, updatePresence, subscribeToOnlineCounts, type ProvinceCount } from '@/lib/presence';
 import { getProvinceLabel } from '@/lib/provinces';
 import { format } from 'date-fns';
-import { localDateStr } from '@/lib/utils';
+import { localDateStr, getShiftDate, isInsideShiftWindow } from '@/lib/utils';
 import { Trash2, Pencil, DollarSign, Receipt, Gift, Clock3, Users, ChevronDown, Timer, Pause, Play } from 'lucide-react';
 import AddEntryModal from './AddEntryModal';
 import TripTimerDialog from './TripTimerDialog';
@@ -99,6 +99,7 @@ export default function Dashboard() {
   const [editEntryPending, setEditEntryPending] = useState<Entry | null>(null);
   const [collapsedIntensives, setCollapsedIntensives] = useState<Set<string>>(new Set());
   const [showIncomeBreakdown, setShowIncomeBreakdown] = useState(false);
+  const [showShiftWarning, setShowShiftWarning] = useState(false);
   const [intensiveToast, setIntensiveToast] = useState<{ count: number; total: number } | null>(null);
   const [tripValueToast, setTripValueToast] = useState<{ netPerMin: number; avgPerMin: number } | null>(null);
   const toggleIntensive = (id: string) => setCollapsedIntensives(prev => {
@@ -298,7 +299,7 @@ export default function Dashboard() {
     return `${h}:${m}:${s}`;
   };
 
-  const startShift = () => {
+  const doStartShift = () => {
     const authMode = getAuthMode();
     // No auth mode chosen yet — show choice modal
     if (authMode === null) { setShowAuthChoice(true); return; }
@@ -327,7 +328,7 @@ export default function Dashboard() {
     const intensivesSnapshot = (getProfile()?.intensives ?? []).filter(i => i.enabled !== false);
     const session: ShiftSession = {
       id: sessionId,
-      date: today,
+      date: getShiftDate(getProfile()),   // respects shift window (night shift / normal)
       startTime: new Date().toISOString(),
       entries: bonusEntries.map(e => ({ ...e, sessionId })),
       intensivesSnapshot,
@@ -348,7 +349,15 @@ export default function Dashboard() {
       setIntensiveToast({ count: readyToAdd.length, total });
       setTimeout(() => setIntensiveToast(null), 4000);
     }
+  };
 
+  // Public startShift — checks shift window first, warns if outside
+  const startShift = () => {
+    if (!isInsideShiftWindow(getProfile())) {
+      setShowShiftWarning(true);
+    } else {
+      doStartShift();
+    }
   };
 
   const addEntry = useCallback((entry: Omit<Entry, 'id' | 'sessionId' | 'timestamp'>) => {
@@ -979,6 +988,17 @@ export default function Dashboard() {
   // ── Modals (shared between layouts) ─────────────────────────────────
   const modals = (
     <>
+      {/* Shift window warning */}
+      <SweetAlert
+        show={showShiftWarning}
+        icon="warning"
+        title={t('profile_shift_outside_title')}
+        description={t('profile_shift_outside_desc')}
+        confirmText={t('profile_shift_outside_confirm')}
+        cancelText={t('profile_shift_outside_cancel')}
+        onConfirm={() => { setShowShiftWarning(false); doStartShift(); }}
+        onCancel={() => setShowShiftWarning(false)}
+      />
       {showTripTimer && (
         <TripTimerDialog
           autoStart={tripTimerAutoStart}

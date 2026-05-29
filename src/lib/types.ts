@@ -27,6 +27,9 @@ export interface DriverProfile {
   language?: 'en' | 'th';
   province?: string;        // province.id slug, used for presence feature
   moveTimerMinutes?: number; // minutes to wait before moving spot (default 15)
+  shiftStart?: string;      // "HH:mm" daily shift start time
+  shiftEnd?: string;        // "HH:mm" daily shift end time
+  shiftMode?: 'normal' | 'night'; // night = shift crosses midnight
 }
 
 export interface ShiftSession {
