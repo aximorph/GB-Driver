@@ -748,10 +748,10 @@ export default function Dashboard() {
           </button>
           {showIncomeBreakdown && payBreakdown.hasData && (
             <div
-              className="absolute top-full left-0 mt-1 z-30 bg-popover border border-border rounded-2xl shadow-2xl p-3 min-w-[180px] space-y-2"
+              className="absolute top-full left-0 mt-1 z-30 bg-popover border border-border rounded-xl shadow-2xl p-2 min-w-[148px] space-y-1"
               onClick={e => e.stopPropagation()}
             >
-              <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1">{t('dash_income_breakdown')}</p>
+              <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest px-0.5">{t('dash_income_breakdown')}</p>
               {([
                 { key: 'cash',       label: t('dash_pay_cash'),       val: payBreakdown.cash,       color: 'text-primary' },
                 { key: 'transfer',   label: t('dash_pay_transfer'),   val: payBreakdown.transfer,   color: 'text-blue-400' },
@@ -760,14 +760,14 @@ export default function Dashboard() {
               ] as { key: string; label: string; val: number; color: string }[])
                 .filter(r => r.val > 0)
                 .map(r => (
-                  <div key={r.key} className="flex items-center justify-between gap-4">
-                    <span className="text-xs text-muted-foreground">{r.label}</span>
-                    <span className={`font-mono font-bold text-sm ${r.color}`}>฿{r.val.toFixed(0)}</span>
+                  <div key={r.key} className="flex items-center justify-between gap-2 px-0.5">
+                    <span className="text-[11px] text-muted-foreground">{r.label}</span>
+                    <span className={`font-mono font-bold text-[11px] ${r.color}`}>฿{r.val.toFixed(0)}</span>
                   </div>
                 ))}
               <button
                 onClick={() => setShowIncomeBreakdown(false)}
-                className="mt-1 w-full text-[10px] text-muted-foreground hover:text-white transition-colors text-center"
+                className="w-full text-[9px] text-muted-foreground hover:text-white transition-colors text-center pt-0.5"
               >
                 ✕
               </button>

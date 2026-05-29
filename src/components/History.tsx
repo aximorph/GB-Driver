@@ -29,6 +29,7 @@ export default function History() {
   const [editEntryPending, setEditEntryPending] = useState<Entry | null>(null);
   const [swipedDayKey, setSwipedDayKey] = useState<string | null>(null);
   const [sharingKey, setSharingKey] = useState<string | null>(null);
+  const [openBreakdownKey, setOpenBreakdownKey] = useState<string | null>(null);
   const swipeTouchKey    = useRef<string | null>(null);
   const swipeTouchStartX = useRef(0);
 
@@ -92,6 +93,17 @@ export default function History() {
     const onlineTimeFmt = totalOnlineSecs > 0 ? formatDuration(totalOnlineSecs) : null;
 
     return { trips, gross, tips, expenses, net: gross + tips - expenses, onlineTime, onlineTimeFmt, workingTime, waitingTime };
+  };
+
+  const calcPayBreakdown = (ss: ShiftSession[]) => {
+    const gbIncome = ss.flatMap(s => s.entries).filter(
+      e => e.type === 'income' && (e.platform === 'grab' || e.platform === 'bolt'),
+    );
+    const cash       = gbIncome.filter(e => e.paymentType === 'cash').reduce((s, e) => s + (e.driverNet || 0), 0);
+    const transfer   = gbIncome.filter(e => e.paymentType === 'transfer').reduce((s, e) => s + (e.driverNet || 0), 0);
+    const credit     = gbIncome.filter(e => e.paymentType === 'credit').reduce((s, e) => s + (e.driverNet || 0), 0);
+    const unrecorded = gbIncome.filter(e => !e.paymentType).reduce((s, e) => s + (e.driverNet || 0), 0);
+    return { cash, transfer, credit, unrecorded, hasData: gbIncome.length > 0 };
   };
 
   // Delete all sessions for a given date key (called after confirm)
@@ -232,10 +244,17 @@ export default function History() {
                 )}
               </div>
             </div>
-            <div className="text-right">
-              <p className="font-mono text-lg font-extrabold text-primary drop-shadow-sm">฿{stats.gross.toFixed(0)}</p>
-              <p className="text-xs font-medium text-muted-foreground">{t('hist_gross')}</p>
-            </div>
+            {/* Gross — clickable for payment breakdown */}
+            <GrossBreakdownButton
+              gross={stats.gross}
+              breakdown={calcPayBreakdown(ss)}
+              isOpen={openBreakdownKey === key + '_header'}
+              onToggle={e => { e.stopPropagation(); setOpenBreakdownKey(prev => prev === key + '_header' ? null : key + '_header'); }}
+              onClose={() => setOpenBreakdownKey(null)}
+              grossLabel={t('hist_gross')}
+              breakdownTitle={t('dash_income_breakdown')}
+              labels={{ cash: t('add_pay_cash'), transfer: t('add_pay_transfer'), credit: t('add_pay_credit'), unrecorded: t('dash_pay_unrecorded') }}
+            />
           </>
         );
 
@@ -339,10 +358,16 @@ export default function History() {
                         )}
                       </div>
                     </div>
-                    <div className="text-right">
-                      <p className="font-mono text-lg font-extrabold text-primary drop-shadow-sm">฿{stats.gross.toFixed(0)}</p>
-                      <p className="text-xs font-medium text-muted-foreground">{t('hist_gross')}</p>
-                    </div>
+                    <GrossBreakdownButton
+                      gross={stats.gross}
+                      breakdown={calcPayBreakdown(ss)}
+                      isOpen={openBreakdownKey === key + '_header'}
+                      onToggle={e => { e.stopPropagation(); setOpenBreakdownKey(prev => prev === key + '_header' ? null : key + '_header'); }}
+                      onClose={() => setOpenBreakdownKey(null)}
+                      grossLabel={t('hist_gross')}
+                      breakdownTitle={t('dash_income_breakdown')}
+                      labels={{ cash: t('add_pay_cash'), transfer: t('add_pay_transfer'), credit: t('add_pay_credit'), unrecorded: t('dash_pay_unrecorded') }}
+                    />
                   </>
                 </button>
                 <button
@@ -368,7 +393,35 @@ export default function History() {
             {isExpanded && (
               <div className="border-t border-white/5 p-4 space-y-3 bg-black/20">
                 <div className="grid grid-cols-4 gap-2 text-center">
-                  <MiniStat label={t('hist_gross')} value={stats.gross} />
+                  {/* Gross — clickable for payment breakdown */}
+                  <div className="relative" onClick={e => { e.stopPropagation(); setOpenBreakdownKey(prev => prev === key + '_exp' ? null : key + '_exp'); }}>
+                    <p className="text-xs text-muted-foreground">{t('hist_gross')}</p>
+                    <p className={`font-mono text-xs font-bold text-foreground ${calcPayBreakdown(ss).hasData ? 'underline decoration-dotted underline-offset-2 cursor-pointer' : ''}`}>
+                      ฿{stats.gross.toFixed(0)}
+                    </p>
+                    {openBreakdownKey === key + '_exp' && calcPayBreakdown(ss).hasData && (
+                      <div className="absolute top-full left-0 mt-1 z-30 bg-popover border border-border rounded-xl shadow-2xl p-2 min-w-[148px] space-y-1 text-left" onClick={e => e.stopPropagation()}>
+                        <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest px-0.5">{t('dash_income_breakdown')}</p>
+                        {(() => {
+                          const bd = calcPayBreakdown(ss);
+                          return ([
+                            { key: 'cash',       label: t('add_pay_cash'),        val: bd.cash,       color: 'text-primary' },
+                            { key: 'transfer',   label: t('add_pay_transfer'),    val: bd.transfer,   color: 'text-blue-400' },
+                            { key: 'credit',     label: t('add_pay_credit'),      val: bd.credit,     color: 'text-violet-400' },
+                            { key: 'unrecorded', label: t('dash_pay_unrecorded'), val: bd.unrecorded, color: 'text-muted-foreground' },
+                          ] as { key: string; label: string; val: number; color: string }[])
+                            .filter(r => r.val > 0)
+                            .map(r => (
+                              <div key={r.key} className="flex items-center justify-between gap-2 px-0.5">
+                                <span className="text-[11px] text-muted-foreground">{r.label}</span>
+                                <span className={`font-mono font-bold text-[11px] ${r.color}`}>฿{r.val.toFixed(0)}</span>
+                              </div>
+                            ));
+                        })()}
+                        <button onClick={() => setOpenBreakdownKey(null)} className="w-full text-[9px] text-muted-foreground hover:text-white transition-colors text-center pt-0.5">✕</button>
+                      </div>
+                    )}
+                  </div>
                   <MiniStat label={t('hist_tips')} value={stats.tips} />
                   <MiniStat label={t('hist_expenses')} value={stats.expenses} />
                   <MiniStat label={t('hist_net_label')} value={stats.net} />
@@ -571,6 +624,53 @@ export default function History() {
         onConfirm={confirmDeleteEntry}
         onCancel={() => setDeleteEntryPending(null)}
       />
+    </div>
+  );
+}
+
+interface PayBreakdown { cash: number; transfer: number; credit: number; unrecorded: number; hasData: boolean; }
+interface BreakdownLabels { cash: string; transfer: string; credit: string; unrecorded: string; }
+
+function GrossBreakdownButton({
+  gross, breakdown, isOpen, onToggle, onClose, grossLabel, breakdownTitle, labels,
+}: {
+  gross: number;
+  breakdown: PayBreakdown;
+  isOpen: boolean;
+  onToggle: (e: React.MouseEvent) => void;
+  onClose: () => void;
+  grossLabel: string;
+  breakdownTitle: string;
+  labels: BreakdownLabels;
+}) {
+  const rows = [
+    { key: 'cash',       label: labels.cash,       val: breakdown.cash,       color: 'text-primary' },
+    { key: 'transfer',   label: labels.transfer,   val: breakdown.transfer,   color: 'text-blue-400' },
+    { key: 'credit',     label: labels.credit,     val: breakdown.credit,     color: 'text-violet-400' },
+    { key: 'unrecorded', label: labels.unrecorded, val: breakdown.unrecorded, color: 'text-muted-foreground' },
+  ].filter(r => r.val > 0);
+
+  return (
+    <div className="text-right relative" onClick={onToggle}>
+      <p className={`font-mono text-lg font-extrabold text-primary drop-shadow-sm ${breakdown.hasData ? 'underline decoration-dotted underline-offset-2 cursor-pointer' : ''}`}>
+        ฿{gross.toFixed(0)}
+      </p>
+      <p className="text-xs font-medium text-muted-foreground">{grossLabel}</p>
+      {isOpen && breakdown.hasData && (
+        <div
+          className="absolute top-full right-0 mt-1 z-30 bg-popover border border-border rounded-xl shadow-2xl p-2 min-w-[148px] space-y-1 text-left"
+          onClick={e => e.stopPropagation()}
+        >
+          <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest px-0.5">{breakdownTitle}</p>
+          {rows.map(r => (
+            <div key={r.key} className="flex items-center justify-between gap-2 px-0.5">
+              <span className="text-[11px] text-muted-foreground">{r.label}</span>
+              <span className={`font-mono font-bold text-[11px] ${r.color}`}>฿{r.val.toFixed(0)}</span>
+            </div>
+          ))}
+          <button onClick={onClose} className="w-full text-[9px] text-muted-foreground hover:text-white transition-colors text-center pt-0.5">✕</button>
+        </div>
+      )}
     </div>
   );
 }
