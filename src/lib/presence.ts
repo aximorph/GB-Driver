@@ -1,9 +1,19 @@
-import { db } from './firebase';
-import { ref, set, remove, onValue, type DatabaseReference } from 'firebase/database';
+/**
+ * Presence via Cloudflare Pages Functions + KV
+ *
+ * Flow:
+ *  goOnline()      → POST /api/presence/ping  (then heartbeat every HEARTBEAT_MS)
+ *  updatePresence()→ POST /api/presence/ping  (called on user activity)
+ *  goOffline()     → POST /api/presence/offline + stop heartbeat
+ *
+ * subscribeToOnlineCounts() polls GET /api/presence/counts every POLL_MS
+ * and calls the callback with fresh data.
+ */
 
-const TTL_MS = 30 * 60 * 1000; // 30 minutes
+const HEARTBEAT_MS = 5 * 60 * 1000;  // ping every 5 minutes while on shift
+const POLL_MS      = 30 * 1000;       // refresh online count every 30 seconds
 
-// ── Stable SESSION_ID across page reloads (same Firebase node survives eviction)
+// ── Stable session ID (survives page reload, cleared when explicitly offline) ──
 const SESSION_ID = (() => {
   const KEY = 'gbdriver_session_id';
   const existing = localStorage.getItem(KEY);
@@ -15,42 +25,84 @@ const SESSION_ID = (() => {
 
 const PROVINCE_KEY = 'gbdriver_presence_province';
 
-let presenceRef: DatabaseReference | null = null;
+let heartbeatTimer: ReturnType<typeof setInterval> | null = null;
+let currentProvince: string | null = null;
 
-/** Call when driver starts a shift. Saves province so we can recover after reload. */
+// ── helpers ──────────────────────────────────────────────────────────────────
+
+async function postPing(provinceId: string): Promise<void> {
+  try {
+    await fetch('/api/presence/ping', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ provinceId, sessionId: SESSION_ID }),
+    });
+  } catch {
+    // silently ignore network errors — non-critical feature
+  }
+}
+
+async function postOffline(provinceId: string): Promise<void> {
+  try {
+    await fetch('/api/presence/offline', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ provinceId, sessionId: SESSION_ID }),
+    });
+  } catch {
+    // silently ignore
+  }
+}
+
+// ── Public API ────────────────────────────────────────────────────────────────
+
+/** Call when driver starts a shift. */
 export function goOnline(provinceId: string): void {
+  currentProvince = provinceId;
   localStorage.setItem(PROVINCE_KEY, provinceId);
-  presenceRef = ref(db, `presence/${provinceId}/${SESSION_ID}`);
-  set(presenceRef, { ts: Date.now() });
+  void postPing(provinceId);
+
+  // Start heartbeat to keep KV key alive
+  stopHeartbeat();
+  heartbeatTimer = setInterval(() => {
+    if (currentProvince) void postPing(currentProvince);
+  }, HEARTBEAT_MS);
 }
 
 /**
  * Call on Dashboard mount.
- * If the page was evicted and reloaded mid-shift, this reconstructs presenceRef
- * from localStorage and immediately writes a fresh timestamp.
+ * Reconstructs presence if the page was evicted mid-shift.
  */
 export function initPresence(): void {
-  if (presenceRef) return; // already initialised this session
+  if (currentProvince) return; // already running
   const province = localStorage.getItem(PROVINCE_KEY);
   if (!province) return; // not on shift
-  presenceRef = ref(db, `presence/${province}/${SESSION_ID}`);
-  set(presenceRef, { ts: Date.now() });
+  goOnline(province); // re-registers heartbeat + ping
 }
 
-/** Call on any user activity while on shift. No-op if not on shift. */
+/** Call on user activity while on shift (keeps presence fresh). */
 export function updatePresence(): void {
-  if (!presenceRef) return;
-  set(presenceRef, { ts: Date.now() });
+  if (!currentProvince) return;
+  void postPing(currentProvince);
 }
 
 /** Call when driver ends a shift. */
 export function goOffline(): void {
+  const province = currentProvince ?? localStorage.getItem(PROVINCE_KEY);
   localStorage.removeItem(PROVINCE_KEY);
-  if (presenceRef) {
-    remove(presenceRef);
-    presenceRef = null;
+  currentProvince = null;
+  stopHeartbeat();
+  if (province) void postOffline(province);
+}
+
+function stopHeartbeat(): void {
+  if (heartbeatTimer !== null) {
+    clearInterval(heartbeatTimer);
+    heartbeatTimer = null;
   }
 }
+
+// ── Subscribe ─────────────────────────────────────────────────────────────────
 
 export interface ProvinceCount {
   provinceId: string;
@@ -58,26 +110,31 @@ export interface ProvinceCount {
 }
 
 /**
- * Subscribe to the presence tree.
- * Counts only sessions with ts within the last 30 minutes.
+ * Polls /api/presence/counts and calls callback with updated data.
+ * Returns an unsubscribe function.
  */
 export function subscribeToOnlineCounts(
   callback: (total: number, top5: ProvinceCount[]) => void,
 ): () => void {
-  const rootRef = ref(db, 'presence');
-  const unsub = onValue(rootRef, snapshot => {
-    const data = snapshot.val() as Record<string, Record<string, { ts: number }>> | null;
-    if (!data) { callback(0, []); return; }
-    const now = Date.now();
-    const counts: ProvinceCount[] = Object.entries(data)
-      .map(([provinceId, sessions]) => ({
-        provinceId,
-        count: Object.values(sessions).filter(s => now - (s.ts ?? 0) < TTL_MS).length,
-      }))
-      .filter(c => c.count > 0);
-    counts.sort((a, b) => b.count - a.count);
-    const total = counts.reduce((s, c) => s + c.count, 0);
-    callback(total, counts.slice(0, 5));
-  });
-  return unsub;
+  let cancelled = false;
+
+  const fetchCounts = async () => {
+    try {
+      const res = await fetch('/api/presence/counts');
+      if (!res.ok) return;
+      const data = await res.json() as { total: number; top5: ProvinceCount[] };
+      if (!cancelled) callback(data.total, data.top5);
+    } catch {
+      // silently ignore
+    }
+  };
+
+  // Fetch immediately, then on interval
+  void fetchCounts();
+  const timer = setInterval(() => { if (!cancelled) void fetchCounts(); }, POLL_MS);
+
+  return () => {
+    cancelled = true;
+    clearInterval(timer);
+  };
 }
