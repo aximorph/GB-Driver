@@ -74,6 +74,19 @@ export default function AddEntryModal({
   const isVIP = type === 'income' && platform === 'vip';
   const isEtc = type === 'income' && platform === 'etc';
 
+  // Entries that are always credit: etc (claim/adjustment) entries
+  // Intensive bonus entries (note starts with "Intensive:") are always credit too,
+  // but those are added programmatically — not through this modal.
+  const isAlwaysCredit = isEtc;
+
+  // Effective payment type for saving:
+  // - etc platform → always credit
+  // - vip platform → only cash or transfer (no credit option)
+  // - grab/bolt → cash/transfer/credit as selected
+  const effectivePaymentType: 'cash' | 'transfer' | 'credit' | '' = isAlwaysCredit
+    ? 'credit'
+    : paymentType;
+
   useEffect(() => {
     if (!isFuelSelected) {
       setFuelPrice(null);
@@ -122,7 +135,7 @@ export default function AddEntryModal({
             tripDuration: displayTripDuration,
             tripStartTime: displayTripStartTime,
           }),
-          ...(paymentType && (platform === 'grab' || platform === 'bolt') && { paymentType }),
+          ...(effectivePaymentType && { paymentType: effectivePaymentType }),
         };
         if (isEditMode && onUpdate) { onUpdate(editEntry!.id, payload); }
         else { onSave(payload); }
@@ -249,16 +262,30 @@ export default function AddEntryModal({
                 </div>
               )}
 
-              {/* Payment type selector — grab / bolt only */}
-              {!isVIP && !isEtc && (
+              {/* Payment type selector */}
+              {/* etc = always credit (show badge, no selector)  */}
+              {/* vip = cash or transfer only                     */}
+              {/* grab/bolt = cash / transfer / credit            */}
+              {isEtc ? (
+                <div className="flex items-center gap-1.5 px-1">
+                  <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">{t('add_payment_type')}:</span>
+                  <span className="text-[10px] font-bold text-violet-400 bg-violet-500/15 border border-violet-500/20 px-2 py-0.5 rounded-md">{t('add_pay_credit')}</span>
+                </div>
+              ) : (
                 <div>
                   <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest px-1 mb-1.5">{t('add_payment_type')}</p>
                   <div className="flex bg-secondary/60 p-1 rounded-xl border border-white/5 gap-1">
-                    {([
-                      { value: 'cash'     as const, labelKey: 'add_pay_cash'     as const },
-                      { value: 'transfer' as const, labelKey: 'add_pay_transfer' as const },
-                      { value: 'credit'   as const, labelKey: 'add_pay_credit'   as const },
-                    ]).map(p => (
+                    {(isVIP
+                      ? [
+                          { value: 'cash'     as const, labelKey: 'add_pay_cash'     as const },
+                          { value: 'transfer' as const, labelKey: 'add_pay_transfer' as const },
+                        ]
+                      : [
+                          { value: 'cash'     as const, labelKey: 'add_pay_cash'     as const },
+                          { value: 'transfer' as const, labelKey: 'add_pay_transfer' as const },
+                          { value: 'credit'   as const, labelKey: 'add_pay_credit'   as const },
+                        ]
+                    ).map(p => (
                       <button
                         key={p.value}
                         type="button"

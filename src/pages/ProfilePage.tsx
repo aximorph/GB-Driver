@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { DriverProfile, Intensive, IntensiveTier, IntensiveCountsFor } from '@/lib/types';
 import { THAI_PROVINCES } from '@/lib/provinces';
 import { getProfile, saveProfile, saveSessions, getSessions } from '@/lib/storage';
@@ -289,6 +290,7 @@ export default function ProfilePage() {
   const { lang, setLang } = useLang();
   const t = useT();
   const isLandscape = useIsLandscape();
+  const navigate = useNavigate();
 
   const [profile, setProfile] = useState<DriverProfile | null>(getProfile());
   const [vehicleType, setVehicleType] = useState<'electric' | 'petrol'>(profile?.vehicleType || 'petrol');
@@ -381,7 +383,8 @@ export default function ProfilePage() {
           const found = await restoreFromDrive();
           if (found) {
             setProfile(getProfile());
-            setTimeout(() => window.location.reload(), 800);
+            setTimeout(() => { window.location.reload(); }, 800);
+            return; // reload will handle navigation
           }
         } catch (err) {
           console.warn('Auto-restore failed:', err);
@@ -389,6 +392,9 @@ export default function ProfilePage() {
           setIsAutoRestoring(false);
         }
       }
+
+      // Navigate to dashboard after successful login
+      navigate('/');
     } catch (err) {
       console.error('Google login failed:', err);
       alert(t('alert_google_failed'));

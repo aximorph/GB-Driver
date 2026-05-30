@@ -320,6 +320,7 @@ export default function Dashboard() {
       amount: p.amount,
       driverNet: p.amount,
       note: `Intensive: ${p.name} (${p.earnedDate})`,
+      paymentType: 'credit' as const, // intensive bonuses are always paid via Grab credit
     }));
 
     const sessionId = generateId();
@@ -362,21 +363,38 @@ export default function Dashboard() {
 
   const addEntry = useCallback((entry: Omit<Entry, 'id' | 'sessionId' | 'timestamp'>) => {
     if (!activeSession) return;
+    const now = Date.now();
     const newEntry: Entry = {
       ...entry,
       id: generateId(),
       sessionId: activeSession.id,
-      timestamp: new Date().toISOString(),
+      timestamp: new Date(now).toISOString(),
     };
-    // functional update — always operates on latest state, no stale closure
+
+    // Auto-resume if shift is currently paused — adding an entry means they're working again
+    const wasPaused = !!activeSessionRef.current?.pausedAt;
+    const addedPauseMs = wasPaused
+      ? now - new Date(activeSessionRef.current!.pausedAt!).getTime()
+      : 0;
+
     setSessions(prev => {
-      const updated = prev.map(s =>
-        s.id === activeSession.id ? { ...s, entries: [...s.entries, newEntry] } : s
-      );
+      const updated = prev.map(s => {
+        if (s.id !== activeSession.id) return s;
+        const resumed = wasPaused
+          ? { ...s, pausedAt: undefined, totalPausedMs: (s.totalPausedMs ?? 0) + addedPauseMs }
+          : s;
+        return { ...resumed, entries: [...resumed.entries, newEntry] };
+      });
       saveSessions(updated);
       return updated;
     });
-    setActiveSession(prev => prev ? { ...prev, entries: [...prev.entries, newEntry] } : null);
+    setActiveSession(prev => {
+      if (!prev) return null;
+      const resumed = wasPaused
+        ? { ...prev, pausedAt: undefined, totalPausedMs: (prev.totalPausedMs ?? 0) + addedPauseMs }
+        : prev;
+      return { ...resumed, entries: [...resumed.entries, newEntry] };
+    });
     updatePresence();
   }, [activeSession]);
 
@@ -472,6 +490,7 @@ export default function Dashboard() {
               driverNet: grabDiff,
               amount: grabDiff,
               note: '⚖️ ' + (grabDiff > 0 ? '+' : '') + grabDiff + ' — การปรับรายได้',
+              paymentType: 'credit' as const, // payout adjustments paid by Grab credit
             });
           }
         }
@@ -495,6 +514,7 @@ export default function Dashboard() {
               driverNet: boltDiff,
               amount: boltDiff,
               note: '⚖️ ' + (boltDiff > 0 ? '+' : '') + boltDiff + ' — การปรับรายได้',
+              paymentType: 'credit' as const, // payout adjustments paid by Bolt credit
             });
           }
         }
@@ -952,6 +972,17 @@ export default function Dashboard() {
                   {entry.tripDuration !== undefined && entry.tripDuration > 0 && (
                     <span className="inline-flex items-center gap-0.5 text-[10px] font-bold text-primary/80 bg-primary/10 border border-primary/15 px-1.5 py-0.5 rounded-md font-mono">
                       ⏱ {formatDuration(entry.tripDuration)}
+                    </span>
+                  )}
+                  {entry.type === 'income' && entry.paymentType && (
+                    <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-md uppercase ${
+                      entry.paymentType === 'cash'
+                        ? 'bg-primary/15 text-primary border border-primary/20'
+                        : entry.paymentType === 'transfer'
+                        ? 'bg-blue-500/15 text-blue-400 border border-blue-500/20'
+                        : 'bg-violet-500/15 text-violet-400 border border-violet-500/20'
+                    }`}>
+                      {entry.paymentType === 'cash' ? t('dash_pay_cash') : entry.paymentType === 'transfer' ? t('dash_pay_transfer') : t('dash_pay_credit')}
                     </span>
                   )}
                 </p>
