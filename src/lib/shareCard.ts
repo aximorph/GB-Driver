@@ -9,7 +9,9 @@ import { ShiftSession, Entry } from './types';
 // ── Palette ───────────────────────────────────────────────────────────────────
 const BG       = '#0a0f0a';
 const GREEN    = '#00f260';
+const BLUE     = '#60a5fa';   // transfer colour (blue-400)
 const VIOLET   = '#8b5cf6';
+const VIOLET_L = '#a78bfa';   // credit colour (violet-400, lighter)
 const PINK     = '#ec4899';   // VIP colour
 const YELLOW   = '#f5c518';   // tip colour
 const WHITE    = '#ffffff';
@@ -57,6 +59,67 @@ function orderLabel(e: Entry, lang: 'en' | 'th') {
 }
 
 // ── Shared helpers ────────────────────────────────────────────────────────
+
+interface PayBreakdown {
+  cash: number; transfer: number; credit: number; unrecorded: number;
+}
+
+function computePayBreakdown(ss: ShiftSession[]): PayBreakdown {
+  const all  = ss.flatMap(s => s.entries).filter(e => e.type === 'income');
+  const sum  = (arr: Entry[]) => arr.reduce((s, e) => s + (e.driverNet || 0), 0);
+  return {
+    cash:       sum(all.filter(e => e.paymentType === 'cash')),
+    transfer:   sum(all.filter(e => e.paymentType === 'transfer')),
+    credit:     sum(all.filter(e => e.paymentType === 'credit')),
+    unrecorded: sum(all.filter(e => !e.paymentType)),
+  };
+}
+
+/**
+ * Draws payment breakdown vertically on the RIGHT side of a hero section.
+ * Only shows rows with value > 0.
+ * @param heroY  top of the hero block
+ * @param heroH  height of the hero block
+ */
+function drawPayBreakdown(
+  ctx: CanvasRenderingContext2D,
+  heroY: number, heroH: number,
+  bd: PayBreakdown,
+  lang: 'en' | 'th',
+  SANS: string, MONO: string,
+): void {
+  const rows = [
+    { lbl: lang === 'th' ? 'เงินสด' : 'Cash',     val: bd.cash,       color: GREEN    },
+    { lbl: lang === 'th' ? 'โอน'    : 'Transfer',  val: bd.transfer,   color: BLUE     },
+    { lbl: lang === 'th' ? 'เครดิต' : 'Credit',    val: bd.credit,     color: VIOLET_L },
+    { lbl: lang === 'th' ? 'ไม่ระบุ' : 'Other',    val: bd.unrecorded, color: GRAY     },
+  ].filter(r => r.val > 0);
+  if (!rows.length) return;
+
+  const ROW_H   = 17;
+  const totalH  = rows.length * ROW_H;
+  const startY  = heroY + (heroH - totalH) / 2;  // vertically centred inside hero
+  const RIGHT   = W - PAD;                         // right edge
+  const LABEL_X = RIGHT - 62;                      // label column (left-aligned)
+
+  rows.forEach((r, i) => {
+    const cy = startY + i * ROW_H + ROW_H / 2;
+    // label
+    ctx.fillStyle    = GRAY;
+    ctx.font         = `8px ${SANS}`;
+    ctx.textAlign    = 'left';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(r.lbl, LABEL_X, cy);
+    // amount
+    ctx.fillStyle    = r.color;
+    ctx.font         = `bold 9px ${MONO}`;
+    ctx.textAlign    = 'right';
+    ctx.fillText(`฿${Math.round(r.val)}`, RIGHT, cy);
+  });
+
+  ctx.textAlign    = 'left';
+  ctx.textBaseline = 'alphabetic';
+}
 
 interface CardTotals {
   grabNet: number; boltNet: number; vipNet: number;
@@ -365,6 +428,10 @@ export async function generateAndShareDailyCard(
   ctx.font      = `11px ${SANS}`;
   ctx.fillText(subParts.join('  ·  '), W / 2, y + HERO_H - 18);
   ctx.textAlign = 'left';
+
+  // Payment breakdown — right side of HERO
+  const payBd = computePayBreakdown(ss);
+  drawPayBreakdown(ctx, y, HERO_H, payBd, lang, SANS, MONO);
 
   y += HERO_H;
 
@@ -828,6 +895,8 @@ function drawCardHero(
   ctx: CanvasRenderingContext2D, y: number,
   lbl: string, income: number, net: number, tips: number, expenses: number,
   SANS: string, MONO: string,
+  lang: 'en' | 'th' = 'th',
+  payBd?: PayBreakdown,
 ): number {
   const H = 100;
   ctx.fillStyle = DIVIDER; ctx.fillRect(0, y + H - 1, W, 1);
@@ -839,6 +908,7 @@ function drawCardHero(
   ctx.fillStyle = GRAY; ctx.font = `11px ${SANS}`;
   ctx.fillText(parts.join('  ·  '), W / 2, y + H - 12);
   ctx.textAlign = 'left';
+  if (payBd) drawPayBreakdown(ctx, y, H, payBd, lang, SANS, MONO);
   return y + H;
 }
 
@@ -910,7 +980,7 @@ export async function generateAndShareWeeklyCard(
   let y = 0;
 
   y = drawCardHeader(ctx, y, rangeStr, badge, SANS);
-  y = drawCardHero(ctx, y, heroLbl, totals.income, totals.net, totals.tips, totals.expenses, SANS, MONO);
+  y = drawCardHero(ctx, y, heroLbl, totals.income, totals.net, totals.tips, totals.expenses, SANS, MONO, lang, computePayBreakdown(ss));
 
   const onlineStr = (() => {
     const h = Math.floor(totals.onlineSecs / 3600), m = Math.floor((totals.onlineSecs % 3600) / 60);
@@ -989,7 +1059,7 @@ export async function generateAndShareMonthlyCard(
   let y = 0;
 
   y = drawCardHeader(ctx, y, monthLabel, badge, SANS);
-  y = drawCardHero(ctx, y, heroLbl, totals.income, totals.net, totals.tips, totals.expenses, SANS, MONO);
+  y = drawCardHero(ctx, y, heroLbl, totals.income, totals.net, totals.tips, totals.expenses, SANS, MONO, lang, computePayBreakdown(ss));
   y = drawCardStats(ctx, y, [
     { val: totals.tripCount.toString(), lbl: lang === 'th' ? 'รอบทั้งหมด' : 'trips' },
     { val: `${activeDays}`, lbl: lang === 'th' ? 'วันทำงาน' : 'active days' },
