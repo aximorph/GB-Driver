@@ -140,27 +140,50 @@ function isDayOff(str: string): boolean {
   return isPublicHoliday(str) || isWeekend(str);
 }
 
-/** Count consecutive days off starting AT (and including) startStr, going forward. */
-function countDayOffRunFrom(startStr: string): number {
-  let count = 0;
-  let d = parseDate(startStr);
-  while (isDayOff(toDateStr(d))) {
-    count++;
-    d = addDays(d, 1);
-    if (count > 30) break; // safety guard
-  }
-  return count;
+/**
+ * A work day is a "bridge day" (วันพักสะพาน) when it sits between two holiday
+ * days on both sides. Most people take leave on bridge days to extend their break,
+ * so demand behaves more like a holiday than a work day.
+ *
+ * Example: Sat–Sun off │ Mon WORK │ Tue off  →  Mon is a bridge day.
+ */
+function isBridgeDay(str: string): boolean {
+  if (isDayOff(str)) return false;
+  const d = parseDate(str);
+  return isDayOff(toDateStr(addDays(d, -1))) && isDayOff(toDateStr(addDays(d, 1)));
 }
 
-/** Count total length of the day-off chain that includes `str`. */
-function getDayOffChainLength(str: string): number {
-  // Walk backward to find the start of the chain
-  let d = parseDate(str);
-  while (isDayOff(toDateStr(addDays(d, -1)))) {
-    d = addDays(d, -1);
-    // safety: at most 30 days back
+/** A day that belongs to a holiday cluster: actual day off OR bridge day. */
+function isClusterDay(str: string): boolean {
+  return isDayOff(str) || isBridgeDay(str);
+}
+
+interface ClusterInfo {
+  start: string;  // YYYY-MM-DD of first day in cluster
+  end: string;    // YYYY-MM-DD of last day in cluster
+  len: number;    // total calendar days (holidays + bridges)
+}
+
+/**
+ * Find the full effective cluster that contains `dateStr`.
+ * Walks backward and forward as long as each adjacent day is a cluster day.
+ * Only call this when isClusterDay(dateStr) is already true.
+ */
+function getEffectiveCluster(dateStr: string): ClusterInfo {
+  let start = parseDate(dateStr);
+  for (let i = 0; i < 30; i++) {
+    if (!isClusterDay(toDateStr(addDays(start, -1)))) break;
+    start = addDays(start, -1);
   }
-  return countDayOffRunFrom(toDateStr(d));
+
+  let end = parseDate(dateStr);
+  for (let i = 0; i < 30; i++) {
+    if (!isClusterDay(toDateStr(addDays(end, 1)))) break;
+    end = addDays(end, 1);
+  }
+
+  const len = Math.round((end.getTime() - start.getTime()) / 86_400_000) + 1;
+  return { start: toDateStr(start), end: toDateStr(end), len };
 }
 
 // ── DOW base levels (Mon=1 … Sun=0 in JS) ────────────────────────────────────
@@ -220,65 +243,122 @@ export function buildPersonalStats(sessions: ShiftSession[]): Record<number, Per
 
 // ── Main prediction function ──────────────────────────────────────────────────
 
+/**
+ * Predict ride-volume level for a given date using the Effective Cluster model.
+ *
+ * ── Cluster model ────────────────────────────────────────────────────────────
+ * An "effective cluster" is a run of calendar days that are either:
+ *   • actual days off (public holiday / weekend), OR
+ *   • bridge days (work days sandwiched between two holiday days — most people
+ *     take leave on these to get a continuous break).
+ *
+ * Once the cluster length is known, levels are assigned by position:
+ *
+ *   Work day BEFORE cluster:
+ *     len ≥ 3  →  VERY_HIGH  (people celebrate / rush errands before long break)
+ *     len = 2  →  HIGH       (normal Friday-before-weekend boost)
+ *     len = 1  →  NORMAL     (no boost — isolated single holiday, no celebration)
+ *
+ *   First day of cluster (len ≥ 3):  HIGH   (people are out and active)
+ *   Middle day(s) of cluster:        NORMAL (settled into break)
+ *   Bridge day (any cluster len):    NORMAL (reduced demand; most people on leave)
+ *   Last day of cluster:
+ *     len ≥ 3  →  VERY_LOW   (people stay home, dreading work tomorrow)
+ *     len ≤ 2  →  use DOW base (low / normal per DOW table)
+ *
+ *   Short cluster (len ≤ 2, not a bridge):  use DOW base (Sat=normal, Sun=low)
+ *   Single isolated holiday (len = 1):      LOW
+ * ─────────────────────────────────────────────────────────────────────────────
+ */
 export function predictDay(
   dateStr: string,
   personalStats?: Record<number, PersonalDowStats>,
 ): DayPrediction {
-  const date   = parseDate(dateStr);
-  const dow    = date.getDay();
+  const date    = parseDate(dateStr);
+  const dow     = date.getDay();
   const holiday = holidayMap.get(dateStr);
-
-  const tomorrowStr = toDateStr(addDays(date, 1));
-  const off         = isDayOff(dateStr);
-  const tomorrowOff = isDayOff(tomorrowStr);
 
   let level: VolumeLevel;
   let reasonEn: string;
   let reasonTh: string;
 
-  if (off) {
-    // ── This day is a day off (public holiday or weekend) ──────────────────
-    const chainLen = getDayOffChainLength(dateStr);
-    const isLastDayOfChain = !tomorrowOff;
+  if (isClusterDay(dateStr)) {
+    // ── Inside a cluster (holiday, weekend, or bridge day) ───────────────────
+    const cluster = getEffectiveCluster(dateStr);
+    const { len, start, end } = cluster;
+    const isFirst  = dateStr === start;
+    const isLast   = dateStr === end;
+    const isBridge = isBridgeDay(dateStr);
 
-    if (isLastDayOfChain && chainLen >= 3) {
-      // Long holiday ends today → people reluctantly stay in, dreading tomorrow
-      level     = 'very_low';
-      reasonEn  = `Last day of ${chainLen}-day holiday — very few rides`;
-      reasonTh  = `วันสุดท้ายของวันหยุดยาว ${chainLen} วัน — งานน้อยมาก`;
-    } else {
-      // Regular day off or middle of long holiday
-      level     = 'low';
-      reasonEn  = 'Public holiday / Weekend — low demand';
-      reasonTh  = 'วันหยุด — ปริมาณงานน้อย';
-    }
-  } else {
-    // ── This day is a work day ─────────────────────────────────────────────
-    if (tomorrowOff) {
-      const runLen = countDayOffRunFrom(tomorrowStr);
-      if (runLen >= 3) {
-        level    = 'very_high';
-        reasonEn = `Day before ${runLen}-day holiday — surge in rides`;
-        reasonTh = `วันก่อนหยุดยาว ${runLen} วัน — งานเยอะมาก`;
+    if (isBridge) {
+      // Bridge day: demand is reduced (most people take leave)
+      level    = 'normal';
+      reasonEn = 'Bridge day — most people extend their holiday';
+      reasonTh = 'วันพักสะพาน — คนส่วนใหญ่ลาหยุดต่อเนื่อง';
+
+    } else if (len >= 3) {
+      // Long cluster — position matters
+      if (isFirst) {
+        level    = 'high';
+        reasonEn = `First day of ${len}-day holiday — people are out`;
+        reasonTh = `วันแรกของวันหยุดยาว ${len} วัน — คนออกมาเที่ยว`;
+      } else if (isLast) {
+        level    = 'very_low';
+        reasonEn = `Last day of ${len}-day holiday — people staying in`;
+        reasonTh = `วันสุดท้ายของวันหยุดยาว ${len} วัน — งานน้อยมาก`;
       } else {
-        // Tomorrow is weekend or short holiday — still a boost
-        level    = dow === 5 ? 'very_high' : 'high'; // Friday before weekend = very_high
-        reasonEn = runLen === 2
-          ? 'Day before the weekend — good demand'
-          : 'Day before holiday — above-average demand';
-        reasonTh = runLen === 2
-          ? 'วันก่อนสุดสัปดาห์ — ความต้องการดี'
-          : 'วันก่อนหยุด — ปริมาณงานสูงกว่าปกติ';
+        // Middle of long cluster
+        level    = 'normal';
+        reasonEn = 'Mid-holiday — demand settles down';
+        reasonTh = 'กลางช่วงวันหยุด — ปริมาณงานปานกลาง';
+      }
+
+    } else if (len === 1) {
+      // Isolated single holiday (no adjacent days off or bridges)
+      level    = 'low';
+      reasonEn = 'Isolated holiday — most people resting at home';
+      reasonTh = 'วันหยุดวันเดียว — คนส่วนใหญ่พักอยู่บ้าน';
+
+    } else {
+      // Short cluster (len = 2): regular weekend or 2-day holiday
+      // Keep DOW base so Sat=normal, Sun=low
+      level    = DOW_LEVEL[dow];
+      reasonEn = DOW_REASON_EN[dow];
+      reasonTh = DOW_REASON_TH[dow];
+    }
+
+  } else {
+    // ── Regular work day ─────────────────────────────────────────────────────
+    const tomorrowStr = toDateStr(addDays(date, 1));
+
+    if (isClusterDay(tomorrowStr)) {
+      // Tomorrow begins (or is part of) a cluster — get its full effective length
+      const tomorrowCluster = getEffectiveCluster(tomorrowStr);
+      const effectiveLen    = tomorrowCluster.len;
+
+      if (effectiveLen >= 3) {
+        level    = 'very_high';
+        reasonEn = `Day before ${effectiveLen}-day holiday — ride surge`;
+        reasonTh = `วันก่อนหยุดยาว ${effectiveLen} วัน — งานเยอะมาก`;
+      } else if (effectiveLen >= 2) {
+        level    = 'high';
+        reasonEn = 'Day before the weekend — good demand';
+        reasonTh = 'วันก่อนสุดสัปดาห์ — ความต้องการดี';
+      } else {
+        // effectiveLen = 1: isolated single holiday tomorrow — no boost
+        level    = DOW_LEVEL[dow];
+        reasonEn = DOW_REASON_EN[dow];
+        reasonTh = DOW_REASON_TH[dow];
       }
     } else {
-      // Regular work day — use DOW base
+      // Normal work day, no holiday nearby
       level    = DOW_LEVEL[dow];
       reasonEn = DOW_REASON_EN[dow];
       reasonTh = DOW_REASON_TH[dow];
     }
   }
 
-  // ── Personal stats for this DOW ────────────────────────────────────────────
+  // ── Personal stats for this DOW ──────────────────────────────────────────────
   let personalAvg: number | undefined;
   let personalCount: number | undefined;
   if (personalStats) {
