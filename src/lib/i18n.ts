@@ -77,11 +77,9 @@ export const translations = {
     dash_session_expired_desc: 'Your Google session has expired. Please reconnect in Settings to ensure your data is backed up when you end the shift.',
     dash_session_go_settings: 'Go to Settings',
     dash_session_end_anyway: 'End Shift Anyway',
-    // Online presence
-    dash_online_total: 'online now',
-    dash_online_top5: 'Top provinces online',
-    dash_online_no_data: 'No drivers online',
-    dash_online_set_province: 'Set province in Profile to appear here',
+    dash_how_to_use: 'How to use',
+    guide_title: 'How to Use GB Driver',
+    guide_subtitle: 'A step-by-step guide to every feature',
 
     // Intensive pending toast (shown at Start Shift when previous-day bonuses are added)
     dash_intensive_added_toast: 'Grab intensive bonus added',
@@ -187,6 +185,7 @@ export const translations = {
     timer_add_claim: 'Claim / Misc',
     timer_in_progress: 'Trip in progress',
     timer_duration_label: 'Trip time',
+    timer_platform_label: 'Platform',
     // ── ClaimEntryDialog ───────────────────────────────────────────────────────
     claim_title: 'Claim / Misc Income',
     claim_note_label: 'Description (required)',
@@ -263,9 +262,6 @@ export const translations = {
     profile_intensive_up_to: 'up to',
     profile_intensive_tier: 'tier',
     profile_intensive_tiers: 'tiers',
-    profile_province_title: 'Province',
-    profile_province_desc: 'Used to show your city on the online drivers map.',
-    profile_province_placeholder: 'Select your province',
     profile_move_timer_title: 'Move Timer',
     profile_move_timer_desc: 'How long to wait at a spot before moving.',
     profile_move_timer_unit: 'min',
@@ -429,11 +425,9 @@ export const translations = {
     dash_session_expired_desc: 'Google session ของคุณหมดอายุแล้ว กรุณาเชื่อมต่อใหม่ในหน้าตั้งค่าเพื่อให้ข้อมูลถูกสำรองเมื่อจบกะงาน',
     dash_session_go_settings: 'ไปที่ตั้งค่า',
     dash_session_end_anyway: 'จบกะโดยไม่สำรอง',
-    // Online presence
-    dash_online_total: 'ออนไลน์อยู่',
-    dash_online_top5: 'จังหวัดที่มีผู้ขับออนไลน์',
-    dash_online_no_data: 'ยังไม่มีผู้ขับออนไลน์',
-    dash_online_set_province: 'ตั้งจังหวัดในโปรไฟล์เพื่อแสดงที่นี่',
+    dash_how_to_use: 'วิธีใช้งาน',
+    guide_title: 'วิธีใช้งานแอป GB Driver',
+    guide_subtitle: 'คู่มือสอนใช้งานทุกฟีเจอร์แบบทีละขั้นตอน',
 
     // Intensive pending toast
     dash_intensive_added_toast: 'เพิ่ม intensive bonus จาก Grab แล้ว',
@@ -537,6 +531,7 @@ export const translations = {
     timer_add_claim: 'เครม / อื่นๆ',
     timer_in_progress: 'กำลังส่งลูกค้า',
     timer_duration_label: 'เวลาต่องาน',
+    timer_platform_label: 'ประเภทงาน',
     // ── ClaimEntryDialog ───────────────────────────────────────────────────────
     claim_title: 'เครม / รายได้อื่นๆ',
     claim_note_label: 'รายละเอียด (จำเป็น)',
@@ -613,9 +608,6 @@ export const translations = {
     profile_intensive_up_to: 'สูงสุด',
     profile_intensive_tier: 'ระดับ',
     profile_intensive_tiers: 'ระดับ',
-    profile_province_title: 'จังหวัด',
-    profile_province_desc: 'ใช้แสดงตำแหน่งของคุณในหน้าแผนที่ผู้ขับออนไลน์',
-    profile_province_placeholder: 'เลือกจังหวัด',
     profile_move_timer_title: 'เวลาย้ายจุด',
     profile_move_timer_desc: 'เวลารอก่อนย้ายจุดจอดถัดไป',
     profile_move_timer_unit: 'นาที',

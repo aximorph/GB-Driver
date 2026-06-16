@@ -25,7 +25,6 @@ export interface DriverProfile {
   dailyGoal?: number;
   intensives?: Intensive[];
   language?: 'en' | 'th';
-  province?: string;        // province.id slug, used for presence feature
   moveTimerMinutes?: number; // minutes to wait before moving spot (default 15)
   shiftStart?: string;      // "HH:mm" daily shift start time
   shiftEnd?: string;        // "HH:mm" daily shift end time

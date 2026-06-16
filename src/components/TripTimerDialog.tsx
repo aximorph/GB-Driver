@@ -4,6 +4,7 @@ import { useT } from '@/context/LangContext';
 
 // ── Persist active trip timer across tab switches / page reloads ──────────────
 const TIMER_KEY = 'gbdriver_active_trip';
+const PLATFORM_KEY = 'gbdriver_active_trip_platform';
 
 function saveTimer(startISO: string) {
   localStorage.setItem(TIMER_KEY, startISO);
@@ -15,8 +16,21 @@ function clearTimer() {
   localStorage.removeItem(TIMER_KEY);
 }
 
+type Platform = 'grab' | 'bolt' | 'vip';
+
+function savePlatform(p: Platform) {
+  localStorage.setItem(PLATFORM_KEY, p);
+}
+function loadPlatform(): Platform {
+  const p = localStorage.getItem(PLATFORM_KEY);
+  return p === 'bolt' || p === 'vip' ? p : 'grab';
+}
+function clearPlatform() {
+  localStorage.removeItem(PLATFORM_KEY);
+}
+
 interface Props {
-  onEndTrip: (tripDuration: number, tripStartTime: string) => void;
+  onEndTrip: (tripDuration: number, tripStartTime: string, platform: Platform) => void;
   onExpense: () => void;
   onClaim: () => void;
   onClose: () => void;
@@ -49,6 +63,16 @@ export default function TripTimerDialog({ onEndTrip, onExpense, onClaim, onClose
     tripStartISO ? Math.floor((Date.now() - new Date(tripStartISO).getTime()) / 1000) : 0,
   );
 
+  // Platform (Grab / Bolt / VIP) — chosen while the trip is running, persisted
+  // across reload/tab-switch the same way the start time is.
+  const [platform, setPlatform] = useState<Platform>(() => {
+    if (autoStart) {
+      savePlatform('grab');
+      return 'grab';
+    }
+    return loadPlatform();
+  });
+
   // Tick every second while running
   useEffect(() => {
     if (!running) return;
@@ -66,14 +90,21 @@ export default function TripTimerDialog({ onEndTrip, onExpense, onClaim, onClose
     setElapsed(0);
   };
 
+  const handleSelectPlatform = (p: Platform) => {
+    setPlatform(p);
+    savePlatform(p);
+  };
+
   const handleEnd = () => {
     const duration = Math.floor((Date.now() - new Date(tripStartISO).getTime()) / 1000);
     clearTimer();
-    onEndTrip(duration, tripStartISO);
+    clearPlatform();
+    onEndTrip(duration, tripStartISO, platform);
   };
 
   const handleCancelTrip = () => {
     clearTimer();
+    clearPlatform();
     setTripStartISO('');
     setElapsed(0);
     onClose();
@@ -120,6 +151,29 @@ export default function TripTimerDialog({ onEndTrip, onExpense, onClaim, onClose
             </p>
           )}
         </div>
+
+        {/* Platform selector — Grab · Bolt · VIP — chosen while delivering to the customer */}
+        {running && (
+          <div>
+            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest px-1 mb-1.5">
+              {t('timer_platform_label')}
+            </p>
+            <div className="flex bg-secondary/60 p-1 rounded-xl border border-white/5 gap-1">
+              {([
+                { value: 'grab' as const, label: t('add_grab'), cls: 'text-primary border-primary/30 bg-primary/20' },
+                { value: 'bolt' as const, label: t('add_bolt'), cls: 'text-violet-400 border-violet-400/30 bg-violet-400/15' },
+                { value: 'vip'  as const, label: t('add_vip'),  cls: 'text-pink-400 border-pink-400/30 bg-pink-400/15' },
+              ]).map(p => (
+                <button key={p.value} onClick={() => handleSelectPlatform(p.value)}
+                  className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                    platform === p.value ? `${p.cls} border` : 'text-muted-foreground hover:text-white'
+                  }`}>
+                  {p.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Buttons */}
         {!running ? (

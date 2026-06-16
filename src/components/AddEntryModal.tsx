@@ -27,6 +27,7 @@ interface Props {
   initialType?: 'income' | 'expense';
   initialTripDuration?: number;   // seconds from TripTimerDialog
   initialTripStartTime?: string;  // ISO timestamp
+  lockedPlatform?: 'grab' | 'bolt' | 'vip'; // platform already chosen in TripTimerDialog — shown read-only
   editEntry?: Entry;              // if provided → edit mode (pre-fills all fields)
   onSave: (entry: Omit<Entry, 'id' | 'sessionId' | 'timestamp'>) => void;
   onUpdate?: (id: string, entry: Omit<Entry, 'id' | 'sessionId' | 'timestamp'>) => void;
@@ -37,6 +38,7 @@ export default function AddEntryModal({
   initialType = 'income',
   initialTripDuration,
   initialTripStartTime,
+  lockedPlatform,
   editEntry,
   onSave,
   onUpdate,
@@ -44,10 +46,15 @@ export default function AddEntryModal({
 }: Props) {
   const t = useT();
   const isEditMode = !!editEntry;
+  // Platform was already picked in TripTimerDialog — show read-only badge instead of selector.
+  // Only applies to brand-new income entries (not edit mode, not the claim/etc flow).
+  const isPlatformLocked = !isEditMode && !!lockedPlatform;
 
   // In edit mode seed state from the existing entry
   const [type, setType] = useState<'income' | 'expense'>(editEntry?.type ?? initialType);
-  const [platform, setPlatform] = useState<'grab' | 'bolt' | 'vip' | 'etc'>(editEntry?.platform ?? 'grab');
+  const [platform, setPlatform] = useState<'grab' | 'bolt' | 'vip' | 'etc'>(
+    editEntry?.platform ?? lockedPlatform ?? 'grab'
+  );
   const [orderType, setOrderType] = useState<'ride' | 'express'>(editEntry?.orderType ?? 'ride');
   const [paymentType, setPaymentType] = useState<'cash' | 'transfer' | 'credit' | ''>(editEntry?.paymentType ?? '');
   const [appFare, setAppFare] = useState(editEntry?.appFare?.toString() ?? '');
@@ -229,21 +236,34 @@ export default function AddEntryModal({
 
           {type === 'income' ? (
             <div className="space-y-2.5">
-              {/* Platform selector — Grab · Bolt · VIP */}
-              <div className="flex bg-secondary/60 p-1 rounded-xl border border-white/5 gap-1">
-                {([
-                  { value: 'grab' as const, label: t('add_grab'), cls: 'text-primary border-primary/30 bg-primary/20' },
-                  { value: 'bolt' as const, label: t('add_bolt'), cls: 'text-violet-400 border-violet-400/30 bg-violet-400/15' },
-                  { value: 'vip'  as const, label: t('add_vip'),  cls: 'text-pink-400 border-pink-400/30 bg-pink-400/15' },
-                ]).map(p => (
-                  <button key={p.value} onClick={() => setPlatform(p.value)}
-                    className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                      platform === p.value ? `${p.cls} border` : 'text-muted-foreground hover:text-white'
-                    }`}>
-                    {p.label}
-                  </button>
-                ))}
-              </div>
+              {/* Platform — selector when free to choose, read-only badge when locked from TripTimerDialog */}
+              {isPlatformLocked ? (
+                <div className="flex items-center gap-1.5 px-1">
+                  <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">{t('timer_platform_label')}:</span>
+                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md border ${
+                    platform === 'bolt' ? 'text-violet-400 bg-violet-400/15 border-violet-400/20'
+                    : platform === 'vip' ? 'text-pink-400 bg-pink-400/15 border-pink-400/20'
+                    : 'text-primary bg-primary/15 border-primary/20'
+                  }`}>
+                    {platform === 'bolt' ? t('add_bolt') : platform === 'vip' ? t('add_vip') : t('add_grab')}
+                  </span>
+                </div>
+              ) : (
+                <div className="flex bg-secondary/60 p-1 rounded-xl border border-white/5 gap-1">
+                  {([
+                    { value: 'grab' as const, label: t('add_grab'), cls: 'text-primary border-primary/30 bg-primary/20' },
+                    { value: 'bolt' as const, label: t('add_bolt'), cls: 'text-violet-400 border-violet-400/30 bg-violet-400/15' },
+                    { value: 'vip'  as const, label: t('add_vip'),  cls: 'text-pink-400 border-pink-400/30 bg-pink-400/15' },
+                  ]).map(p => (
+                    <button key={p.value} onClick={() => setPlatform(p.value)}
+                      className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                        platform === p.value ? `${p.cls} border` : 'text-muted-foreground hover:text-white'
+                      }`}>
+                      {p.label}
+                    </button>
+                  ))}
+                </div>
+              )}
 
               {/* Order type selector — hidden for VIP/etc */}
               {!isVIP && !isEtc && (

@@ -6,17 +6,16 @@ import { isGoogleConnected, backupDataToDrive, scheduleMidnightExpiry } from '@/
 import { prefetchFuelPrices } from '@/lib/fuelApi';
 import { getAuthMode, setAuthMode, isGuestMode } from '@/lib/auth';
 import AuthChoiceModal from './AuthChoiceModal';
-import { goOnline, goOffline, initPresence, updatePresence, subscribeToOnlineCounts, type ProvinceCount } from '@/lib/presence';
-import { getProvinceLabel } from '@/lib/provinces';
 import { format } from 'date-fns';
 import { localDateStr, getShiftDate, isInsideShiftWindow } from '@/lib/utils';
-import { Trash2, Pencil, DollarSign, Receipt, Gift, Clock3, Users, ChevronDown, Timer, Pause, Play } from 'lucide-react';
+import { Trash2, Pencil, DollarSign, Receipt, Gift, Clock3, BookOpen, ChevronDown, Timer, Pause, Play } from 'lucide-react';
 import AddEntryModal from './AddEntryModal';
 import TripTimerDialog from './TripTimerDialog';
 import ClaimEntryDialog from './ClaimEntryDialog';
 import EndShiftModal from './EndShiftModal';
 import MoveTimerModal from './MoveTimerModal';
 import SweetAlert from './SweetAlert';
+import HowToUseModal from './HowToUseModal';
 import { useT } from '@/context/LangContext';
 import { useIsLandscape } from '@/hooks/useIsLandscape';
 
@@ -88,6 +87,7 @@ export default function Dashboard() {
   const [addEntryType, setAddEntryType] = useState<'income' | 'expense'>('income');
   const [pendingTripDuration, setPendingTripDuration] = useState<number | undefined>(undefined);
   const [pendingTripStartTime, setPendingTripStartTime] = useState<string | undefined>(undefined);
+  const [pendingPlatform, setPendingPlatform] = useState<'grab' | 'bolt' | 'vip' | undefined>(undefined);
   const [showEndShift, setShowEndShift] = useState(false);
   const [showLoginAlert, setShowLoginAlert] = useState(false);
   const [showSessionExpiredAlert, setShowSessionExpiredAlert] = useState(false);
@@ -108,10 +108,7 @@ export default function Dashboard() {
     return next;
   });
 
-  const [onlineTotal, setOnlineTotal] = useState(0);
-  const [onlineTop5, setOnlineTop5] = useState<ProvinceCount[]>([]);
-  const [showOnlineDropdown, setShowOnlineDropdown] = useState(false);
-  const onlineDropdownRef = useRef<HTMLDivElement>(null);
+  const [showHowToUse, setShowHowToUse] = useState(false);
 
   // ── Move Timer ───────────────────────────────────────────────────────────────
   const getMoveTimerDuration = () => (getProfile()?.moveTimerMinutes ?? 15) * 60;
@@ -341,9 +338,6 @@ export default function Dashboard() {
     setActiveSession(session);
     window.dispatchEvent(new CustomEvent('gbdriver:session-changed'));
 
-    // Presence
-    if (profile?.province) goOnline(profile.province);
-
     // Show toast if bonuses were added
     if (bonusEntries.length > 0) {
       const total = readyToAdd.reduce((s, p) => s + p.amount, 0);
@@ -395,7 +389,6 @@ export default function Dashboard() {
         : prev;
       return { ...resumed, entries: [...resumed.entries, newEntry] };
     });
-    updatePresence();
   }, [activeSession]);
 
   const endShift = useCallback((grabPayout: number, boltPayout: number = 0) => {
@@ -545,7 +538,6 @@ export default function Dashboard() {
     });
 
     setActiveSession(null);
-    goOffline();
     window.dispatchEvent(new CustomEvent('gbdriver:session-changed'));
     // Clear move timer
     if (timerIntervalRef.current) { clearInterval(timerIntervalRef.current); timerIntervalRef.current = null; }
@@ -600,47 +592,6 @@ export default function Dashboard() {
     return () => window.removeEventListener('gbdriver:open-add-entry', handler);
   }, []);
 
-  // Presence: restore presenceRef after page eviction (key fix)
-  useEffect(() => {
-    if (activeSession) initPresence();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // Presence: subscribe to online counts
-  useEffect(() => {
-    const unsub = subscribeToOnlineCounts((total, top5) => {
-      setOnlineTotal(total);
-      setOnlineTop5(top5);
-    });
-    return unsub;
-  }, []);
-
-  // Presence: update when tab becomes visible again after switch
-  useEffect(() => {
-    const handler = () => { if (document.visibilityState === 'visible') updatePresence(); };
-    document.addEventListener('visibilitychange', handler);
-    return () => document.removeEventListener('visibilitychange', handler);
-  }, []);
-
-  // Presence: heartbeat every 5 min while on shift
-  useEffect(() => {
-    if (!activeSession) return;
-    const id = setInterval(updatePresence, 5 * 60 * 1000);
-    return () => clearInterval(id);
-  }, [activeSession]);
-
-  // Presence: close dropdown on outside click
-  useEffect(() => {
-    if (!showOnlineDropdown) return;
-    const handler = (e: MouseEvent) => {
-      if (onlineDropdownRef.current && !onlineDropdownRef.current.contains(e.target as Node))
-        setShowOnlineDropdown(false);
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, [showOnlineDropdown]);
-
-
   // ตั้ง timer logout ตี 0:00 และ listen event เมื่อ token หมดอายุ
   useEffect(() => {
     scheduleMidnightExpiry();
@@ -669,8 +620,6 @@ export default function Dashboard() {
   }, []);
 
   // ── Reusable sections ────────────────────────────────────────────────
-  const lang = profile?.language ?? 'th';
-
   const shiftStatusSection = (
     <div className="bg-card/80 backdrop-blur-xl border border-white/5 rounded-2xl p-5 shadow-2xl relative overflow-hidden">
       <div className="absolute top-0 right-0 w-32 h-32 bg-primary/10 rounded-full blur-3xl -z-10 translate-x-12 -translate-y-12"></div>
@@ -1033,11 +982,12 @@ export default function Dashboard() {
       {showTripTimer && (
         <TripTimerDialog
           autoStart={tripTimerAutoStart}
-          onEndTrip={(duration, startTime) => {
+          onEndTrip={(duration, startTime, platform) => {
             setShowTripTimer(false);
             setTripTimerAutoStart(false);
             setPendingTripDuration(duration);
             setPendingTripStartTime(startTime);
+            setPendingPlatform(platform);
             setAddEntryType('income');
             setShowAddEntry(true);
           }}
@@ -1046,6 +996,7 @@ export default function Dashboard() {
             setTripTimerAutoStart(false);
             setPendingTripDuration(undefined);
             setPendingTripStartTime(undefined);
+            setPendingPlatform(undefined);
             setAddEntryType('expense');
             setShowAddEntry(true);
           }}
@@ -1062,11 +1013,13 @@ export default function Dashboard() {
           initialType={addEntryType}
           initialTripDuration={pendingTripDuration}
           initialTripStartTime={pendingTripStartTime}
+          lockedPlatform={pendingPlatform}
           onSave={(entry) => {
             addEntry(entry);
             setShowAddEntry(false);
             setPendingTripDuration(undefined);
             setPendingTripStartTime(undefined);
+            setPendingPlatform(undefined);
 
             // Task 2: Reset move timer when an income trip is added
             if (entry.type === 'income' && timerRunning) {
@@ -1105,6 +1058,7 @@ export default function Dashboard() {
             setShowAddEntry(false);
             setPendingTripDuration(undefined);
             setPendingTripStartTime(undefined);
+            setPendingPlatform(undefined);
           }}
         />
       )}
@@ -1231,6 +1185,7 @@ export default function Dashboard() {
           </div>
         );
       })()}
+      {showHowToUse && <HowToUseModal onClose={() => setShowHowToUse(false)} />}
     </>
   );
 
@@ -1247,43 +1202,14 @@ export default function Dashboard() {
         </div>
         <p className="text-sm text-muted-foreground mt-1">{format(new Date(), 'EEEE, MMM d, yyyy')}</p>
       </div>
-      {/* Online drivers badge */}
-      <div className="relative" ref={onlineDropdownRef}>
-        <button
-          onClick={() => setShowOnlineDropdown(v => !v)}
-          className="flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1.5 rounded-full bg-primary/10 border border-primary/20 text-primary hover:bg-primary/20 transition-colors"
-        >
-          <Users size={11} />
-          {onlineTotal}
-          <span className="text-primary/70 font-normal">{t('dash_online_total')}</span>
-          <ChevronDown size={10} className={`transition-transform duration-200 ${showOnlineDropdown ? 'rotate-180' : ''}`} />
-        </button>
-        {showOnlineDropdown && (
-          <div className="absolute right-0 top-full mt-1.5 w-52 bg-card/95 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl z-50 overflow-hidden animate-in slide-in-from-top-1 duration-150">
-            <div className="px-3 pt-3 pb-1">
-              <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">{t('dash_online_top5')}</p>
-            </div>
-            {onlineTop5.length === 0 ? (
-              <p className="text-xs text-muted-foreground px-3 pb-3 pt-1">{t('dash_online_no_data')}</p>
-            ) : (
-              <ul className="pb-2">
-                {onlineTop5.map((item, i) => (
-                  <li key={item.provinceId} className="flex items-center justify-between px-3 py-1.5 hover:bg-white/5 transition-colors">
-                    <span className="flex items-center gap-2 text-xs text-foreground">
-                      <span className="text-muted-foreground font-mono w-4">{i + 1}.</span>
-                      {getProvinceLabel(item.provinceId, lang)}
-                    </span>
-                    <span className="text-xs font-mono font-bold text-primary">{item.count}</span>
-                  </li>
-                ))}
-              </ul>
-            )}
-            {!profile?.province && (
-              <p className="text-[10px] text-muted-foreground/70 px-3 pb-2.5 border-t border-white/5 pt-2">{t('dash_online_set_province')}</p>
-            )}
-          </div>
-        )}
-      </div>
+      {/* How to use this app — guide panel */}
+      <button
+        onClick={() => setShowHowToUse(true)}
+        className="flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1.5 rounded-full bg-primary/10 border border-primary/20 text-primary hover:bg-primary/20 transition-colors"
+      >
+        <BookOpen size={13} />
+        {t('dash_how_to_use')}
+      </button>
     </div>
   );
 
