@@ -1,0 +1,16 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  // ⚠️ Must exactly match your Cloudflare Pages project name (the slug shown
+  // in the Workers & Pages dashboard URL / project list) — NOT the repo name.
+  "name": "REPLACE_WITH_YOUR_PAGES_PROJECT_NAME",
+  "pages_build_output_dir": "./dist",
+  "compatibility_date": "2026-06-21",
+  "kv_namespaces": [
+    {
+      "binding": "GBDRIVER_FUEL_HISTORY",
+      // ⚠️ Replace with the real namespace ID — find it at:
+      // Workers & Pages → Storage & Databases → KV → click "gbdriver-fuel-history" → copy the ID shown at the top.
+      "id": "REPLACE_WITH_YOUR_KV_NAMESPACE_ID"
+    }
+  ]
+}

@@ -5,6 +5,7 @@ import { format, subDays } from 'date-fns';
 import { useT } from '@/context/LangContext';
 import { useIsLandscape } from '@/hooks/useIsLandscape';
 import SmartCalendarCard from '@/components/SmartCalendarCard';
+import FuelPriceHistoryCard from '@/components/FuelPriceHistoryCard';
 
 const GREEN  = 'hsl(145, 100%, 45%)';
 const YELLOW = 'hsl(54,  100%, 62%)';
@@ -153,6 +154,7 @@ export default function Analytics() {
 
   // ── Section variables ───────────────────────────────────────────────────────
   const calendarSection = <SmartCalendarCard />;
+  const fuelHistorySection = <FuelPriceHistoryCard />;
 
   const header = (
     <>
@@ -445,6 +447,7 @@ export default function Analytics() {
         <div className="space-y-4">
           {header}
           {calendarSection}
+          {fuelHistorySection}
           <div className="grid grid-cols-2 gap-4 items-start">
             {/* Left: charts over time */}
             <div className="space-y-4">
@@ -464,6 +467,7 @@ export default function Analytics() {
         <div className="space-y-5">
           {header}
           {calendarSection}
+          {fuelHistorySection}
           {barChartSection}
           {heatmapSection}
           {pieTipSection}
