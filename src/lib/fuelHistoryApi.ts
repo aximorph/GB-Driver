@@ -2,10 +2,11 @@
  * Client for /api/fuel-history — the accumulating daily fuel-price history
  * used by the Analytics "fuel price history" chart.
  *
- * Snapshots are collected server-side by a standalone cron Worker
- * (workers/fuel-cron) that writes directly to D1 once a day, independent of
- * app traffic. This endpoint (functions/api/fuel-history.ts) is a plain
- * read-only query against that same D1 database — it has no side effects.
+ * Snapshots are collected server-side by this Worker's own `scheduled`
+ * handler (see worker/index.ts at the repo root) that writes directly to D1
+ * once a day, independent of app traffic. This endpoint (the same Worker's
+ * `/api/fuel-history` route) is a plain read-only query against that same D1
+ * database — it has no side effects.
  * All this module does is fetch the resulting array and cache it briefly in
  * memory so multiple components mounting at once don't double-fetch.
  */

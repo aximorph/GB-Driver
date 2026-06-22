@@ -1,16 +1,36 @@
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
-  // ⚠️ Must exactly match your Cloudflare Pages project name (the slug shown
-  // in the Workers & Pages dashboard URL / project list) — NOT the repo name.
+  // ⚠️ Must exactly match your Cloudflare project's name (the slug shown in
+  // the Workers & Pages dashboard URL / project list) — NOT the repo name.
   "name": "gb-driver",
-  "pages_build_output_dir": "./dist",
   "compatibility_date": "2026-06-21",
-  // The fuel-price-history KV namespace has been replaced by D1 (see
-  // workers/fuel-cron/ for the cron Worker that writes to it). This Pages
-  // project only needs read access — same binding name "DB" as the worker,
-  // and the SAME database_id as workers/fuel-cron/wrangler.jsonc.
-  // and the SAME database_id as workers/fuel-cron/wrangler.jsonc.
-  
+
+  // This project was originally a classic Cloudflare Pages project, but was
+  // converted to a Worker + static assets project once Workers Builds CI was
+  // enabled (see worker/index.ts — it serves /api/* dynamically and falls
+  // through to the static dist/ build for everything else).
+  "main": "worker/index.ts",
+  "assets": {
+    "directory": "./dist",
+    "binding": "ASSETS",
+    // Required for client-side routing (react-router) — any unmatched path
+    // (e.g. a deep link or a page refresh on /analytics) falls back to
+    // index.html instead of a raw 404.
+    "not_found_handling": "single-page-application"
+  },
+
+  // 17:00 UTC == 00:00 ICT (Thai time, UTC+7) — runs once daily, just after
+  // the Thai calendar date rolls over. Snapshots that day's retail fuel
+  // prices into D1 (see worker/index.ts's `scheduled` handler). This used to
+  // be a separate standalone Worker (workers/fuel-cron) because Pages
+  // Functions don't support Cron Triggers — now that this project is a real
+  // Worker, both jobs live together here.
+  "triggers": {
+    "crons": ["0 17 * * *"]
+  },
+
+  // The fuel-price-history table is written by the scheduled handler above
+  // and read by GET /api/fuel-history.
   "d1_databases": [
     {
       "binding": "DB",
@@ -19,5 +39,3 @@
     }
   ]
 }
-
-
