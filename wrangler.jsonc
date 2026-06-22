@@ -2,7 +2,7 @@
   "$schema": "./node_modules/wrangler/config-schema.json",
   // ⚠️ Must exactly match your Cloudflare Pages project name (the slug shown
   // in the Workers & Pages dashboard URL / project list) — NOT the repo name.
-  "name": "gbdriver-fuel-history",
+  "name": "gb-driver",
   "pages_build_output_dir": "./dist",
   "compatibility_date": "2026-06-21",
   // The fuel-price-history KV namespace has been replaced by D1 (see
