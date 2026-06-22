@@ -9,6 +9,8 @@
   // workers/fuel-cron/ for the cron Worker that writes to it). This Pages
   // project only needs read access — same binding name "DB" as the worker,
   // and the SAME database_id as workers/fuel-cron/wrangler.jsonc.
+  // and the SAME database_id as workers/fuel-cron/wrangler.jsonc.
+  
   "d1_databases": [
     {
       "binding": "DB",
@@ -17,3 +19,5 @@
     }
   ]
 }
+
+
