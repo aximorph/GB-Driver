@@ -1,0 +1,27 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  // This is a standalone Worker, deployed separately from the main Pages
+  // project (`wrangler deploy` from inside this folder). It only runs on a
+  // schedule — it has no public route of its own besides the manual-test
+  // `fetch` handler in src/index.ts.
+  "name": "gbdriver-fuel-cron",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-06-21",
+
+  // 17:00 UTC == 00:00 ICT (Thai time, UTC+7) — runs once daily, just after
+  // the Thai calendar date rolls over.
+  "triggers": {
+    "crons": ["0 17 * * *"]
+  },
+
+  // ⚠️ Must be the SAME database as the root project's wrangler.jsonc —
+  // this Worker writes, the Pages project just reads. Both must point at
+  // "gbdriver-fuel-history", not a second/duplicate database.
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "gbdriver-fuel-history",
+      "database_id": "bbcfde70-4937-4bbf-91e1-3cf2282e15dc"
+    }
+  ]
+}

@@ -4,7 +4,6 @@ import { ShiftSession, Entry, ShiftStatus, Intensive } from '@/lib/types';
 import { getSessions, saveSessions, getActiveSession, getProfile, getPendingIntensives, savePendingIntensives, clearPendingIntensives } from '@/lib/storage';
 import { isGoogleConnected, backupDataToDrive, scheduleMidnightExpiry } from '@/lib/googleDrive';
 import { prefetchFuelPrices } from '@/lib/fuelApi';
-import { triggerFuelHistorySnapshot } from '@/lib/fuelHistoryApi';
 import { getAuthMode, setAuthMode, isGuestMode } from '@/lib/auth';
 import AuthChoiceModal from './AuthChoiceModal';
 import { format } from 'date-fns';
@@ -602,12 +601,11 @@ export default function Dashboard() {
   }, []);
 
   // Pre-warm fuel price cache on mount, then refresh every day at 00:00.
-  // Also opportunistically ping the server-side fuel-history snapshot
-  // endpoint, so the Analytics fuel-price chart accumulates a data point
-  // for today even if the user never opens the Analytics page directly.
+  // (The fuel-price *history* shown on Analytics is now collected by a
+  // separate cron Worker writing to D1, independent of app traffic — no
+  // client-side snapshot trigger needed here anymore.)
   useEffect(() => {
     prefetchFuelPrices();
-    triggerFuelHistorySnapshot();
     // Schedule a refresh each midnight so the cache stays current
     function scheduleMidnightFuelRefresh() {
       const now      = new Date();
@@ -616,7 +614,6 @@ export default function Dashboard() {
       const msUntilMidnight = midnight.getTime() - now.getTime();
       return setTimeout(() => {
         prefetchFuelPrices();
-        triggerFuelHistorySnapshot();
         // Re-schedule for the next midnight
         timerId = scheduleMidnightFuelRefresh();
       }, msUntilMidnight);

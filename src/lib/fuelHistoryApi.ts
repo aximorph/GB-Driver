@@ -2,11 +2,12 @@
  * Client for /api/fuel-history — the accumulating daily fuel-price history
  * used by the Analytics "fuel price history" chart.
  *
- * The endpoint itself (functions/api/fuel-history.ts) does the actual
- * snapshotting server-side (opportunistically, on whichever request is the
- * first of the Thai day). All this module does is fetch the resulting
- * array and cache it briefly in memory so multiple components mounting at
- * once (e.g. Dashboard's prefetch + the Analytics chart) don't double-fetch.
+ * Snapshots are collected server-side by a standalone cron Worker
+ * (workers/fuel-cron) that writes directly to D1 once a day, independent of
+ * app traffic. This endpoint (functions/api/fuel-history.ts) is a plain
+ * read-only query against that same D1 database — it has no side effects.
+ * All this module does is fetch the resulting array and cache it briefly in
+ * memory so multiple components mounting at once don't double-fetch.
  */
 
 export type FuelType =
@@ -22,7 +23,7 @@ const ENDPOINT = '/api/fuel-history';
 
 let inFlight: Promise<FuelHistoryEntry[]> | null = null;
 
-/** Fetch the full accumulated fuel-price history (also triggers today's snapshot server-side). */
+/** Fetch the full accumulated fuel-price history (read-only; snapshots are written by the cron Worker). */
 export async function getFuelHistory(): Promise<FuelHistoryEntry[]> {
   if (inFlight) return inFlight;
   inFlight = (async () => {
@@ -40,9 +41,4 @@ export async function getFuelHistory(): Promise<FuelHistoryEntry[]> {
     }
   })();
   return inFlight;
-}
-
-/** Fire-and-forget: call once on app mount / midnight to keep the snapshot fresh, without needing the result. */
-export function triggerFuelHistorySnapshot(): void {
-  getFuelHistory().catch(() => { /* silent */ });
 }
