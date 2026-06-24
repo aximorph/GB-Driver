@@ -7,7 +7,7 @@ import { prefetchFuelPrices } from '@/lib/fuelApi';
 import { getAuthMode, setAuthMode, isGuestMode } from '@/lib/auth';
 import AuthChoiceModal from './AuthChoiceModal';
 import { format } from 'date-fns';
-import { localDateStr, getShiftDate, isInsideShiftWindow } from '@/lib/utils';
+import { localDateStr, getShiftDate, isInsideShiftWindow, getOnlineSeconds } from '@/lib/utils';
 import { Trash2, Pencil, DollarSign, Receipt, Gift, Clock3, BookOpen, ChevronDown, Timer, Pause, Play } from 'lucide-react';
 import AddEntryModal from './AddEntryModal';
 import TripTimerDialog from './TripTimerDialog';
@@ -279,11 +279,7 @@ export default function Dashboard() {
     const interval = setInterval(() => {
       const s = activeSessionRef.current;
       if (!s) return;
-      const now = Date.now();
-      const start = new Date(s.startTime).getTime();
-      const pausedMs = (s.totalPausedMs ?? 0) +
-        (s.pausedAt ? now - new Date(s.pausedAt).getTime() : 0);
-      setElapsed(Math.max(0, Math.floor((now - start - pausedMs) / 1000)));
+      setElapsed(getOnlineSeconds(s));
     }, 1000);
     return () => clearInterval(interval);
   // eslint-disable-next-line react-hooks/exhaustive-deps

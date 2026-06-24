@@ -11,8 +11,6 @@ const GREEN  = 'hsl(145, 100%, 45%)';
 const YELLOW = 'hsl(54,  100%, 62%)';
 const RED    = 'hsl(0,   76%,  60%)';
 const BLUE   = 'hsl(210, 100%, 60%)';
-const COLORS = [GREEN, RED];
-
 const TOOLTIP_STYLE = {
   background: 'hsl(220, 33%, 7%)',
   border: '1px solid hsl(220, 20%, 18%)',
@@ -55,22 +53,24 @@ export default function Analytics() {
     return { grid, days, maxVal };
   }, [sessions]);
 
-  // ── Income vs Expense pie ───────────────────────────────────────────────────
+  // ── Earnings breakdown pie: net income / commission / fuel / other expenses ─
   const pieData = useMemo(() => {
     const entries = sessions.flatMap(s => s.entries);
-    return [
-      { name: t('analytics_income'),   value: entries.filter(e => e.type === 'income').reduce((s, e) => s + (e.driverNet || 0) + (e.tip || 0), 0) },
-      { name: t('analytics_expenses'), value: entries.filter(e => e.type === 'expense').reduce((s, e) => s + e.amount, 0) },
-    ];
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sessions, t]);
+    const income = entries.filter(e => e.type === 'income');
+    const expenses = entries.filter(e => e.type === 'expense');
 
-  // ── Tip stats ───────────────────────────────────────────────────────────────
-  const tipStats = useMemo(() => {
-    const inc = sessions.flatMap(s => s.entries).filter(e => e.type === 'income');
-    const totalTips = inc.reduce((s, e) => s + (e.tip || 0), 0);
-    return { avgTip: inc.length > 0 ? totalTips / inc.length : 0, totalTrips: inc.length };
-  }, [sessions]);
+    const netIncome  = income.reduce((s, e) => s + (e.driverNet || 0) + (e.tip || 0), 0);
+    const commission = income.reduce((s, e) => s + Math.max(0, (e.appFare || 0) - (e.driverNet || 0)), 0);
+    const fuelCost    = expenses.filter(e => e.expenseCategory === 'Fuel').reduce((s, e) => s + e.amount, 0);
+    const otherExpenses = expenses.filter(e => e.expenseCategory !== 'Fuel').reduce((s, e) => s + e.amount, 0);
+
+    return [
+      { name: t('analytics_income'),     value: netIncome,    color: GREEN },
+      { name: t('analytics_commission'), value: commission,   color: YELLOW },
+      { name: t('analytics_fuel_cost'),  value: fuelCost,      color: BLUE },
+      { name: t('analytics_expenses'),   value: otherExpenses, color: RED },
+    ].filter(d => d.value > 0);
+  }, [sessions, t]);
 
   // ── ฿/hr ────────────────────────────────────────────────────────────────────
   const perHourData = useMemo(() => {
@@ -207,27 +207,41 @@ export default function Analytics() {
     </div>
   );
 
-  const pieTipSection = (
-    <div className="grid grid-cols-2 gap-4">
-      <div className="bg-card/70 backdrop-blur-xl border border-white/5 rounded-3xl p-5 shadow-xl">
-        <h3 className="text-sm font-semibold text-muted-foreground mb-2">{t('analytics_pie')}</h3>
-        <ResponsiveContainer width="100%" height={120}>
-          <PieChart>
-            <Pie data={pieData} dataKey="value" cx="50%" cy="50%" outerRadius={45} innerRadius={25}>
-              {pieData.map((_, i) => <Cell key={i} fill={COLORS[i]} />)}
-            </Pie>
-            <Tooltip contentStyle={{ ...TOOLTIP_STYLE, fontSize: 11 }} />
-          </PieChart>
-        </ResponsiveContainer>
-      </div>
-      <div className="bg-card/70 backdrop-blur-xl border border-white/5 rounded-3xl p-5 shadow-xl">
-        <h3 className="text-sm font-semibold text-muted-foreground mb-2">{t('analytics_tip_rate')}</h3>
-        <div className="text-center space-y-1 pt-4">
-          <p className="font-mono text-2xl font-bold text-warning">฿{tipStats.avgTip.toFixed(0)}</p>
-          <p className="text-xs text-muted-foreground">{t('analytics_avg_tip')}</p>
-          <p className="text-xs text-muted-foreground">{tipStats.totalTrips} {t('analytics_trips_total')}</p>
+  const pieTotal = pieData.reduce((s, d) => s + d.value, 0);
+
+  const earningsBreakdownSection = (
+    <div className="bg-card/70 backdrop-blur-xl border border-white/5 rounded-3xl p-5 shadow-xl">
+      <h3 className="text-sm font-semibold text-muted-foreground mb-3">{t('analytics_pie')}</h3>
+      {pieData.length === 0 ? (
+        <div className="text-center py-6 text-xs text-muted-foreground">{t('analytics_no_data')}</div>
+      ) : (
+        <div className="flex items-center gap-4">
+          <ResponsiveContainer width={120} height={120} className="flex-shrink-0">
+            <PieChart>
+              <Pie data={pieData} dataKey="value" cx="50%" cy="50%" outerRadius={55} innerRadius={32}>
+                {pieData.map((d, i) => <Cell key={i} fill={d.color} />)}
+              </Pie>
+              <Tooltip contentStyle={{ ...TOOLTIP_STYLE, fontSize: 11 }} formatter={(v: number) => `฿${v.toFixed(0)}`} />
+            </PieChart>
+          </ResponsiveContainer>
+          <div className="flex-1 min-w-0 space-y-2">
+            {pieData.map((d, i) => (
+              <div key={i} className="flex items-center justify-between gap-2 text-xs">
+                <span className="flex items-center gap-1.5 text-muted-foreground truncate">
+                  <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: d.color }} />
+                  <span className="truncate">{d.name}</span>
+                </span>
+                <span className="font-mono font-semibold text-white flex-shrink-0">
+                  ฿{d.value.toFixed(0)}
+                  <span className="text-muted-foreground font-normal ml-1">
+                    {pieTotal > 0 ? Math.round((d.value / pieTotal) * 100) : 0}%
+                  </span>
+                </span>
+              </div>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 
@@ -456,7 +470,7 @@ export default function Analytics() {
             </div>
             {/* Right: breakdowns */}
             <div className="space-y-4">
-              {pieTipSection}
+              {earningsBreakdownSection}
               {perHourSection}
               {tripDurationSection}
               {deductionSection}
@@ -470,7 +484,7 @@ export default function Analytics() {
           {fuelHistorySection}
           {barChartSection}
           {heatmapSection}
-          {pieTipSection}
+          {earningsBreakdownSection}
           {perHourSection}
           {tripDurationSection}
           {deductionSection}

@@ -1,13 +1,15 @@
 import { useState, useMemo, useRef, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { getSessions, saveSessions, getProfile } from '@/lib/storage';
 import { ShiftSession, Entry } from '@/lib/types';
 import { format, startOfWeek, parseISO } from 'date-fns';
-import { Trash2, Pencil, Star, Clock, Activity, Coffee, Share2, Loader2 } from 'lucide-react';
+import { Trash2, Pencil, Star, Clock, Activity, Coffee, Share2, Loader2, X } from 'lucide-react';
 import { useT } from '@/context/LangContext';
 import { useIsLandscape } from '@/hooks/useIsLandscape';
 import SweetAlert from './SweetAlert';
 import AddEntryModal from './AddEntryModal';
 import { generateAndShareDailyCard, generateAndShareWeeklyCard, generateAndShareMonthlyCard } from '@/lib/shareCard';
+import { getOnlineSeconds } from '@/lib/utils';
 
 function formatDuration(secs: number): string {
   const h = Math.floor(secs / 3600);
@@ -70,11 +72,11 @@ export default function History() {
     const tips = entries.filter(e => e.type === 'income').reduce((sum, e) => sum + (e.tip || 0), 0);
     const expenses = entries.filter(e => e.type === 'expense').reduce((sum, e) => sum + e.amount, 0);
     // รวมเวลา online ของทุก session ในกลุ่ม (เฉพาะที่จบแล้ว) หักเวลาพัก
+    // Uses the same getOnlineSeconds formula as Dashboard's live timer and
+    // EndShiftModal's preview, so all three always agree.
     const totalOnlineSecs = ss.reduce((sum, s) => {
       if (!s.endTime) return sum;
-      const rawMs = new Date(s.endTime).getTime() - new Date(s.startTime).getTime();
-      const pausedMs = s.totalPausedMs ?? 0;
-      return sum + Math.max(0, Math.floor((rawMs - pausedMs) / 1000));
+      return sum + getOnlineSeconds(s);
     }, 0);
     const totalMinutes = totalOnlineSecs / 60;
     const hours = Math.floor(totalMinutes / 60);
@@ -394,33 +396,27 @@ export default function History() {
               <div className="border-t border-white/5 p-4 space-y-3 bg-black/20">
                 <div className="grid grid-cols-4 gap-2 text-center">
                   {/* Gross — clickable for payment breakdown */}
-                  <div className="relative" onClick={e => { e.stopPropagation(); setOpenBreakdownKey(prev => prev === key + '_exp' ? null : key + '_exp'); }}>
+                  <div onClick={e => { e.stopPropagation(); setOpenBreakdownKey(prev => prev === key + '_exp' ? null : key + '_exp'); }}>
                     <p className="text-xs text-muted-foreground">{t('hist_gross')}</p>
                     <p className={`font-mono text-xs font-bold text-foreground ${calcPayBreakdown(ss).hasData ? 'underline decoration-dotted underline-offset-2 cursor-pointer' : ''}`}>
                       ฿{stats.gross.toFixed(0)}
                     </p>
-                    {openBreakdownKey === key + '_exp' && calcPayBreakdown(ss).hasData && (
-                      <div className="absolute top-full left-0 mt-1 z-30 bg-popover border border-border rounded-xl shadow-2xl p-2 min-w-[148px] space-y-1 text-left" onClick={e => e.stopPropagation()}>
-                        <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest px-0.5">{t('dash_income_breakdown')}</p>
-                        {(() => {
-                          const bd = calcPayBreakdown(ss);
-                          return ([
-                            { key: 'cash',       label: t('add_pay_cash'),        val: bd.cash,       color: 'text-primary' },
-                            { key: 'transfer',   label: t('add_pay_transfer'),    val: bd.transfer,   color: 'text-blue-400' },
-                            { key: 'credit',     label: t('add_pay_credit'),      val: bd.credit,     color: 'text-violet-400' },
-                            { key: 'unrecorded', label: t('dash_pay_unrecorded'), val: bd.unrecorded, color: 'text-muted-foreground' },
-                          ] as { key: string; label: string; val: number; color: string }[])
-                            .filter(r => r.val > 0)
-                            .map(r => (
-                              <div key={r.key} className="flex items-center justify-between gap-2 px-0.5">
-                                <span className="text-[11px] text-muted-foreground">{r.label}</span>
-                                <span className={`font-mono font-bold text-[11px] ${r.color}`}>฿{r.val.toFixed(0)}</span>
-                              </div>
-                            ));
-                        })()}
-                        <button onClick={() => setOpenBreakdownKey(null)} className="w-full text-[9px] text-muted-foreground hover:text-white transition-colors text-center pt-0.5">✕</button>
-                      </div>
-                    )}
+                    {openBreakdownKey === key + '_exp' && calcPayBreakdown(ss).hasData && (() => {
+                      const bd = calcPayBreakdown(ss);
+                      const rows = ([
+                        { key: 'cash',       label: t('add_pay_cash'),        val: bd.cash,       color: 'text-primary' },
+                        { key: 'transfer',   label: t('add_pay_transfer'),    val: bd.transfer,   color: 'text-blue-400' },
+                        { key: 'credit',     label: t('add_pay_credit'),      val: bd.credit,     color: 'text-violet-400' },
+                        { key: 'unrecorded', label: t('dash_pay_unrecorded'), val: bd.unrecorded, color: 'text-muted-foreground' },
+                      ] as { key: string; label: string; val: number; color: string }[]).filter(r => r.val > 0);
+                      return (
+                        <PaymentBreakdownSheet
+                          title={t('dash_income_breakdown')}
+                          rows={rows}
+                          onClose={() => setOpenBreakdownKey(null)}
+                        />
+                      );
+                    })()}
                   </div>
                   <MiniStat label={t('hist_tips')} value={stats.tips} />
                   <MiniStat label={t('hist_expenses')} value={stats.expenses} />
@@ -651,27 +647,59 @@ function GrossBreakdownButton({
   ].filter(r => r.val > 0);
 
   return (
-    <div className="text-right relative" onClick={onToggle}>
+    <div className="text-right" onClick={onToggle}>
       <p className={`font-mono text-lg font-extrabold text-primary drop-shadow-sm ${breakdown.hasData ? 'underline decoration-dotted underline-offset-2 cursor-pointer' : ''}`}>
         ฿{gross.toFixed(0)}
       </p>
       <p className="text-xs font-medium text-muted-foreground">{grossLabel}</p>
       {isOpen && breakdown.hasData && (
-        <div
-          className="absolute top-full right-0 mt-1 z-30 bg-popover border border-border rounded-xl shadow-2xl p-2 min-w-[148px] space-y-1 text-left"
-          onClick={e => e.stopPropagation()}
-        >
-          <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest px-0.5">{breakdownTitle}</p>
-          {rows.map(r => (
-            <div key={r.key} className="flex items-center justify-between gap-2 px-0.5">
-              <span className="text-[11px] text-muted-foreground">{r.label}</span>
-              <span className={`font-mono font-bold text-[11px] ${r.color}`}>฿{r.val.toFixed(0)}</span>
-            </div>
-          ))}
-          <button onClick={onClose} className="w-full text-[9px] text-muted-foreground hover:text-white transition-colors text-center pt-0.5">✕</button>
-        </div>
+        <PaymentBreakdownSheet title={breakdownTitle} rows={rows} onClose={onClose} />
       )}
     </div>
+  );
+}
+
+/**
+ * Bottom-sheet shown when tapping a "Gross" amount to see its payment-type
+ * breakdown. Rendered via a portal directly into document.body so it's never
+ * clipped by an ancestor's overflow-hidden — previously this was an
+ * absolute-positioned dropdown nested inside the history card's
+ * `overflow-hidden` wrapper (needed for the daily swipe-to-delete
+ * animation), which silently clipped the bottom of the dropdown whenever it
+ * didn't fit inside the card's own bounds.
+ */
+function PaymentBreakdownSheet({ title, rows, onClose }: {
+  title: string;
+  rows: { key: string; label: string; val: number; color: string }[];
+  onClose: () => void;
+}) {
+  return createPortal(
+    <div
+      className="fixed inset-0 z-50 flex items-end justify-center animate-in fade-in duration-150"
+      onClick={e => { e.stopPropagation(); onClose(); }}
+    >
+      <div className="absolute inset-0 bg-black/60" />
+      <div
+        className="relative w-full max-w-md bg-popover border-t border-x border-border rounded-t-3xl shadow-2xl p-5 pb-8 space-y-3 animate-in slide-in-from-bottom duration-200"
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between">
+          <p className="text-xs font-black text-muted-foreground uppercase tracking-widest">{title}</p>
+          <button onClick={onClose} className="text-muted-foreground hover:text-white transition-colors p-1 -m-1">
+            <X size={16} />
+          </button>
+        </div>
+        <div className="space-y-2.5 pt-1">
+          {rows.map(r => (
+            <div key={r.key} className="flex items-center justify-between gap-2">
+              <span className="text-sm text-muted-foreground">{r.label}</span>
+              <span className={`font-mono font-bold text-sm ${r.color}`}>฿{r.val.toFixed(0)}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>,
+    document.body,
   );
 }
 

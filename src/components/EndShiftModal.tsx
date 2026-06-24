@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { ShiftSession } from '@/lib/types';
 import { useT } from '@/context/LangContext';
 import { Clock, Activity, Coffee } from 'lucide-react';
+import { getOnlineSeconds } from '@/lib/utils';
 
 interface Props {
   session: ShiftSession;
@@ -57,11 +58,20 @@ export default function EndShiftModal({ session, onConfirm, onClose }: Props) {
   const boltDiff      = Math.round(boltPayoutNum - boltCalc);
 
   // ── Time breakdown ─────────────────────────────────────────────────────────
-  const now = new Date();
-  const shiftStart = new Date(session.startTime);
-  const pausedMs = (session.totalPausedMs ?? 0) +
-    (session.pausedAt ? now.getTime() - new Date(session.pausedAt).getTime() : 0);
-  const onlineSecs = Math.max(0, Math.floor((now.getTime() - shiftStart.getTime() - pausedMs) / 1000));
+  // session.pausedAt may still be set here (EndShiftModal can be opened while
+  // a pause is in progress, before the caller finalises it), so this needs to
+  // keep ticking live rather than freezing at mount — otherwise "stop" looks
+  // like it doesn't count, but the eventual saved totalPausedMs (computed
+  // separately at confirm-time) tells a different story. getOnlineSeconds is
+  // the same single-source-of-truth formula used by Dashboard's live timer
+  // and History's post-hoc stats, so all three now always agree.
+  const [nowTick, setNowTick] = useState(() => Date.now());
+  useEffect(() => {
+    if (session.pausedAt) return; // paused: online time is frozen, no need to tick
+    const interval = setInterval(() => setNowTick(Date.now()), 1000);
+    return () => clearInterval(interval);
+  }, [session.pausedAt]);
+  const onlineSecs = getOnlineSeconds(session, nowTick);
 
   // Sum of trip durations for income entries that have it (non-bonus)
   const workingSecs = session.entries

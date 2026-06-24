@@ -1,9 +1,38 @@
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
-import type { DriverProfile } from './types';
+import type { DriverProfile, ShiftSession } from './types';
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
+}
+
+/**
+ * Single source of truth for "online" (not-paused) shift duration, in
+ * milliseconds, as of `asOf` (defaults to now).
+ *
+ * Online time = (end-or-now − startTime) − totalPausedMs − (time spent in
+ * the CURRENT in-progress pause, if any). "Stop"/pause means not-online, so
+ * that time must never be counted — this single function is the only place
+ * that formula should live; previously it was hand-copied independently in
+ * Dashboard.tsx (live timer), EndShiftModal.tsx (end-of-shift preview), and
+ * History.tsx (calcStats) — those three could drift from each other (e.g.
+ * the EndShiftModal preview froze at modal-mount time instead of ticking),
+ * which is what made the live "shift time" look like it ignored pauses
+ * while the final saved number told a different story.
+ */
+export function getOnlineMs(session: ShiftSession, asOf: number = Date.now()): number {
+  const start = new Date(session.startTime).getTime();
+  const end = session.endTime ? new Date(session.endTime).getTime() : asOf;
+  const currentPauseMs = session.pausedAt
+    ? Math.max(0, asOf - new Date(session.pausedAt).getTime())
+    : 0;
+  const pausedMs = (session.totalPausedMs ?? 0) + currentPauseMs;
+  return Math.max(0, end - start - pausedMs);
+}
+
+/** Same as {@link getOnlineMs}, but in whole seconds (rounds down). */
+export function getOnlineSeconds(session: ShiftSession, asOf: number = Date.now()): number {
+  return Math.floor(getOnlineMs(session, asOf) / 1000);
 }
 
 /** Returns today's date as YYYY-MM-DD in the device's LOCAL timezone.
