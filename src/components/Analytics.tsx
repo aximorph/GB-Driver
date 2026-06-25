@@ -232,6 +232,13 @@ export default function Analytics() {
             </PieChart>
           </ResponsiveContainer>
           <div className="flex-1 min-w-0 space-y-2">
+            <div className="flex items-center justify-between gap-2 text-xs pb-2 mb-1 border-b border-white/10">
+              <span className="font-semibold text-foreground truncate">{t('analytics_total_revenue')}</span>
+              <span className="font-mono font-extrabold text-white flex-shrink-0">
+                ฿{pieTotal.toFixed(0)}
+                <span className="text-muted-foreground font-normal ml-1">100%</span>
+              </span>
+            </div>
             {pieData.map((d, i) => (
               <div key={i} className="flex items-center justify-between gap-2 text-xs">
                 <span className="flex items-center gap-1.5 text-muted-foreground truncate">
