@@ -53,7 +53,13 @@ export default function Analytics() {
     return { grid, days, maxVal };
   }, [sessions]);
 
-  // ── Earnings breakdown pie: net income / commission / fuel / other expenses ─
+  // ── Earnings breakdown pie: profit / commission / fuel / other expenses ────
+  // Base = total revenue (driverNet + commission + tip), split into 4
+  // mutually-exclusive slices that sum back to exactly 100% of it:
+  //   profit + commission + fuel + other === revenue
+  // (Previously this showed take-home pay as one slice and then tacked fuel
+  // /other expenses on top as extra slices, so the pie's total exceeded
+  // actual revenue and the percentages didn't mean "share of 100%".)
   const pieData = useMemo(() => {
     const entries = sessions.flatMap(s => s.entries);
     const income = entries.filter(e => e.type === 'income');
@@ -63,10 +69,11 @@ export default function Analytics() {
     const commission = income.reduce((s, e) => s + Math.max(0, (e.appFare || 0) - (e.driverNet || 0)), 0);
     const fuelCost    = expenses.filter(e => e.expenseCategory === 'Fuel').reduce((s, e) => s + e.amount, 0);
     const otherExpenses = expenses.filter(e => e.expenseCategory !== 'Fuel').reduce((s, e) => s + e.amount, 0);
+    const profit = netIncome - fuelCost - otherExpenses;
 
     return [
-      { name: t('analytics_income'),     value: netIncome,    color: GREEN },
-      { name: t('analytics_commission'), value: commission,   color: YELLOW },
+      { name: t('analytics_income'),     value: profit,        color: GREEN },
+      { name: t('analytics_commission'), value: commission,    color: YELLOW },
       { name: t('analytics_fuel_cost'),  value: fuelCost,      color: BLUE },
       { name: t('analytics_expenses'),   value: otherExpenses, color: RED },
     ].filter(d => d.value > 0);
