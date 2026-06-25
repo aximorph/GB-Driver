@@ -6,6 +6,7 @@ import { useT } from '@/context/LangContext';
 import { useIsLandscape } from '@/hooks/useIsLandscape';
 import SmartCalendarCard from '@/components/SmartCalendarCard';
 import FuelPriceHistoryCard from '@/components/FuelPriceHistoryCard';
+import { getRevenueBreakdown } from '@/lib/utils';
 
 const GREEN  = 'hsl(145, 100%, 45%)';
 const YELLOW = 'hsl(54,  100%, 62%)';
@@ -62,14 +63,7 @@ export default function Analytics() {
   // actual revenue and the percentages didn't mean "share of 100%".)
   const pieData = useMemo(() => {
     const entries = sessions.flatMap(s => s.entries);
-    const income = entries.filter(e => e.type === 'income');
-    const expenses = entries.filter(e => e.type === 'expense');
-
-    const netIncome  = income.reduce((s, e) => s + (e.driverNet || 0) + (e.tip || 0), 0);
-    const commission = income.reduce((s, e) => s + Math.max(0, (e.appFare || 0) - (e.driverNet || 0)), 0);
-    const fuelCost    = expenses.filter(e => e.expenseCategory === 'Fuel').reduce((s, e) => s + e.amount, 0);
-    const otherExpenses = expenses.filter(e => e.expenseCategory !== 'Fuel').reduce((s, e) => s + e.amount, 0);
-    const profit = netIncome - fuelCost - otherExpenses;
+    const { profit, commission, fuelCost, otherExpenses } = getRevenueBreakdown(entries);
 
     return [
       { name: t('analytics_income'),     value: profit,        color: GREEN },

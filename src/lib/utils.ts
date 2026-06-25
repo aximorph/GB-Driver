@@ -1,9 +1,38 @@
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
-import type { DriverProfile, ShiftSession } from './types';
+import type { DriverProfile, Entry, ShiftSession } from './types';
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
+}
+
+/**
+ * Single source of truth for the "revenue breakdown" used by both the
+ * Analytics earnings-pie card and History's per-month breakdown card.
+ *
+ * profit + commission + fuelCost + otherExpenses === total, where total is
+ * the full revenue (driver's take-home + the platform's commission) earned
+ * across the given entries — i.e. the four numbers are a true 100% split of
+ * revenue, not take-home-pay-plus-extra-expenses-tacked-on.
+ */
+export function getRevenueBreakdown(entries: Entry[]): {
+  profit: number;
+  commission: number;
+  fuelCost: number;
+  otherExpenses: number;
+  total: number;
+} {
+  const income = entries.filter(e => e.type === 'income');
+  const expenses = entries.filter(e => e.type === 'expense');
+
+  const netIncome = income.reduce((s, e) => s + (e.driverNet || 0) + (e.tip || 0), 0);
+  const commission = income.reduce((s, e) => s + Math.max(0, (e.appFare || 0) - (e.driverNet || 0)), 0);
+  const fuelCost = expenses.filter(e => e.expenseCategory === 'Fuel').reduce((s, e) => s + e.amount, 0);
+  const otherExpenses = expenses.filter(e => e.expenseCategory !== 'Fuel').reduce((s, e) => s + e.amount, 0);
+  const profit = netIncome - fuelCost - otherExpenses;
+  const total = profit + commission + fuelCost + otherExpenses; // === netIncome + commission
+
+  return { profit, commission, fuelCost, otherExpenses, total };
 }
 
 /**

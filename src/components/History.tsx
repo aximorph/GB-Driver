@@ -4,12 +4,27 @@ import { getSessions, saveSessions, getProfile } from '@/lib/storage';
 import { ShiftSession, Entry } from '@/lib/types';
 import { format, startOfWeek, parseISO } from 'date-fns';
 import { Trash2, Pencil, Star, Clock, Activity, Coffee, Share2, Loader2, X } from 'lucide-react';
+import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
 import { useT } from '@/context/LangContext';
+import type { TranslationKey } from '@/lib/i18n';
 import { useIsLandscape } from '@/hooks/useIsLandscape';
 import SweetAlert from './SweetAlert';
 import AddEntryModal from './AddEntryModal';
 import { generateAndShareDailyCard, generateAndShareWeeklyCard, generateAndShareMonthlyCard } from '@/lib/shareCard';
-import { getOnlineSeconds } from '@/lib/utils';
+import { getOnlineSeconds, getRevenueBreakdown } from '@/lib/utils';
+
+// Same palette as Analytics.tsx's earnings-breakdown pie, kept in sync so the
+// monthly revenue card here looks identical to the one in Analytics.
+const REVENUE_GREEN  = 'hsl(145, 100%, 45%)';
+const REVENUE_YELLOW = 'hsl(54,  100%, 62%)';
+const REVENUE_RED    = 'hsl(0,   76%,  60%)';
+const REVENUE_BLUE   = 'hsl(210, 100%, 60%)';
+const REVENUE_TOOLTIP_STYLE = {
+  background: 'hsl(220, 33%, 7%)',
+  border: '1px solid hsl(220, 20%, 18%)',
+  borderRadius: 8,
+  fontSize: 12,
+};
 
 function formatDuration(secs: number): string {
   const h = Math.floor(secs / 3600);
@@ -449,6 +464,10 @@ export default function History() {
                     </div>
                   </div>
                 )}
+
+                {/* Revenue breakdown — monthly tab only */}
+                {tab === 'monthly' && <RevenueBreakdownCard entries={ss.flatMap(s => s.entries)} t={t} />}
+
                 {ss.flatMap(s => s.entries).length === 0 && (
                   <p className="text-center text-xs text-muted-foreground py-2">{t('hist_no_entries')}</p>
                 )}
@@ -700,6 +719,64 @@ function PaymentBreakdownSheet({ title, rows, onClose }: {
       </div>
     </div>,
     document.body,
+  );
+}
+
+/**
+ * Monthly revenue breakdown sub-card — shown in History's monthly tab right
+ * after the time-breakdown sub-card. Mirrors the "สัดส่วนรายรับ" card in
+ * Analytics.tsx (same donut + legend-rows layout, same colors, same
+ * getRevenueBreakdown formula) but scoped to just this one month's
+ * sessions instead of all-time.
+ */
+function RevenueBreakdownCard({ entries, t }: { entries: Entry[]; t: (key: TranslationKey) => string }) {
+  const { profit, commission, fuelCost, otherExpenses, total } = getRevenueBreakdown(entries);
+  const pieData = [
+    { name: t('analytics_income'),     value: profit,        color: REVENUE_GREEN },
+    { name: t('analytics_commission'), value: commission,    color: REVENUE_YELLOW },
+    { name: t('analytics_fuel_cost'),  value: fuelCost,      color: REVENUE_BLUE },
+    { name: t('analytics_expenses'),   value: otherExpenses, color: REVENUE_RED },
+  ].filter(d => d.value > 0);
+
+  if (pieData.length === 0) return null;
+
+  return (
+    <div className="bg-secondary/40 rounded-xl border border-white/5 p-3 space-y-2">
+      <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">{t('analytics_pie')}</p>
+      <div className="flex items-center gap-3">
+        <ResponsiveContainer width={84} height={84} className="flex-shrink-0">
+          <PieChart>
+            <Pie data={pieData} dataKey="value" cx="50%" cy="50%" outerRadius={40} innerRadius={23}>
+              {pieData.map((d, i) => <Cell key={i} fill={d.color} />)}
+            </Pie>
+            <Tooltip contentStyle={{ ...REVENUE_TOOLTIP_STYLE, fontSize: 11 }} formatter={(v: number) => `฿${v.toFixed(0)}`} />
+          </PieChart>
+        </ResponsiveContainer>
+        <div className="flex-1 min-w-0 space-y-1.5">
+          <div className="flex items-center justify-between gap-2 text-[11px] pb-1.5 mb-0.5 border-b border-white/10">
+            <span className="font-semibold text-foreground truncate">{t('analytics_total_revenue')}</span>
+            <span className="font-mono font-extrabold text-white flex-shrink-0">
+              ฿{total.toFixed(0)}
+              <span className="text-muted-foreground font-normal ml-1">100%</span>
+            </span>
+          </div>
+          {pieData.map((d, i) => (
+            <div key={i} className="flex items-center justify-between gap-2 text-[11px]">
+              <span className="flex items-center gap-1.5 text-muted-foreground truncate">
+                <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: d.color }} />
+                <span className="truncate">{d.name}</span>
+              </span>
+              <span className="font-mono font-semibold text-white flex-shrink-0">
+                ฿{d.value.toFixed(0)}
+                <span className="text-muted-foreground font-normal ml-1">
+                  {total > 0 ? Math.round((d.value / total) * 100) : 0}%
+                </span>
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
   );
 }
 
